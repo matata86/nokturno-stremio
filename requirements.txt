@@ -1,0 +1,2 @@
+# Žádné. Jádro i HTTP vrstva stojí jen na standardní knihovně Pythonu 3.11,
+# stejně jako doplněk pro Kodi. Viz README, sekce Proč bez závislostí.
