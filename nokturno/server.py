@@ -14,7 +14,7 @@ import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .config import from_environ, sources_summary
-from .core.engine import Engine
+from .enginy import Enginy
 from .routes import VERZE, Router
 
 _LOGGER = logging.getLogger("nokturno")
@@ -81,13 +81,18 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, options=None):
-    """Server s připraveným jádrem. Nespouští smyčku — to dělá volající."""
+    """Server s připravenými jádry. Nespouští smyčku — to dělá volající.
+
+    Vrácené zdroje jsou ty z prostředí, tedy výchozí konfigurace. Uživatelé
+    s vlastní adresou mají svoje a server o nich dopředu neví.
+    """
     os.makedirs(data_dir, exist_ok=True)
-    engine = Engine(options if options is not None else from_environ(), data_dir)
-    zdroje = sources_summary(engine)
+    vychozi = options if options is not None else from_environ()
+    enginy = Enginy(data_dir, vychozi)
+    zdroje = sources_summary(enginy.pro())
     server = ThreadingHTTPServer((host, port), Handler)
     server.daemon_threads = True
-    server.router = Router(engine, zdroje)
+    server.router = Router(enginy)
     return server, zdroje
 
 
@@ -104,8 +109,8 @@ def main(argv=None):
                         format="%(asctime)s %(levelname)-7s %(name)s: %(message)s")
     server, zdroje = vytvor_server(args.host, args.port, args.data)
     _LOGGER.info("Nokturno %s běží na http://%s:%d", VERZE, args.host, args.port)
-    _LOGGER.info("zdroje: %s", ", ".join(zdroje) if zdroje else "žádný nenastavený, viz README")
-    _LOGGER.info("do Stremia přidej: http://<adresa tohohle stroje>:%d/manifest.json", args.port)
+    _LOGGER.info("zdroje výchozího nastavení: %s", ", ".join(zdroje) if zdroje else "žádné, viz README")
+    _LOGGER.info("nastavení a adresa doplňku: http://<adresa tohohle stroje>:%d/configure", args.port)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -40,11 +40,18 @@ POPIS = {
 class FalesnyEngine:
     """Jádro nahrazené tak, aby testy nešly na síť."""
 
-    def __init__(self, streamy=None, chyba=None, odkaz="https://cdn.example/film.mkv"):
+    VSE_VYPNUTO = {"luna": False, "sosac": False, "webshare": False, "hellspy": False, "torrent": False}
+
+    def __init__(self, streamy=None, chyba=None, odkaz="https://cdn.example/film.mkv", zdroje=None):
         self.streamy = streamy if streamy is not None else [POPIS]
         self.chyba = chyba
         self.odkaz = odkaz
         self.dotazy = []
+        self.options = {}
+        self._zdroje = {**self.VSE_VYPNUTO, "webshare": True} if zdroje is None else {**self.VSE_VYPNUTO, **zdroje}
+
+    def sources(self):
+        return self._zdroje
 
     def streams(self, ctype, item_id):
         self.dotazy.append((ctype, item_id))
@@ -58,21 +65,83 @@ class FalesnyEngine:
         return self.odkaz
 
 
+class FalesneEnginy:
+    """Správa jader nahrazená jedním falešným, ale pamatuje si, s čím se volalo."""
+
+    def __init__(self, engine):
+        self.engine = engine
+        self.pozadovana_nastaveni = []
+
+    def pro(self, options=None):
+        self.pozadovana_nastaveni.append(options)
+        return self.engine
+
+    def __len__(self):
+        return 1
+
+
 def router(**kw):
-    return Router(FalesnyEngine(**kw), ["WebShare"])
+    enginy = FalesneEnginy(FalesnyEngine(**kw))
+    r = Router(enginy)
+    r.enginy_test = enginy
+    r.engine = enginy.engine
+    return r
+
+
+# adresa s nastavením, jakou vyrobí formulář
+NASTAVENI = config.from_mapping({"ws_username": "uzivatel", "ws_password": "tajne"})
+KOUSEK = config.encode(NASTAVENI)
 
 
 class TestManifest(unittest.TestCase):
     def test_hlasi_jen_streamy_a_tt(self):
-        m = router().route("/manifest.json", ZAKLAD).data
+        m = router().route(f"/c/{KOUSEK}/manifest.json", ZAKLAD).data
         self.assertEqual(m["resources"], ["stream"])
         self.assertEqual(m["types"], ["movie", "series"])
         self.assertEqual(m["idPrefixes"], ["tt"])
+        self.assertTrue(m["behaviorHints"]["configurable"], "Stremio má nabídnout formulář")
 
     def test_bez_zdroju_si_rekne_o_nastaveni(self):
-        prazdny = Router(FalesnyEngine(), [])
+        prazdny = router(zdroje={})
         self.assertTrue(prazdny.route("/manifest.json", ZAKLAD).data["behaviorHints"]["configurationRequired"])
         self.assertFalse(router().route("/manifest.json", ZAKLAD).data["behaviorHints"]["configurationRequired"])
+
+
+class TestNastaveniVAdrese(unittest.TestCase):
+    """Fáze 4: účty nese adresa, takže každý hledá pod svým."""
+
+    def test_nastaveni_z_adresy_dojde_k_jadru(self):
+        r = router()
+        r.route(f"/c/{KOUSEK}/manifest.json", ZAKLAD)
+        self.assertEqual(r.enginy_test.pozadovana_nastaveni[-1], NASTAVENI)
+
+    def test_bez_prefixu_se_bere_vychozi(self):
+        """Adresy nasazené před fází 4 musí fungovat dál."""
+        r = router()
+        r.route("/manifest.json", ZAKLAD)
+        self.assertIsNone(r.enginy_test.pozadovana_nastaveni[-1])
+
+    def test_nectitelne_nastaveni_je_404(self):
+        self.assertEqual(router().route("/c/rozbite!!/manifest.json", ZAKLAD).status, 404)
+
+    def test_odkaz_na_prehrani_nese_stejne_nastaveni(self):
+        """Jinak by se soubor rozklíčoval cizím účtem, nebo vůbec."""
+        odpoved = router().route(f"/c/{KOUSEK}/stream/movie/tt1.json", ZAKLAD)
+        url = odpoved.data["streams"][0]["url"]
+        self.assertTrue(url.startswith(f"{ZAKLAD}/c/{KOUSEK}/play/"), url)
+
+    def test_formular_se_predvyplni_z_adresy(self):
+        html = router().route(f"/c/{KOUSEK}/configure", ZAKLAD).html
+        self.assertIn("uzivatel", html, "formulář má ukázat, co v adrese je")
+        self.assertIn(ZAKLAD, html)
+
+    def test_formular_jde_i_bez_nastaveni(self):
+        self.assertEqual(router().route("/configure", ZAKLAD).status, 200)
+
+    def test_stejne_nastaveni_da_stejnou_adresu(self):
+        """Jinak by se doplněk po přenastavení uživateli zdvojil."""
+        jinak_serazene = {"ws_password": "tajne", "ws_username": "uzivatel"}
+        self.assertEqual(config.encode(config.from_mapping(jinak_serazene)), KOUSEK)
 
 
 class TestStreamy(unittest.TestCase):

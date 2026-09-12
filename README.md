@@ -34,22 +34,32 @@ cp .env.example .env      # vyplň účty
 docker compose up -d
 ```
 
-Pak v Stremiu **Doplňky → Add addon** a vložit:
-
-```
-http://<adresa stroje>:7127/manifest.json
-```
+Pak otevřít `http://<adresa stroje>:7127/configure`, vyplnit účty a kliknout na
+**Přidat do Stremia**.
 
 Bez Dockeru to jde taky, závislosti žádné nejsou:
 
 ```bash
-export NOKTURNO_WS_USERNAME=… NOKTURNO_WS_PASSWORD=…
 python3 -m nokturno.server --port 7127
 ```
 
-Adresa `/` vypíše, co je nastavené a jakou adresu vložit do Stremia.
+## Účty jsou v adrese, ne na serveru
 
-## Účty
+Stremio nemá soubor nastavení. Účty se nosí **zakódované v adrese doplňku**, takže
+každý, kdo si ho přidá, má vlastní a hledá pod sebou. Server si nic nepamatuje.
+
+```
+http://<stroj>:7127/c/<nastavení>/manifest.json
+```
+
+Tu adresu vyrobí formulář na `/configure`. Uschovej si ji — bez ní se ke svému
+nastavení nedostaneš a vyrobíš si prostě novou.
+
+> Kódování **není šifra**. Kdo adresu má, stahuje z tvého WebShare. Nikomu ji
+> neposílej.
+
+Jde i nastavení z prostředí, pak má celá instance jednu konfiguraci a adresa je
+bez prefixu. Takhle běžela verze 0.1.0 a funguje to dál.
 
 Hodnoty jsou stejné jako v doplňku pro Kodi, takže se dají opsat z jeho
 `settings.xml`.
@@ -114,8 +124,6 @@ vrátí streamy ze všech tří zdrojů a `/play/` z nich udělá živý odkaz.
 
 Chystá se:
 
-- **Configure stránka** — dnes se nastavuje prostředím, takže instance má jednu
-  konfiguraci. Stremio umí nést nastavení v adrese, což dá každému uživateli vlastní.
 - **Katalog Sosáče** jako volitelný zdroj metadat, zvážit.
 - **Méně falešných shod.** Fulltext HellSpy občas vrátí titul, který název jen
   obsahuje, například gameplay videa místo filmu.

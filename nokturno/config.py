@@ -4,14 +4,19 @@ Jádro bere nastavení jako obyčejný slovník (`Engine(options, storage_dir)`)
 takže tenhle modul jen sbírá hodnoty z prostředí a překládá je na klíče, které
 engine čte. Názvy klíčů drží `core/lib/const.py`, ne tento soubor.
 
-Ve Stremiu se nastavení doplňku nosí zakódované v cestě URL, takže každý uživatel
-má vlastní adresu. To přijde ve fázi 4 (`/c/<konfigurace>/manifest.json`) a bude
-volat `from_mapping()`. Do té doby má instance jednu konfiguraci ze svého
-prostředí, což pro domácí server stačí.
+Nastavení může přijít dvěma cestami:
 
-Účty se do URL vejdou v otevřené podobě, proto doplněk nikdy nepatří na veřejnou
-adresu — viz `pristupy.md` projektu.
+  z prostředí     `from_environ()` — jedna konfigurace pro celou službu
+  z adresy        `decode()` — `/c/<konfigurace>/manifest.json`, vlastní pro
+                  každého, kdo si doplněk přidá; tak to dělá Stremio
+
+Adresa z konfigurace se vyrábí na `/configure` a nese účty **v otevřené podobě**,
+jen zakódované do base64. Není to šifra a nemá být — takhle fungují všechny
+doplňky Stremia. Důsledek: doplněk nepatří na veřejnou adresu, dokud tomu
+nerozumíš. Viz `pristupy.md` projektu.
 """
+import base64
+import json
 import os
 
 from .core.lib.const import LANGS, SORT_ORDERS
@@ -79,6 +84,42 @@ def from_environ(environ=None):
     """Nastavení z proměnných prostředí `NOKTURNO_*`."""
     env = environ if environ is not None else os.environ
     return from_mapping({klic: env[promenna] for promenna, klic in PROSTREDI.items() if promenna in env})
+
+
+# --- nastavení v adrese doplňku ------------------------------------------
+
+def encode(options):
+    """Nastavení do jednoho kousku adresy.
+
+    Prázdné hodnoty se vynechají, klíče se řadí — stejné nastavení tak dá vždy
+    stejnou adresu a uživateli se doplněk po přenastavení neduplikuje.
+    """
+    ulozit = {k: v for k, v in sorted((options or {}).items()) if v not in ("", None)}
+    syrove = json.dumps(ulozit, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    return base64.urlsafe_b64encode(syrove.encode("utf-8")).decode("ascii").rstrip("=")
+
+
+def decode(kousek):
+    """Zpátky na nastavení. Vrací None, když to nastavení není.
+
+    Prochází přes `from_mapping()`, takže na neznámé klíče a nesmyslné hodnoty
+    platí stejná pravidla jako u prostředí — z adresy je nelze podstrčit.
+    """
+    try:
+        doplneni = "=" * (-len(kousek) % 4)
+        data = json.loads(base64.urlsafe_b64decode(kousek + doplneni).decode("utf-8"))
+    except Exception:  # noqa: BLE001 – cokoli nerozluštitelného prostě není nastavení
+        return None
+    return from_mapping(data) if isinstance(data, dict) else None
+
+
+def fingerprint(options):
+    """Krátký otisk nastavení — jméno složky s cache a klíč do cache enginů.
+
+    Hesla se do něj nepromítají čitelně, takže může do logu i do jména složky.
+    """
+    import hashlib
+    return hashlib.sha256(encode(options).encode("ascii")).hexdigest()[:16]
 
 
 def sources_summary(engine):

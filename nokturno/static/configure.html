@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nokturno — nastavení doplňku</title>
+<style>
+  :root {
+    --pozadi: #0d0c1d; --panel: #17162b; --pole: #201f38; --okraj: #2f2d4d;
+    --text: #e8e6f5; --tlumene: #9a97b8; --akcent: #7b5bf5; --akcent-tmavy: #6547d6;
+    --vystraha: #f5a524; --vystraha-pozadi: #2a2214;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 2rem 1rem 4rem; background: var(--pozadi); color: var(--text);
+         font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 44rem; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 .3rem; }
+  h2 { font-size: 1rem; margin: 2rem 0 .8rem; color: var(--tlumene);
+       text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+  .podtitul { color: var(--tlumene); margin: 0 0 1.5rem; }
+  .panel { background: var(--panel); border: 1px solid var(--okraj); border-radius: 12px; padding: 1.2rem; }
+  .vystraha { background: var(--vystraha-pozadi); border: 1px solid var(--vystraha);
+              border-radius: 10px; padding: .9rem 1rem; margin: 0 0 1.5rem; color: #ffd694; }
+  .vystraha strong { color: var(--vystraha); }
+  .dvojice { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  @media (max-width: 34rem) { .dvojice { grid-template-columns: 1fr; } }
+  label { display: block; margin-bottom: .8rem; }
+  label span { display: block; font-size: .82rem; color: var(--tlumene); margin-bottom: .3rem; }
+  input[type=text], input[type=password], select {
+    width: 100%; padding: .6rem .7rem; background: var(--pole); color: var(--text);
+    border: 1px solid var(--okraj); border-radius: 8px; font: inherit; }
+  input:focus, select:focus { outline: 2px solid var(--akcent); outline-offset: -1px; }
+  .prepinac { display: flex; align-items: center; gap: .6rem; margin-bottom: .7rem; }
+  .prepinac input { width: 1.1rem; height: 1.1rem; accent-color: var(--akcent); }
+  .prepinac span { margin: 0; font-size: .95rem; color: var(--text); }
+  .napoveda { font-size: .82rem; color: var(--tlumene); margin: -.4rem 0 1rem; }
+  .akce { position: sticky; bottom: 0; background: linear-gradient(transparent, var(--pozadi) 35%);
+          padding: 1.5rem 0 0; margin-top: 2rem; }
+  button { font: inherit; font-weight: 600; padding: .75rem 1.2rem; border-radius: 9px;
+           border: 1px solid var(--okraj); background: var(--pole); color: var(--text); cursor: pointer; }
+  button.hlavni { background: var(--akcent); border-color: var(--akcent); color: #fff; }
+  button.hlavni:hover { background: var(--akcent-tmavy); }
+  button:hover { border-color: var(--akcent); }
+  .tlacitka { display: flex; gap: .6rem; flex-wrap: wrap; }
+  .adresa { margin-top: 1rem; padding: .7rem .8rem; background: var(--pole); border: 1px solid var(--okraj);
+            border-radius: 8px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .8rem;
+            word-break: break-all; color: var(--tlumene); }
+  .stav { margin-top: .7rem; font-size: .88rem; color: var(--akcent); min-height: 1.2em; }
+  footer { margin-top: 2.5rem; color: var(--tlumene); font-size: .82rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Nokturno pro Stremio</h1>
+  <p class="podtitul">Vyplň účty a formulář ti vyrobí vlastní adresu doplňku. Verze __VERZE__.</p>
+
+  <div class="vystraha">
+    <strong>Adresa obsahuje tvoje účty.</strong> Nejsou zašifrované, jen zakódované,
+    a putují v každém požadavku. Nikomu ji neposílej a doplněk nevystavuj na veřejnou
+    adresu. Kdo ji má, stahuje z tvého WebShare.
+  </div>
+
+  <form id="form" class="panel" autocomplete="off">
+    <h2 style="margin-top:0">WebShare</h2>
+    <div class="dvojice">
+      <label><span>Jméno</span><input type="text" name="ws_username"></label>
+      <label><span>Heslo nebo salted hash</span><input type="password" name="ws_password"></label>
+    </div>
+    <p class="napoveda">Hlavní zdroj. Místo hesla jde vložit i 40znakový hash, stejný jako v doplňku pro Kodi.</p>
+
+    <h2>Streamuj <span style="text-transform:none;font-weight:400">(kvůli Sosáči)</span></h2>
+    <div class="dvojice">
+      <label><span>Jméno</span><input type="text" name="streamuj_username"></label>
+      <label><span>Heslo nebo hash</span><input type="password" name="streamuj_password"></label>
+    </div>
+    <p class="napoveda">Bez účtu Sosáč hraje omezeně. Místo hesla i hotový 32znakový hash.</p>
+
+    <h2>Luna <span style="text-transform:none;font-weight:400">(nepovinné)</span></h2>
+    <div class="dvojice">
+      <label><span>Adresa serveru</span><input type="text" name="luna_url" placeholder="http://192.168.1.10:7126"></label>
+      <label><span>Token</span><input type="password" name="luna_token" placeholder="e1.…"></label>
+    </div>
+    <p class="napoveda">Luna běží v domácí síti. Bez ní doplněk funguje dál, jen o zdroj méně.</p>
+
+    <h2>Ostatní zdroje a předvolby</h2>
+    <label class="prepinac"><input type="checkbox" name="hs_enabled"><span>HellSpy — veřejný, bez účtu</span></label>
+    <label class="prepinac"><input type="checkbox" name="hide_sd"><span>Skrýt streamy v SD kvalitě</span></label>
+    <label class="prepinac"><input type="checkbox" name="pref_surround"><span>Upřednostnit prostorový zvuk 5.1</span></label>
+    <div class="dvojice">
+      <label><span>Preferovaný jazyk</span>
+        <select name="pref_lang"><option value="">žádný</option><option value="CZ">CZ</option>
+        <option value="SK">SK</option><option value="EN">EN</option></select></label>
+      <label><span>Řazení</span>
+        <select name="sort_streams"><option value="quality">podle kvality</option>
+        <option value="size_desc">od největšího</option><option value="size_asc">od nejmenšího</option>
+        <option value="source">podle zdroje</option></select></label>
+    </div>
+    <label><span>Klíč TMDB (nepovinné, zdarma)</span><input type="password" name="tmdb_api_key"></label>
+    <p class="napoveda">České názvy a popisy, když neběží Luna.</p>
+  </form>
+
+  <div class="akce">
+    <div class="tlacitka">
+      <button type="button" class="hlavni" id="instalovat">Přidat do Stremia</button>
+      <button type="button" id="kopirovat">Zkopírovat adresu</button>
+    </div>
+    <div class="adresa" id="adresa"></div>
+    <div class="stav" id="stav"></div>
+  </div>
+
+  <footer>
+    Nastavení se nikam neukládá. Celé je v té adrese, takže si ji uschovej —
+    bez ní se k němu nedostaneš a vyrobíš si prostě novou.
+  </footer>
+</main>
+
+<script>
+const ZAKLAD = "__ZAKLAD__";
+const LOGICKE = ["hs_enabled", "hide_sd", "pref_surround"];
+const form = document.getElementById("form");
+
+// předvyplnit z adresy, na které formulář stojí
+const soucasne = __NASTAVENI__;
+for (const [klic, hodnota] of Object.entries(soucasne)) {
+  const pole = form.elements[klic];
+  if (!pole) continue;
+  if (pole.type === "checkbox") pole.checked = !!hodnota;
+  else pole.value = hodnota;
+}
+if (Object.keys(soucasne).length === 0) form.elements["hs_enabled"].checked = true;
+
+function nastaveni() {
+  const out = {};
+  for (const pole of form.elements) {
+    if (!pole.name) continue;
+    if (pole.type === "checkbox") { if (pole.checked) out[pole.name] = true; }
+    else if (pole.value.trim()) out[pole.name] = pole.value.trim();
+  }
+  return out;
+}
+
+// musí dát tentýž výsledek jako config.encode() na serveru: seřazené klíče,
+// base64url bez zarovnání
+function zakoduj(objekt) {
+  const serazene = {};
+  for (const klic of Object.keys(objekt).sort()) serazene[klic] = objekt[klic];
+  const bajty = new TextEncoder().encode(JSON.stringify(serazene));
+  let binarne = "";
+  for (const b of bajty) binarne += String.fromCharCode(b);
+  return btoa(binarne).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function adresa() {
+  return ZAKLAD + "/c/" + zakoduj(nastaveni()) + "/manifest.json";
+}
+
+const poleAdresa = document.getElementById("adresa");
+const stav = document.getElementById("stav");
+
+function prekresli() { poleAdresa.textContent = adresa(); }
+form.addEventListener("input", () => { prekresli(); stav.textContent = ""; });
+prekresli();
+
+document.getElementById("instalovat").addEventListener("click", () => {
+  const url = adresa();
+  if (!nastaveni().ws_username && !nastaveni().streamuj_username && !nastaveni().hs_enabled) {
+    stav.textContent = "Bez jediného zdroje doplněk nic nenajde.";
+    return;
+  }
+  stav.textContent = "Otevírám Stremio…";
+  window.location.href = url.replace(/^https?:\/\//, "stremio://");
+});
+
+document.getElementById("kopirovat").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(adresa());
+    stav.textContent = "Adresa zkopírována. Ve Stremiu: Doplňky → Add addon.";
+  } catch {
+    stav.textContent = "Zkopíruj adresu ručně z rámečku výše.";
+  }
+});
+</script>
+</body>
+</html>
