@@ -53,8 +53,9 @@ class FalesnyEngine:
     def sources(self):
         return self._zdroje
 
-    def streams(self, ctype, item_id):
+    def streams(self, ctype, item_id, loose_fallback=False):
         self.dotazy.append((ctype, item_id))
+        self.loose_fallback = loose_fallback
         if self.chyba:
             raise self.chyba
         return self.streamy
@@ -251,6 +252,23 @@ class TestPrevod(unittest.TestCase):
 
     def test_stream_bez_odkazu_se_zahodi(self):
         self.assertIsNone(mapping.stream_object({**POPIS, "url": ""}, lambda u: u))
+
+    def test_neoverena_shoda_je_videt(self):
+        """Volnější fulltext může vrátit jiný titul, který název jen obsahuje."""
+        objekt = mapping.stream_object({**POPIS, "loose": True}, lambda u: u)
+        self.assertTrue(objekt["name"].startswith("Nokturno ?"))
+        self.assertIn("neověřená shoda", objekt["description"])
+
+    def test_overena_shoda_se_neznaci(self):
+        objekt = mapping.stream_object(POPIS, lambda u: u)
+        self.assertEqual(objekt["name"], "Nokturno\nFull HD")
+        self.assertNotIn("neověřená", objekt["description"])
+
+    def test_volny_fulltext_se_zapina(self):
+        """Bez něj by u titulu, který přísný filtr nezná, zůstal prázdný seznam."""
+        r = router()
+        r.route("/stream/movie/tt1.json", ZAKLAD)
+        self.assertTrue(r.engine.loose_fallback)
 
     def test_mp4_je_pro_web_v_poradku(self):
         objekt = mapping.stream_object({**POPIS, "file": "film.mp4"}, lambda u: u)

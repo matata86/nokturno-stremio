@@ -769,6 +769,8 @@ class Engine:
         ) if p]
         return {
             "index": index,
+            # shoda z volnějšího fulltextu — nikdo ji neověřil, může to být jiný titul
+            "loose": bool(stream.get("_loose")),
             # Sosáč streamuje z veřejného streamuj.tv, takže jeho odkazy hrají i mimo domácí síť
             "direct": bool(stream.get("_direct")) or bool(stream.get("_ws_url")) or stream.get("source") == "sosac",
             # odkaz, který funguje i mimo domácí síť (přímo z WebShare)
@@ -1228,6 +1230,8 @@ class Engine:
         ) if p]
         return {
             "index": index,
+            # shoda z volnějšího fulltextu — nikdo ji neověřil, může to být jiný titul
+            "loose": bool(stream.get("_loose")),
             # torrent není odkaz na video — nedá se přehrát ani poslat do mobilu,
             # jde s ním jen jedno: zařadit do stahování
             "kind": "torrent",
@@ -1412,8 +1416,13 @@ class Engine:
     # kroků v _fetch_streams(), než začne (obvykle nejdelší) čtení hlaviček
     STREAM_SOURCE_STEPS = 5
 
-    def streams(self, ctype, item_id, alt=None, series_id=None, on_progress=None):
+    def streams(self, ctype, item_id, alt=None, series_id=None, on_progress=None, loose_fallback=False):
         """Seřazené streamy titulu ze všech dostupných zdrojů.
+
+        `loose_fallback=True` zkusí volnější fulltext, když přísný nenajde vůbec nic
+        — totéž, co v Kodi dělá tlačítko „Zkusit fulltext", ale automaticky. Výsledky
+        jsou označené `loose`, protože mezi nimi může být jiný titul, který název jen
+        obsahuje. Prochází stejným řazením i čtením hlaviček jako běžné streamy.
 
         Síťové dohledání streamů se cachuje 72 h, ale JEN když něco našlo (`cached_if`) —
         prázdný výsledek by mohl být jen dočasný výpadek zdroje, takže se zkusí znovu
@@ -1466,6 +1475,14 @@ class Engine:
             tick()
             found += self._hellspy_streams(meta, video, ctype, alt)
             tick()
+            if not found and loose_fallback:
+                # přísný filtr chce slova názvu blízko začátku souboru; když takhle
+                # nepadne nic, je lepší nabídnout i volnější shodu než prázdný seznam.
+                # Značí se `_loose`, ať je venku poznat, že ji nikdo neověřil.
+                found = (self._webshare_streams(meta, video, ctype, alt, strict=False)
+                         + self._hellspy_streams(meta, video, ctype, alt, strict=False))
+                for stream in found:
+                    stream["_loose"] = True
             for stream in found:
                 parse_stream(stream)
                 # bez kvality v názvu („Matrix (1999).mkv") by soubor spadl na konec seznamu,
@@ -1492,7 +1509,7 @@ class Engine:
                     stream["subs"] = sorted(stream["subs"])
             return found
 
-        cache_key = f"streams:{ctype}:{item_id}:{alt or ''}"
+        cache_key = f"streams:{ctype}:{item_id}:{alt or ''}" + (":loose" if loose_fallback else "")
         found = self.store.cached_if(cache_key, STREAMS_CACHE_TTL, _fetch_streams)
         # z cache se vrátí rovnou, bez jediného tick() výše — doskočit na konec fáze zdrojů
         if on_progress and done[0] < self.STREAM_SOURCE_STEPS:

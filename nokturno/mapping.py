@@ -81,6 +81,7 @@ def stream_object(popis, odkaz, jmeno_doplnku="Nokturno"):
     kvalita = popis.get("quality") or ""
     zdroj = popis.get("source") or ""
     nazev_souboru = popis.get("file") or ""
+    neovereno = bool(popis.get("loose"))
 
     podrobnosti = [zdroj]
     jazyky = _jazyky_s_kanaly(popis)
@@ -93,11 +94,15 @@ def stream_object(popis, odkaz, jmeno_doplnku="Nokturno"):
     if popis.get("bitrate"):
         znak = "~" if popis.get("bitrate_est") else ""
         podrobnosti.append(f"{znak}{popis['bitrate']:g} Mb/s")
+    if neovereno:
+        # volnější shoda: přísný filtr nenašel nic, tohle může být jiný titul,
+        # který název jen obsahuje. Uživatel to musí poznat na první pohled.
+        podrobnosti.append("neověřená shoda")
 
     objekt = {
         "url": odkaz(vnitrni),
         # vlevo v úzkém sloupci: jméno doplňku a kvalita, nic víc se tam nevejde
-        "name": f"{jmeno_doplnku}\n{kvalita}" if kvalita else jmeno_doplnku,
+        "name": f"{jmeno_doplnku}{' ?' if neovereno else ''}" + (f"\n{kvalita}" if kvalita else ""),
         "description": "\n".join(p for p in (nazev_souboru, "  ·  ".join(podrobnosti)) if p),
         "behaviorHints": {},
     }
