@@ -22,6 +22,10 @@ import os
 from .core.lib.const import LANGS, SORT_ORDERS
 
 # proměnná prostředí → klíč nastavení, který čte engine
+# TMDB se ve formuláři záměrně nenabízí: popisy a názvy si ve Stremiu řeší
+# katalogový doplněk, ne my. Na dohledání souborů klíč vliv nemá — ověřeno na
+# Pelíškách, které Cinemeta zná jako „Cosy Dens": český název dodá i veřejný
+# katalog Sosáče, takže výsledek je s klíčem i bez něj stejný.
 PROSTREDI = {
     "NOKTURNO_WS_USERNAME": "ws_username",
     "NOKTURNO_WS_PASSWORD": "ws_password",
@@ -29,7 +33,6 @@ PROSTREDI = {
     "NOKTURNO_STREAMUJ_PASSWORD": "streamuj_password",
     "NOKTURNO_LUNA_URL": "luna_url",
     "NOKTURNO_LUNA_TOKEN": "luna_token",
-    "NOKTURNO_TMDB_API_KEY": "tmdb_api_key",
     "NOKTURNO_HS_ENABLED": "hs_enabled",
     "NOKTURNO_PREF_LANG": "pref_lang",
     "NOKTURNO_PREF_SURROUND": "pref_surround",

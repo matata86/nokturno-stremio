@@ -22,6 +22,7 @@ identifikátor IMDb, a k tomu přihodí své streamy.
 | Titulky | ano, dohledané na WebShare |
 | Katalogy | ne, a nechystají se — Stremio je má samo |
 | Torrenty | ne, zatím jen v integraci pro Home Assistant |
+| Popisy a katalogy | ne, a nechystají se — ve Stremiu je dodává katalogový doplněk |
 
 Streamy se řadí podle kvality a preferovaného jazyka, protože ve Stremiu je vidět
 jen několik prvních řádků. Kvalitu, velikost, bitrate, jazyky zvuku i titulky
@@ -69,7 +70,6 @@ Hodnoty jsou stejné jako v doplňku pro Kodi, takže se dají opsat z jeho
 | `NOKTURNO_WS_USERNAME`, `NOKTURNO_WS_PASSWORD` | WebShare; místo hesla jde vložit i 40znakový salted hash |
 | `NOKTURNO_STREAMUJ_USERNAME`, `NOKTURNO_STREAMUJ_PASSWORD` | Streamuj, kvůli Sosáči; místo hesla i hotový `md5(md5(heslo))` |
 | `NOKTURNO_LUNA_URL`, `NOKTURNO_LUNA_TOKEN` | Luna v domácí síti, nepovinné |
-| `NOKTURNO_TMDB_API_KEY` | vlastní klíč TMDB zdarma, kvůli českým názvům bez Luny |
 | `NOKTURNO_HS_ENABLED` | HellSpy je veřejný, stačí přepínač; zapnutý ve výchozím stavu |
 | `NOKTURNO_PREF_LANG`, `NOKTURNO_SORT`, `NOKTURNO_HIDE_SD` | předvolby řazení a filtrování |
 
