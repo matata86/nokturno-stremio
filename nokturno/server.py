@@ -80,7 +80,8 @@ class Handler(BaseHTTPRequestHandler):
         _LOGGER.debug("%s %s", self.address_string(), format % args)
 
 
-def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, options=None):
+def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, options=None,
+                  predvyplnit=None):
     """Server s připravenými jádry. Nespouští smyčku — to dělá volající.
 
     Vrácené zdroje jsou ty z prostředí, tedy výchozí konfigurace. Uživatelé
@@ -90,9 +91,11 @@ def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, opti
     vychozi = options if options is not None else from_environ()
     enginy = Enginy(data_dir, vychozi)
     zdroje = sources_summary(enginy.pro())
+    if predvyplnit is None:
+        predvyplnit = os.environ.get("NOKTURNO_CONFIGURE_PREFILL", "").strip().lower() in ("1", "true", "ano", "yes")
     server = ThreadingHTTPServer((host, port), Handler)
     server.daemon_threads = True
-    server.router = Router(enginy)
+    server.router = Router(enginy, predvyplnit=predvyplnit)
     return server, zdroje
 
 

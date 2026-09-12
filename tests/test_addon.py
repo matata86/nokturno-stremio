@@ -71,6 +71,7 @@ class FalesneEnginy:
     def __init__(self, engine):
         self.engine = engine
         self.pozadovana_nastaveni = []
+        self.vychozi_options = {"ws_username": "z-prostredi"}
 
     def pro(self, options=None):
         self.pozadovana_nastaveni.append(options)
@@ -137,6 +138,15 @@ class TestNastaveniVAdrese(unittest.TestCase):
 
     def test_formular_jde_i_bez_nastaveni(self):
         self.assertEqual(router().route("/configure", ZAKLAD).status, 200)
+
+    def test_formular_neukazuje_ucty_instance(self):
+        """Na sdílené instanci by je jinak viděl každý, kdo formulář otevře."""
+        self.assertNotIn("z-prostredi", router().route("/configure", ZAKLAD).html)
+
+    def test_predvyplneni_jde_zapnout(self):
+        r = router()
+        r.predvyplnit = True
+        self.assertIn("z-prostredi", r.route("/configure", ZAKLAD).html)
 
     def test_stejne_nastaveni_da_stejnou_adresu(self):
         """Jinak by se doplněk po přenastavení uživateli zdvojil."""

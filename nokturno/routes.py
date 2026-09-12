@@ -58,9 +58,12 @@ def chyba(status, zprava):
 class Router:
     """Obsluha požadavků. Jádro si bere podle nastavení v adrese."""
 
-    def __init__(self, enginy, verze=VERZE):
+    def __init__(self, enginy, verze=VERZE, predvyplnit=False):
         self.enginy = enginy
         self.verze = verze
+        # nabídnout ve formuláři účty z prostředí? Na sdílené instanci NE — ukázalo
+        # by je komukoli, kdo formulář otevře. Na vlastní ušetří opisování hashů.
+        self.predvyplnit = predvyplnit
 
     # --- adresy -----------------------------------------------------------
     @staticmethod
@@ -103,6 +106,8 @@ class Router:
         except OSError:
             return chyba(500, "Formulář nastavení chybí.")
         soucasne = config.decode(kousek) if kousek else None
+        if soucasne is None and self.predvyplnit:
+            soucasne = self.enginy.vychozi_options
         html = html.replace("__NASTAVENI__", mapping.json_bytes(soucasne or {}).decode("utf-8"))
         html = html.replace("__ZAKLAD__", zaklad)
         html = html.replace("__VERZE__", self.verze)
