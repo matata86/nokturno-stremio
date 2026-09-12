@@ -10,9 +10,34 @@ souboru a podrobnosti.
 """
 import base64
 import json
+import re
 
 # Stremio čeká jazyk v ISO 639-2, jádro drží dvouznakové kódy
 JAZYKY = {"CZ": "ces", "SK": "slk", "EN": "eng", "DE": "deu", "PL": "pol", "HU": "hun", "FR": "fra"}
+
+# Vlaječky u streamů jsou ve Stremiu zavedená konvence — jazyk je z nich poznat
+# rychleji než z kódu. Jádro slučuje GB/US/UK do EN, proto jen jedna vlajka pro
+# angličtinu. Co tady není, se vypíše kódem, ať nezmizí.
+VLAJKY = {
+    "CZ": "🇨🇿", "SK": "🇸🇰", "EN": "🇬🇧", "DE": "🇩🇪", "PL": "🇵🇱", "HU": "🇭🇺",
+    "FR": "🇫🇷", "ES": "🇪🇸", "IT": "🇮🇹", "RU": "🇷🇺", "UA": "🇺🇦", "JP": "🇯🇵",
+    "KR": "🇰🇷", "DK": "🇩🇰", "NL": "🇳🇱", "NO": "🇳🇴", "SE": "🇸🇪", "FI": "🇫🇮",
+    "PT": "🇵🇹", "TR": "🇹🇷", "RO": "🇷🇴", "BG": "🇧🇬", "GR": "🇬🇷",
+}
+
+# značky obrazu a zvuku, které jádro nezná — leží jen v názvu souboru
+OBRAZ = (
+    (re.compile(r"\bdolby[ ._-]?vision\b|\bdo?vi\b|\bdv\b(?![a-z])", re.I), "DV"),
+    (re.compile(r"\bhdr10\+|\bhdr10plus\b", re.I), "HDR10+"),
+    (re.compile(r"\bhdr\b", re.I), "HDR"),
+    (re.compile(r"\bremux\b", re.I), "REMUX"),
+)
+ZVUK = (
+    (re.compile(r"\batmos\b", re.I), "Atmos"),
+    (re.compile(r"\bdts[ ._-]?hd\b|\bdtshd\b", re.I), "DTS-HD"),
+    (re.compile(r"\btrue[ ._-]?hd\b", re.I), "TrueHD"),
+    (re.compile(r"\bdts[ ._-]?x\b", re.I), "DTS:X"),
+)
 # kontejnery, které webový přehrávač Stremia nepřehraje — ať to rovnou ví
 NE_PRO_WEB = (".mkv", ".avi", ".ts", ".m2ts", ".wmv", ".flv")
 # schémata, která umí rozklíčovat `Engine.resolve()`; jiné se k přehrání nepustí
@@ -38,14 +63,31 @@ def dekoduj(payload):
     return url if url.startswith(SCHEMATA) else None
 
 
+def _vlajka(kod):
+    return VLAJKY.get(kod, kod)
+
+
 def _jazyky_s_kanaly(popis):
-    """„CZ 5.1“, „EN“ — jazyky zvuku s počtem kanálů, když je znám."""
+    """„🇨🇿 5.1“, „🇬🇧“ — vlaječky zvuku s počtem kanálů, když je znám."""
     kanaly = popis.get("channels") or {}
     out = []
     for kod in popis.get("langs") or []:
         pocet = kanaly.get(kod)
-        out.append(f"{kod} {pocet:g}" if isinstance(pocet, (int, float)) else kod)
+        out.append(f"{_vlajka(kod)} {pocet:g}" if isinstance(pocet, (int, float)) else _vlajka(kod))
     return out
+
+
+def _znacky(nazev_souboru, vzory):
+    """Značky z názvu souboru — jádro je nezná, protože je nehlásí žádný zdroj."""
+    return [znacka for vzor, znacka in vzory if vzor.search(nazev_souboru or "")]
+
+
+def _delka(popis):
+    minut = popis.get("length_min") or 0
+    if not minut:
+        return ""
+    znak = "~" if popis.get("length_est") else ""
+    return f"{znak}{minut // 60}:{minut % 60:02d}" if minut >= 60 else f"{znak}{minut} min"
 
 
 def _velikost_bajtu(popis):
@@ -82,28 +124,45 @@ def stream_object(popis, odkaz, jmeno_doplnku="Nokturno"):
     zdroj = popis.get("source") or ""
     nazev_souboru = popis.get("file") or ""
     neovereno = bool(popis.get("loose"))
+    obraz = _znacky(nazev_souboru, OBRAZ)
+    zvuk_navic = _znacky(nazev_souboru, ZVUK)
 
-    podrobnosti = [zdroj]
+    # řádek jazyků: vlaječky zvuku, za nimi titulky
     jazyky = _jazyky_s_kanaly(popis)
+    radek_jazyku = []
     if jazyky:
-        podrobnosti.append("zvuk " + " ".join(jazyky))
+        radek_jazyku.append("🔊 " + "  ".join(jazyky))
+    if zvuk_navic:
+        radek_jazyku.append(" ".join(zvuk_navic))
     if popis.get("subs"):
-        podrobnosti.append("tit. " + " ".join(popis["subs"]))
+        radek_jazyku.append("💬 " + " ".join(_vlajka(k) for k in popis["subs"]))
+
+    # řádek technických údajů
+    radek_udaju = []
     if popis.get("size_gb"):
-        podrobnosti.append(f"{popis['size_gb']:.1f} GB")
+        radek_udaju.append(f"💾 {popis['size_gb']:.1f} GB")
     if popis.get("bitrate"):
         znak = "~" if popis.get("bitrate_est") else ""
-        podrobnosti.append(f"{znak}{popis['bitrate']:g} Mb/s")
+        radek_udaju.append(f"⚡ {znak}{popis['bitrate']:g} Mb/s")
+    delka = _delka(popis)
+    if delka:
+        radek_udaju.append(f"⏱ {delka}")
+    if zdroj:
+        radek_udaju.append(f"🌐 {zdroj}")
+
+    radky = [nazev_souboru, "  ".join(radek_jazyku), "  ".join(radek_udaju)]
     if neovereno:
         # volnější shoda: přísný filtr nenašel nic, tohle může být jiný titul,
         # který název jen obsahuje. Uživatel to musí poznat na první pohled.
-        podrobnosti.append("neověřená shoda")
+        radky.append("⚠️ neověřená shoda")
 
+    # vlevo v úzkém sloupci je místo jen na jméno a kvalitu; HDR/DV k ní patří,
+    # protože rozhoduje o tom, jestli má smysl sahat po velkém souboru
+    vlevo = kvalita + (" " + " ".join(obraz[:1]) if obraz else "")
     objekt = {
         "url": odkaz(vnitrni),
-        # vlevo v úzkém sloupci: jméno doplňku a kvalita, nic víc se tam nevejde
-        "name": f"{jmeno_doplnku}{' ?' if neovereno else ''}" + (f"\n{kvalita}" if kvalita else ""),
-        "description": "\n".join(p for p in (nazev_souboru, "  ·  ".join(podrobnosti)) if p),
+        "name": f"{jmeno_doplnku}{' ⚠️' if neovereno else ''}" + (f"\n{vlevo}" if vlevo else ""),
+        "description": "\n".join(r for r in radky if r),
         "behaviorHints": {},
     }
 

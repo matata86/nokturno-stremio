@@ -229,14 +229,39 @@ class TestPrevod(unittest.TestCase):
         self.assertTrue(self.objekt["url"].startswith(f"{ZAKLAD}/play/"))
         self.assertNotIn("ws:", self.objekt["url"])
 
-    def test_vlevo_zdroj_a_kvalita_vpravo_podrobnosti(self):
+    def test_vlevo_kvalita_vpravo_podrobnosti(self):
         self.assertEqual(self.objekt["name"], "Nokturno\nFull HD")
         popis = self.objekt["description"]
         self.assertIn("Matrix.1999.1080p.CZ.mkv", popis)
-        self.assertIn("zvuk CZ 5.1 EN", popis)
-        self.assertIn("tit. CZ", popis)
         self.assertIn("4.2 GB", popis)
         self.assertIn("~8.5 Mb/s", popis, "odhadnutý bitrate má být přiznaný")
+        self.assertIn("WebShare", popis)
+
+    def test_jazyky_jako_vlajecky(self):
+        popis = self.objekt["description"]
+        self.assertIn("🇨🇿 5.1", popis, "zvuk s počtem kanálů")
+        self.assertIn("🇬🇧", popis)
+        self.assertIn("💬 🇨🇿", popis, "titulky")
+
+    def test_neznamy_jazyk_zustane_kodem(self):
+        """Chybějící vlaječka nesmí jazyk spolknout."""
+        objekt = mapping.stream_object({**POPIS, "langs": ["XX"], "channels": {}}, lambda u: u)
+        self.assertIn("XX", objekt["description"])
+
+    def test_hdr_a_atmos_z_nazvu_souboru(self):
+        """Jádro je nezná — žádný zdroj je nehlásí, leží jen v názvu."""
+        objekt = mapping.stream_object(
+            {**POPIS, "file": "Titanic.2160p.REMUX.DV.HDR.TrueHD.Atmos.mkv", "quality": "4K"},
+            lambda u: u)
+        self.assertEqual(objekt["name"], "Nokturno\n4K DV", "obraz patří vlevo ke kvalitě")
+        self.assertIn("Atmos", objekt["description"])
+        self.assertIn("TrueHD", objekt["description"])
+
+    def test_delka_streamu(self):
+        objekt = mapping.stream_object({**POPIS, "length_min": 194}, lambda u: u)
+        self.assertIn("3:14", objekt["description"])
+        objekt = mapping.stream_object({**POPIS, "length_min": 42, "length_est": True}, lambda u: u)
+        self.assertIn("~42 min", objekt["description"])
 
     def test_napovedy_pro_prehravac(self):
         hints = self.objekt["behaviorHints"]
@@ -256,7 +281,7 @@ class TestPrevod(unittest.TestCase):
     def test_neoverena_shoda_je_videt(self):
         """Volnější fulltext může vrátit jiný titul, který název jen obsahuje."""
         objekt = mapping.stream_object({**POPIS, "loose": True}, lambda u: u)
-        self.assertTrue(objekt["name"].startswith("Nokturno ?"))
+        self.assertTrue(objekt["name"].startswith("Nokturno ⚠️"))
         self.assertIn("neověřená shoda", objekt["description"])
 
     def test_overena_shoda_se_neznaci(self):
