@@ -59,6 +59,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
             self._posli(self.server.router.route(self.path, self._zaklad()))
+        except (BrokenPipeError, ConnectionResetError):
+            # přehrávač si to rozmyslel a zavřel spojení — běžné, ne chyba
+            _LOGGER.debug("klient zavřel spojení při %s", self.path)
         except Exception:  # noqa: BLE001 – žádná chyba nesmí ukončit službu
             _LOGGER.exception("neočekávaná chyba při %s", self.path)
             try:

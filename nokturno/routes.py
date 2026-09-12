@@ -22,7 +22,7 @@ import logging
 import pathlib
 import urllib.parse
 
-from .core.engine import NokturnoError, split_episode_id
+from .core.engine import NokturnoError, is_sosac_id, split_episode_id
 from . import config, mapping
 
 _LOGGER = logging.getLogger(__name__)
@@ -129,8 +129,11 @@ class Router:
         if ctype not in TYPY:
             return chyba(404, f"Neznámý typ obsahu: {ctype}")
         base_id, season, _episode = split_episode_id(item_id)
-        if not base_id.startswith("tt"):
-            # manifest hlásí idPrefixes ["tt"], takže sem nic jiného chodit nemá
+        if not (base_id.startswith("tt") or is_sosac_id(base_id)):
+            # titul z cizího katalogu, jehož id neumíme přeložit na název — hledat
+            # fulltextem není podle čeho. Zapíšeme si, co chodí: kdyby se nějaký
+            # tvar opakoval, vyplatí se ho podpořit.
+            _LOGGER.info("neznámý tvar id, vracím prázdno: %s", item_id[:60])
             return Odpoved(data={"streams": []})
         if ctype == "series" and season is None:
             return chyba(400, "U seriálu čekám id ve tvaru tt…:sezóna:díl")

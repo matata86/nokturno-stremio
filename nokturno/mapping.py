@@ -133,9 +133,13 @@ def manifest(verze, zdroje=(), nastaveno=True):
     """Manifest doplňku.
 
     Zatím jen `stream`: katalogy z Cinemety a TMDB má Stremio samo, přidaná
-    hodnota Nokturna jsou zdroje streamů. Proto taky `idPrefixes: ["tt"]` —
-    doplněk se chytá na titulech identifikovaných přes IMDb, tedy na všem,
-    co Stremio běžně ukazuje.
+    hodnota Nokturna jsou zdroje streamů.
+
+    **`idPrefixes` se záměrně neuvádí.** S `["tt"]` se Stremio neptalo na tituly
+    otevřené z cizích katalogů, které mají vlastní tvar id — třeba SosacTV2 —
+    a doplněk u nich mlčel, i když ten film umí najít. Bez omezení se zeptá vždy
+    a co neumíme, vrátí prázdno; jeden dotaz navíc je levnější než chybějící
+    streamy u poloviny knihovny.
     """
     popis = "Streamy z WebShare, Sosáče a HellSpy k filmům a seriálům, které už ve Stremiu vidíš."
     if zdroje:
@@ -148,7 +152,6 @@ def manifest(verze, zdroje=(), nastaveno=True):
         "logo": "https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/resources/icon.png",
         "resources": ["stream"],
         "types": ["movie", "series"],
-        "idPrefixes": ["tt"],
         "catalogs": [],
         "behaviorHints": {"configurable": False, "configurationRequired": not nastaveno},
     }

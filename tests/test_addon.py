@@ -95,12 +95,16 @@ KOUSEK = config.encode(NASTAVENI)
 
 
 class TestManifest(unittest.TestCase):
-    def test_hlasi_jen_streamy_a_tt(self):
+    def test_hlasi_streamy_pro_filmy_i_serialy(self):
         m = router().route(f"/c/{KOUSEK}/manifest.json", ZAKLAD).data
         self.assertEqual(m["resources"], ["stream"])
         self.assertEqual(m["types"], ["movie", "series"])
-        self.assertEqual(m["idPrefixes"], ["tt"])
         self.assertTrue(m["behaviorHints"]["configurable"], "Stremio má nabídnout formulář")
+
+    def test_neomezuje_se_na_imdb_id(self):
+        """S idPrefixes ["tt"] se Stremio neptalo na tituly z cizích katalogů."""
+        m = router().route(f"/c/{KOUSEK}/manifest.json", ZAKLAD).data
+        self.assertNotIn("idPrefixes", m)
 
     def test_bez_zdroju_si_rekne_o_nastaveni(self):
         prazdny = router(zdroje={})
@@ -172,9 +176,16 @@ class TestStreamy(unittest.TestCase):
         self.assertEqual(router().route("/stream/series/tt0903747.json", ZAKLAD).status, 400)
 
     def test_cizi_id_vrati_prazdno(self):
-        """Manifest slibuje jen `tt`, ale doplněk nesmí spadnout na ničem jiném."""
-        odpoved = router().route("/stream/movie/kitsu:42.json", ZAKLAD)
-        self.assertEqual(odpoved.data, {"streams": []})
+        """Id z cizího katalogu neumíme přeložit na název, ale nesmíme spadnout."""
+        r = router()
+        self.assertEqual(r.route("/stream/movie/kitsu:42.json", ZAKLAD).data, {"streams": []})
+        self.assertEqual(r.engine.dotazy, [], "k jádru se takový dotaz nemá dostat")
+
+    def test_id_sosace_projde_k_jadru(self):
+        """Sosáčova id jádro umí, takže je nezahazujeme jako cizí."""
+        r = router()
+        r.route("/stream/movie/sosacd_m_6fcb548442d588f6dd73.json", ZAKLAD)
+        self.assertEqual(len(r.engine.dotazy), 1)
 
     def test_vypadek_zdroje_neni_chyba_sluzby(self):
         """Stremio má ukázat prázdno a jít dál, ne chybu."""
