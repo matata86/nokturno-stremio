@@ -11,7 +11,7 @@
     --vystraha: #f5a524; --vystraha-pozadi: #2a2214;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; padding: 2rem 1rem 4rem; background: var(--pozadi); color: var(--text);
+  body { margin: 0; padding: 2rem 1rem 0; background: var(--pozadi); color: var(--text);
          font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   main { max-width: 44rem; margin: 0 auto; }
   h1 { font-size: 1.6rem; margin: 0 0 .3rem; }
@@ -34,19 +34,29 @@
   .prepinac input { width: 1.1rem; height: 1.1rem; accent-color: var(--akcent); }
   .prepinac span { margin: 0; font-size: .95rem; color: var(--text); }
   .napoveda { font-size: .82rem; color: var(--tlumene); margin: -.4rem 0 1rem; }
-  .akce { position: sticky; bottom: 0; background: linear-gradient(transparent, var(--pozadi) 35%);
-          padding: 1.5rem 0 0; margin-top: 2rem; }
+  /* lišta drží dole a musí být neprůhledná — s průhledným pozadím se tlačítka
+     na mobilu překrývala s formulářem pod nimi */
+  .akce { position: sticky; bottom: 0; background: var(--panel); border: 1px solid var(--okraj);
+          border-radius: 12px; padding: .9rem; margin: 1.5rem 0; box-shadow: 0 -8px 24px rgba(0,0,0,.45); }
   button { font: inherit; font-weight: 600; padding: .75rem 1.2rem; border-radius: 9px;
            border: 1px solid var(--okraj); background: var(--pole); color: var(--text); cursor: pointer; }
   button.hlavni { background: var(--akcent); border-color: var(--akcent); color: #fff; }
   button.hlavni:hover { background: var(--akcent-tmavy); }
   button:hover { border-color: var(--akcent); }
   .tlacitka { display: flex; gap: .6rem; flex-wrap: wrap; }
-  .adresa { margin-top: 1rem; padding: .7rem .8rem; background: var(--pole); border: 1px solid var(--okraj);
-            border-radius: 8px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .8rem;
-            word-break: break-all; color: var(--tlumene); }
-  .stav { margin-top: .7rem; font-size: .88rem; color: var(--akcent); min-height: 1.2em; }
-  footer { margin-top: 2.5rem; color: var(--tlumene); font-size: .82rem; }
+  /* adresa je dlouhá a na mobilu zabírala půl obrazovky — ve výchozím stavu sbalená */
+  details.adresa { margin-top: .8rem; }
+  details.adresa summary { cursor: pointer; font-size: .85rem; color: var(--tlumene);
+                           list-style: none; user-select: none; }
+  details.adresa summary::-webkit-details-marker { display: none; }
+  details.adresa summary::before { content: "▸ "; color: var(--akcent); }
+  details.adresa[open] summary::before { content: "▾ "; }
+  details.adresa pre { margin: .6rem 0 0; padding: .7rem .8rem; background: var(--pole);
+            border: 1px solid var(--okraj); border-radius: 8px; max-height: 9rem; overflow: auto;
+            font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .75rem;
+            white-space: pre-wrap; word-break: break-all; color: var(--tlumene); }
+  .stav { margin-top: .6rem; font-size: .88rem; color: var(--akcent); min-height: 1.2em; }
+  footer { margin: 0 0 2.5rem; color: var(--tlumene); font-size: .82rem; }
 </style>
 </head>
 <body>
@@ -104,7 +114,7 @@
       <button type="button" class="hlavni" id="instalovat">Přidat do Stremia</button>
       <button type="button" id="kopirovat">Zkopírovat adresu</button>
     </div>
-    <div class="adresa" id="adresa"></div>
+    <details class="adresa"><summary id="souhrn">Zobrazit adresu</summary><pre id="adresa"></pre></details>
     <div class="stav" id="stav"></div>
   </div>
 
@@ -155,9 +165,17 @@ function adresa() {
 }
 
 const poleAdresa = document.getElementById("adresa");
+const souhrn = document.getElementById("souhrn");
 const stav = document.getElementById("stav");
 
-function prekresli() { poleAdresa.textContent = adresa(); }
+function prekresli() {
+  const url = adresa();
+  poleAdresa.textContent = url;
+  // ve sbaleném stavu stačí vědět, kolik zdrojů adresa nese
+  const n = ["ws_username", "streamuj_username", "luna_token", "hs_enabled"]
+    .filter((k) => nastaveni()[k]).length;
+  souhrn.textContent = `Zobrazit adresu (${n} ${n === 1 ? "zdroj" : n < 5 ? "zdroje" : "zdrojů"})`;
+}
 form.addEventListener("input", () => { prekresli(); stav.textContent = ""; });
 prekresli();
 
