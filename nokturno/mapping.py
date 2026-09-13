@@ -15,8 +15,15 @@ import re
 # Stremio čeká jazyk v ISO 639-2, jádro drží dvouznakové kódy
 JAZYKY = {"CZ": "ces", "SK": "slk", "EN": "eng", "DE": "deu", "PL": "pol", "HU": "hun", "FR": "fra"}
 
-# Jazyky se ukazují zkratkou (CZ, SK, EN), ne vlaječkou: Stremio na Windows vlaječky
-# jako emoji neumí a místo nich kreslí písmena v rámečku. Zkratka vypadá všude stejně.
+# Vlaječky u streamů jsou ve Stremiu zavedená konvence — jazyk je z nich poznat
+# rychleji než z kódu. Jádro slučuje GB/US/UK do EN, proto jen jedna vlajka pro
+# angličtinu. Co tady není, se vypíše kódem, ať nezmizí.
+VLAJKY = {
+    "CZ": "🇨🇿", "SK": "🇸🇰", "EN": "🇬🇧", "DE": "🇩🇪", "PL": "🇵🇱", "HU": "🇭🇺",
+    "FR": "🇫🇷", "ES": "🇪🇸", "IT": "🇮🇹", "RU": "🇷🇺", "UA": "🇺🇦", "JP": "🇯🇵",
+    "KR": "🇰🇷", "DK": "🇩🇰", "NL": "🇳🇱", "NO": "🇳🇴", "SE": "🇸🇪", "FI": "🇫🇮",
+    "PT": "🇵🇹", "TR": "🇹🇷", "RO": "🇷🇴", "BG": "🇧🇬", "GR": "🇬🇷",
+}
 
 # značky obrazu a zvuku, které jádro nezná — leží jen v názvu souboru
 OBRAZ = (
@@ -56,8 +63,8 @@ def dekoduj(payload):
     return url if url.startswith(SCHEMATA) else None
 
 
-def _jazyk(kod):
-    return str(kod)
+def _vlajka(kod):
+    return VLAJKY.get(kod, kod)
 
 
 def _kanaly(pocet):
@@ -67,7 +74,7 @@ def _kanaly(pocet):
 
 
 def _jazyky_s_kanaly(popis):
-    """„CZ 5.1 AC3“, „EN“ — jazyky zvuku s počtem kanálů a kodekem, když jsou známé.
+    """„🇨🇿 5.1 AC3“, „🇬🇧“ — vlaječky zvuku s počtem kanálů a kodekem, když jsou známé.
 
     Kanály z hlavičky souboru chodí jako text („5.1“), z názvu souboru jako číslo —
     dřív se ukazovalo jen číslo, takže u ověřených stop kanály chyběly. Stopy bez
@@ -81,7 +88,7 @@ def _jazyky_s_kanaly(popis):
             kodeky.setdefault(stopa["lang"], stopa["codec"])
     out = []
     for kod in popis.get("langs") or []:
-        casti = [_jazyk(kod), _kanaly(kanaly.get(kod)), kodeky.get(kod, "")]
+        casti = [_vlajka(kod), _kanaly(kanaly.get(kod)), kodeky.get(kod, "")]
         out.append(" ".join(c for c in casti if c))
     for stopa in stopy:
         if stopa.get("lang"):
@@ -141,7 +148,7 @@ def stream_object(popis, odkaz, jmeno_doplnku="Nokturno"):
     obraz = _znacky(nazev_souboru, OBRAZ)
     zvuk_navic = _znacky(nazev_souboru, ZVUK)
 
-    # řádek jazyků: zvuk, za ním titulky
+    # řádek jazyků: vlaječky zvuku, za nimi titulky
     jazyky = _jazyky_s_kanaly(popis)
     radek_jazyku = []
     if jazyky:
@@ -149,7 +156,7 @@ def stream_object(popis, odkaz, jmeno_doplnku="Nokturno"):
     if zvuk_navic:
         radek_jazyku.append(" ".join(zvuk_navic))
     if popis.get("subs"):
-        radek_jazyku.append("tit. " + " ".join(_jazyk(k) for k in popis["subs"]))
+        radek_jazyku.append("💬 " + " ".join(_vlajka(k) for k in popis["subs"]))
 
     # řádek technických údajů
     radek_udaju = []

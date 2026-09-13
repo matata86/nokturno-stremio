@@ -237,15 +237,14 @@ class TestPrevod(unittest.TestCase):
         self.assertIn("~8.5 Mb/s", popis, "odhadnutý bitrate má být přiznaný")
         self.assertIn("WebShare", popis)
 
-    def test_jazyky_jako_zkratky(self):
+    def test_jazyky_jako_vlajecky(self):
         popis = self.objekt["description"]
-        self.assertIn("CZ 5.1", popis, "zvuk s počtem kanálů")
-        self.assertIn("EN", popis)
-        self.assertFalse(any(0x1F1E6 <= ord(ch) <= 0x1F1FF for ch in popis), "žádné vlaječky — Windows je neumí")
-        self.assertIn("tit. CZ", popis, "titulky")
+        self.assertIn("🇨🇿 5.1", popis, "zvuk s počtem kanálů")
+        self.assertIn("🇬🇧", popis)
+        self.assertIn("💬 🇨🇿", popis, "titulky")
 
     def test_neznamy_jazyk_zustane_kodem(self):
-        """Neznámý jazyk se nesmí ztratit."""
+        """Chybějící vlaječka nesmí jazyk spolknout."""
         objekt = mapping.stream_object({**POPIS, "langs": ["XX"], "channels": {}}, lambda u: u)
         self.assertIn("XX", objekt["description"])
 
@@ -500,8 +499,8 @@ class TestZvukKodekKanaly(unittest.TestCase):
         popis = {**POPIS, "langs": ["CZ", "EN"], "channels": {"CZ": "5.1", "EN": "2.0"},
                  "audio": [{"lang": "CZ", "channels": "5.1", "codec": "AC3"}, {"lang": "EN", "channels": "2.0", "codec": "AAC"}]}
         text = mapping.stream_object(popis, lambda u: u)["description"]
-        self.assertIn("CZ 5.1 AC3", text)
-        self.assertIn("EN 2.0 AAC", text)
+        self.assertIn("🇨🇿 5.1 AC3", text)
+        self.assertIn("🇬🇧 2.0 AAC", text)
 
     def test_stopa_bez_jazyka(self):
         popis = {**POPIS, "langs": [], "channels": {}, "audio": [{"lang": "", "channels": "5.1", "codec": "EAC3"}]}
