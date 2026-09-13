@@ -11,11 +11,13 @@ import argparse
 import logging
 import os
 import sys
+import urllib.error
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .config import from_environ, sources_summary
 from .enginy import Enginy
-from .routes import VERZE, Router
+from .routes import VERZE, Odpoved, Router
 from .statistiky import Statistiky
 
 _LOGGER = logging.getLogger("nokturno")
@@ -63,7 +65,51 @@ class Handler(BaseHTTPRequestHandler):
         schema = self.headers.get("X-Forwarded-Proto") or "http"
         return f"{schema}://{host}"
 
+    def _proxy(self, url, hlavicky):
+        """Soubor z vlastního úložiště přes doplněk — s heslem, které přehrávač nemá.
+
+        Přeposílá `Range`, takže přetáčení funguje a nic se nestahuje celé dopředu.
+        Heslo ani adresa úložiště klientovi neodejdou, dostane jen data.
+        """
+        pozadavek = dict(hlavicky)
+        for jmeno in ("Range", "If-Range"):
+            if self.headers.get(jmeno):
+                pozadavek[jmeno] = self.headers[jmeno]
+        req = urllib.request.Request(url, headers=pozadavek, method="HEAD" if self.command == "HEAD" else "GET")
+        try:
+            upstream = urllib.request.urlopen(req, timeout=30)
+        except urllib.error.HTTPError as err:
+            upstream = err     # 416 a spol. patří klientovi, jen 401/403 se přeloží
+        except Exception as err:  # noqa: BLE001 – síť, DNS
+            _LOGGER.info("úložiště neodpovídá: %s", err)
+            self._posli(Odpoved(status=502, text="Úložiště neodpovídá."))
+            return
+        with upstream:
+            status = getattr(upstream, "status", None) or upstream.code
+            if status in (401, 403):
+                self._posli(Odpoved(status=502, text="Úložiště odmítlo jméno nebo heslo."))
+                return
+            self.send_response(status)
+            for jmeno in ("Content-Type", "Content-Length", "Content-Range", "Accept-Ranges",
+                          "Last-Modified", "ETag"):
+                if upstream.headers.get(jmeno):
+                    self.send_header(jmeno, upstream.headers[jmeno])
+            if not upstream.headers.get("Content-Length"):
+                self.close_connection = True   # bez délky jde konec poznat jen zavřením
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            if self.command == "HEAD":
+                return
+            while True:
+                kus = upstream.read(256 * 1024)
+                if not kus:
+                    break
+                self.wfile.write(kus)
+
     def _posli(self, odpoved):
+        if odpoved.proxy:
+            self._proxy(*odpoved.proxy)
+            return
         telo, typ = odpoved.body
         self.send_response(odpoved.status)
         if odpoved.location:

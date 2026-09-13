@@ -41,7 +41,7 @@ ZVUK = (
 # kontejnery, které webový přehrávač Stremia nepřehraje — ať to rovnou ví
 NE_PRO_WEB = (".mkv", ".avi", ".ts", ".m2ts", ".wmv", ".flv")
 # schémata, která umí rozklíčovat `Engine.resolve()`; jiné se k přehrání nepustí
-SCHEMATA = ("ws:", "hs:", "st:", "streamuj:", "http://", "https://")
+SCHEMATA = ("ws:", "hs:", "st:", "dav:", "streamuj:", "http://", "https://")
 
 
 def zakoduj(vnitrni_url):

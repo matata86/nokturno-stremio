@@ -44,6 +44,9 @@ PROSTREDI = {
     "NOKTURNO_HIDE_SD": "hide_sd",
     "NOKTURNO_MAX_BITRATE": "max_bitrate_mbps",
     "NOKTURNO_SORT": "sort_streams",
+    # vlastní úložiště (WebDAV), až tři — viz core/lib/storage_api.py
+    **{f"NOKTURNO_DAV{n}_{pole.upper()}": f"dav{n}_{pole}"
+       for n in (1, 2, 3) for pole in ("url", "username", "password", "name")},
 }
 PRAVDA = ("1", "true", "yes", "ano", "on")
 # klíče, u kterých engine čeká pravdivostní hodnotu, ne řetězec
@@ -121,6 +124,37 @@ def decode(kousek):
     return from_mapping(data) if isinstance(data, dict) else None
 
 
+def bez_lokalnich_uloziste(options, resolve=None):
+    """Nastavení bez úložišť, která míří na tenhle stroj nebo link-local adresy.
+
+    Požadavek z internetu nese adresu úložiště od kohokoli. Doplněk pak tu adresu
+    prochází a soubory z ní přes sebe streamuje, takže bez téhle pojistky by šlo
+    přes Funnel sahat na služby, které poslouchají jen na localhostu (dashboard,
+    Apache na :8080) nebo na metadata cloudu (169.254.x). Domácí síť a tailnet
+    projdou — kvůli nim úložiště existuje.
+    """
+    import ipaddress
+    import socket
+    import urllib.parse
+
+    resolve = resolve or (lambda host: [ai[4][0] for ai in socket.getaddrinfo(host, None)])
+    out = dict(options or {})
+    for n in (1, 2, 3):
+        url = str(out.get(f"dav{n}_url") or "").strip()
+        if not url:
+            continue
+        host = urllib.parse.urlsplit(url if "://" in url else "http://" + url).hostname or ""
+        try:
+            adresy = [ipaddress.ip_address(a.split("%")[0]) for a in resolve(host)]
+        except (OSError, ValueError):
+            adresy = []
+        if not adresy or any(a.is_loopback or a.is_link_local or a.is_unspecified or a.is_multicast
+                             for a in adresy):
+            for pole in ("url", "username", "password", "name"):
+                out.pop(f"dav{n}_{pole}", None)
+    return out
+
+
 def fingerprint(options):
     """Krátký otisk nastavení — jméno složky s cache a klíč do cache enginů.
 
@@ -138,5 +172,6 @@ def sources_summary(engine):
     """
     zdroje = engine.sources()
     nazvy = {"luna": "Luna", "sosac": "Sosáč", "webshare": "WebShare",
-             "hellspy": "HellSpy", "sledujteto": "Sledujteto", "torrent": "torrenty"}
+             "hellspy": "HellSpy", "sledujteto": "Sledujteto", "storage": "vlastní úložiště",
+             "torrent": "torrenty"}
     return [nazvy[k] for k, zapnuto in zdroje.items() if zapnuto and k in nazvy]

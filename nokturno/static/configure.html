@@ -154,6 +154,8 @@
   .faq .obsah p { margin: 0 0 .5rem; }
   .faq .obsah ul { margin: 0 0 .5rem; padding-left: 1.1rem; }
 
+  .uloziste { margin: .6rem 0; border-top: 1px solid rgba(255,255,255,.08); padding-top: .5rem; }
+  .uloziste summary { cursor: pointer; font-weight: 600; margin-bottom: .4rem; }
   .ik { width: 1.2em; height: 1.2em; flex: none; color: var(--akcent); vertical-align: -.2em; }
   .zarizeni h3 { display: flex; align-items: center; gap: .45rem; }
   footer { margin: 2rem 0 7rem; color: var(--tlumene); font-size: .8rem; text-align: center; }
@@ -295,6 +297,72 @@
           <span><strong>Hledat i na HellSpy</strong>
             <small>Veřejná úschovna s původními soubory (často ve vysoké kvalitě). Nic se nevyplňuje, stačí nechat zapnuté.</small></span>
         </label>
+      </div>
+
+      <!-- Vlastní úložiště -->
+      <div class="karta">
+        <div class="karta-hlava">
+          <h3>Vlastní úložiště</h3>
+          <span class="stitek">Volitelné · až 3 · WebDAV</span>
+        </div>
+        <p>Tvoje vlastní filmy a seriály na NAS, Nextcloudu nebo serveru s WebDAV. Nokturno projde složky a soubory přiřadí k titulům podle názvu souboru a složky nad ním („Sherlock/S01E02.mkv“).</p>
+        <details class="uloziste" open>
+          <summary>Úložiště 1</summary>
+          <div class="dvojice">
+            <label class="pole"><span>Název (ukáže se u streamu)</span>
+              <input type="text" name="dav1_name" spellcheck="false" placeholder="třeba NAS"></label>
+            <label class="pole"><span>Adresa složky</span>
+              <input type="url" name="dav1_url" autocapitalize="off" spellcheck="false" placeholder="https://…"></label>
+            <label class="pole"><span>Uživatelské jméno</span>
+              <input type="text" name="dav1_username" autocapitalize="off" spellcheck="false"></label>
+            <label class="pole"><span>Heslo</span>
+              <span class="heslo"><input type="password" name="dav1_password" spellcheck="false">
+                <button type="button" class="ukazat" aria-label="Ukázat heslo">ukázat</button></span></label>
+          </div>
+        </details>
+        <details class="uloziste">
+          <summary>Úložiště 2</summary>
+          <div class="dvojice">
+            <label class="pole"><span>Název (ukáže se u streamu)</span>
+              <input type="text" name="dav2_name" spellcheck="false" placeholder="třeba NAS"></label>
+            <label class="pole"><span>Adresa složky</span>
+              <input type="url" name="dav2_url" autocapitalize="off" spellcheck="false" placeholder="https://…"></label>
+            <label class="pole"><span>Uživatelské jméno</span>
+              <input type="text" name="dav2_username" autocapitalize="off" spellcheck="false"></label>
+            <label class="pole"><span>Heslo</span>
+              <span class="heslo"><input type="password" name="dav2_password" spellcheck="false">
+                <button type="button" class="ukazat" aria-label="Ukázat heslo">ukázat</button></span></label>
+          </div>
+        </details>
+        <details class="uloziste">
+          <summary>Úložiště 3</summary>
+          <div class="dvojice">
+            <label class="pole"><span>Název (ukáže se u streamu)</span>
+              <input type="text" name="dav3_name" spellcheck="false" placeholder="třeba NAS"></label>
+            <label class="pole"><span>Adresa složky</span>
+              <input type="url" name="dav3_url" autocapitalize="off" spellcheck="false" placeholder="https://…"></label>
+            <label class="pole"><span>Uživatelské jméno</span>
+              <input type="text" name="dav3_username" autocapitalize="off" spellcheck="false"></label>
+            <label class="pole"><span>Heslo</span>
+              <span class="heslo"><input type="password" name="dav3_password" spellcheck="false">
+                <button type="button" class="ukazat" aria-label="Ukázat heslo">ukázat</button></span></label>
+          </div>
+        </details>
+        <div class="overeni">
+          <button type="button" class="male" id="overit-dav">Ověřit úložiště</button>
+          <span class="vysledek" id="vysledek-dav"></span>
+        </div>
+        <details class="navod">
+          <summary>Jak na to — adresa, heslo, jak pojmenovat soubory</summary>
+          <div class="obsah">
+            <ol>
+              <li>Adresa je složka na WebDAV, třeba <code>https://nas.example.cz/remote.php/dav/files/jmeno/Video/</code> (Nextcloud) nebo <code>https://server:10000/</code>. Tvar <code>davs://</code> z Kodi jde taky.</li>
+              <li>Jméno a heslo jsou ty, kterými se k úložišti přihlašuješ. Zůstanou jen v adrese doplňku — soubory jdou přes doplněk, aby je přehrávač dostal i bez hesla.</li>
+              <li>Soubory pojmenuj jako obvykle: <code>Pelisky (1999).mkv</code>, nebo složka <code>Sherlock/Season 1/S01E02.mkv</code>. Nový soubor se ukáže nejpozději do hodiny.</li>
+            </ol>
+            <p>Úložiště musí být dosažitelné z <strong>serveru doplňku</strong>, ne z tvého zařízení. Adresy v domácí síti proto fungují jen s doplňkem, který běží u tebe doma.</p>
+          </div>
+        </details>
       </div>
 
       <div class="poznamka">
@@ -536,6 +604,8 @@ function zdroje(n = nastaveni()) {
   if (n.streamuj_username) out.push("Sosáč");
   if (n.st_email) out.push("Sledujteto");
   if (n.hs_enabled) out.push("HellSpy");
+  const uloziste = [1, 2, 3].filter((i) => n["dav" + i + "_url"]);
+  if (uloziste.length) out.push(uloziste.length === 1 ? "vlastní úložiště" : uloziste.length + " vlastní úložiště");
   return out;
 }
 
@@ -547,6 +617,11 @@ function problem(n = nastaveni()) {
   if (!n.streamuj_username && n.streamuj_password) return "U Streamuj.tv chybí uživatelské jméno.";
   if (n.st_email && !n.st_password) return "U Sledujteto chybí heslo.";
   if (!n.st_email && n.st_password) return "U Sledujteto chybí e-mail.";
+  for (const i of [1, 2, 3]) {
+    const url = n["dav" + i + "_url"];
+    if (!url && (n["dav" + i + "_username"] || n["dav" + i + "_password"])) return "U úložiště " + i + " chybí adresa.";
+    if (url && !/^(https?|davs?):\/\/[^\/]+/i.test(url)) return "Adresa úložiště " + i + " má začínat https:// nebo http://.";
+  }
   return "";
 }
 
@@ -568,6 +643,7 @@ form.addEventListener("input", (e) => {
   if (["ws_username", "ws_password"].includes(e.target.name)) vysledek("ws", "", "");
   if (["streamuj_username", "streamuj_password"].includes(e.target.name)) vysledek("su", "", "");
   if (["st_email", "st_password"].includes(e.target.name)) vysledek("st", "", "");
+  if (/^dav\d_/.test(e.target.name || "")) vysledek("dav", "", "");
 });
 prekresli();
 
@@ -636,6 +712,30 @@ $("overit-st").addEventListener("click", async () => {
     else vysledek("st", "pozor", "Přihlášeno, ale bez Premium — streamy se ukážou, přehrát nepůjdou.");
   } catch (err) {
     vysledek("st", "chyba", "Ověření se nepovedlo (" + err.message + "). Zkus to za chvíli.");
+  } finally {
+    tl.disabled = false;
+  }
+});
+
+$("overit-dav").addEventListener("click", async () => {
+  const n = nastaveni();
+  if (![1, 2, 3].some((i) => n["dav" + i + "_url"])) {
+    vysledek("dav", "pozor", "Vyplň adresu aspoň jednoho úložiště.");
+    return;
+  }
+  const tl = $("overit-dav");
+  tl.disabled = true;
+  vysledek("dav", "info", "Zkouším se připojit…");
+  try {
+    const seznam = (await overit()).uloziste || [];
+    const radky = seznam.map((u) => {
+      const jmeno = n["dav" + u.slot + "_name"] || "Úložiště " + u.slot;
+      return u.ok ? `✓ ${jmeno}: ${u.polozek} položek v kořeni` : `✗ ${jmeno}: ${u.chyba}`;
+    });
+    const vse = seznam.length && seznam.every((u) => u.ok);
+    vysledek("dav", vse ? "ok" : "chyba", radky.join(" · ") || "Úložiště z internetu nejde ověřit — adresa míří na server samotný.");
+  } catch (err) {
+    vysledek("dav", "chyba", "Ověření se nepovedlo (" + err.message + "). Zkus to za chvíli.");
   } finally {
     tl.disabled = false;
   }

@@ -4,7 +4,7 @@
     GET /configure                       formulář, který vyrobí adresu s účty
     GET /c/<nastavení>/manifest.json     co doplněk umí
     GET /c/<nastavení>/stream/:t/:id.json   streamy k titulu
-    GET /c/<nastavení>/play/:payload     302 na skutečný soubor
+    GET /c/<nastavení>/play/:payload     302 na skutečný soubor (vlastní úložiště: proxy)
     GET /c/<nastavení>/check             ověření účtů pro formulář (WebShare + VIP)
     GET /health                          pro kontejner
 
@@ -30,6 +30,7 @@ import urllib.parse
 from .core.engine import NokturnoError, is_sosac_id, split_episode_id
 from .core.lib.webshare_api import WebshareApi, WebshareError
 from .core.lib.sledujteto_api import SledujtetoApi
+from .core.lib.storage_api import SLOTS, StorageApi
 from . import config, mapping
 
 _LOGGER = logging.getLogger(__name__)
@@ -42,8 +43,9 @@ STATIKA = pathlib.Path(__file__).resolve().parent / "static"
 class Odpoved:
     """Co server pošle klientovi."""
 
-    def __init__(self, status=200, data=None, location=None, text=None, html=None):
+    def __init__(self, status=200, data=None, location=None, text=None, html=None, proxy=None):
         self.status = status
+        self.proxy = proxy   # (adresa, hlavičky) — server soubor stáhne a pošle dál sám
         self.data = data
         self.location = location
         self.text = text
@@ -74,6 +76,7 @@ class Router:
         self.statistiky = statistiky   # nokturno.statistiky.Statistiky, None = vypnuto
         self.ws_api = WebshareApi   # testy podstrčí falešné, aby nešly na síť
         self.st_api = SledujtetoApi
+        self.dav_api = StorageApi
 
     # --- adresy -----------------------------------------------------------
     @staticmethod
@@ -156,6 +159,19 @@ class Router:
             except Exception as err:  # noqa: BLE001 – pro uživatele je každé selhání totéž
                 _LOGGER.info("ověření Sledujteto %s: %s", email[:3] + "…", err)
                 out["sledujteto"] = {"ok": False, "chyba": str(err) or "přihlášení selhalo"}
+        out["uloziste"] = []
+        for n in range(1, SLOTS + 1):
+            url = (options.get(f"dav{n}_url") or "").strip()
+            if not url:
+                continue
+            # jen kořen složky, celý strom se prochází až při hledání
+            try:
+                api = self.dav_api(url, options.get(f"dav{n}_username") or "", options.get(f"dav{n}_password") or "",
+                                   options.get(f"dav{n}_name") or "", slot=n)
+                out["uloziste"].append({"slot": n, "ok": True, "polozek": api.check()})
+            except Exception as err:  # noqa: BLE001 – pro uživatele je každé selhání totéž
+                _LOGGER.info("ověření úložiště %d: %s", n, err)
+                out["uloziste"].append({"slot": n, "ok": False, "chyba": str(err) or "nedostupné"})
         return Odpoved(data=out)
 
     def uvod(self, zaklad):
@@ -200,6 +216,13 @@ class Router:
         vnitrni = mapping.dekoduj(payload)
         if not vnitrni:
             return chyba(400, "Neplatný odkaz.")
+        if vnitrni.startswith("dav:"):
+            # vlastní úložiště chce heslo a přehrávače Stremia hlavičku nepošlou —
+            # soubor proto jde přes doplněk (viz server.Handler._proxy)
+            try:
+                return Odpoved(proxy=engine.storage_request(vnitrni))
+            except NokturnoError as err:
+                return chyba(404, str(err))
         try:
             skutecna = engine.resolve(vnitrni)
         except NokturnoError as err:
@@ -225,6 +248,8 @@ class Router:
         options = config.decode(kousek) if kousek else None
         if kousek and options is None:
             return chyba(404, "Adresa nese nečitelné nastavení. Vyrob si novou na /configure")
+        if verejny and options:
+            options = config.bez_lokalnich_uloziste(options)
 
         if zbytek in ("", "/", "/configure", "/configure/"):
             if zbytek in ("/configure", "/configure/"):

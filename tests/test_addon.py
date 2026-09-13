@@ -11,6 +11,7 @@ import pathlib
 import sys
 import tempfile
 import unittest
+import urllib.error
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -519,6 +520,137 @@ class TestZvukKodekKanaly(unittest.TestCase):
 
     def test_sledujteto_odkaz_projde_prehranim(self):
         self.assertEqual(mapping.dekoduj(mapping.zakoduj("st:123")), "st:123")
+
+
+class TestVlastniUloziste(unittest.TestCase):
+    """Úložiště s heslem: odkaz jde přes proxy doplňku, z internetu ne na localhost."""
+
+    def test_odkaz_projde_dekodovanim(self):
+        self.assertEqual(mapping.dekoduj(mapping.zakoduj("dav:1:Filmy/a b.mkv")), "dav:1:Filmy/a b.mkv")
+
+    def test_prehrani_jde_pres_proxy(self):
+        r = router()
+        r.engine.storage_request = lambda url: ("http://nas.lan/dav/Filmy/a.mkv", {"Authorization": "Basic x"})
+        odpoved = r.route("/play/" + mapping.zakoduj("dav:1:Filmy/a.mkv"), ZAKLAD)
+        self.assertEqual(odpoved.proxy, ("http://nas.lan/dav/Filmy/a.mkv", {"Authorization": "Basic x"}))
+        self.assertIsNone(odpoved.location)
+
+    def test_neznamy_slot_je_404(self):
+        r = router()
+
+        def spatne(url):
+            raise NokturnoError("Tohle úložiště už není v nastavení.")
+        r.engine.storage_request = spatne
+        self.assertEqual(r.route("/play/" + mapping.zakoduj("dav:3:a.mkv"), ZAKLAD).status, 404)
+
+    def test_klice_projdou_nastavenim(self):
+        options = config.from_mapping({"dav2_url": "https://nas/dav/", "dav2_username": "u",
+                                       "dav2_password": "p", "dav2_name": "NAS", "dav9_url": "x"})
+        self.assertEqual(options["dav2_url"], "https://nas/dav/")
+        self.assertEqual(options["dav2_name"], "NAS")
+        self.assertNotIn("dav9_url", options)
+        prostredi = config.from_environ({"NOKTURNO_DAV1_URL": "http://nas/", "NOKTURNO_DAV1_PASSWORD": "p"})
+        self.assertEqual((prostredi["dav1_url"], prostredi["dav1_password"]), ("http://nas/", "p"))
+
+    def test_z_internetu_ne_na_tenhle_stroj(self):
+        adresy = {"localhost": ["127.0.0.1"], "meta": ["169.254.169.254"], "nas.lan": ["192.168.1.241"],
+                  "nokturno.ts.net": ["100.125.137.18"], "v6": ["::1"]}
+        options = {f"dav{i}_url": f"http://{h}:8090/" for i, h in enumerate(("localhost", "nas.lan", "meta"), 1)}
+        options["dav1_password"] = "tajne"
+        cista = config.bez_lokalnich_uloziste(options, resolve=lambda h: adresy[h])
+        self.assertEqual(sorted(k for k in cista if k.startswith("dav")), ["dav2_url"])
+        self.assertEqual(config.bez_lokalnich_uloziste({"dav1_url": "https://nokturno.ts.net:10000/"},
+                                                       resolve=lambda h: adresy[h])["dav1_url"],
+                         "https://nokturno.ts.net:10000/")
+        self.assertNotIn("dav1_url", config.bez_lokalnich_uloziste({"dav1_url": "http://neexistuje/"},
+                                                                   resolve=lambda h: []))
+
+    def test_verejny_pozadavek_localhost_nedostane(self):
+        kousek = config.encode(config.from_mapping({"ws_username": "u", "ws_password": "p",
+                                                    "dav1_url": "http://127.0.0.1:8080/"}))
+        r = router()
+        r.route(f"/c/{kousek}/manifest.json", ZAKLAD, verejny=True)
+        self.assertNotIn("dav1_url", r.enginy_test.pozadovana_nastaveni[-1])
+        r.route(f"/c/{kousek}/manifest.json", ZAKLAD, verejny=False)
+        self.assertEqual(r.enginy_test.pozadovana_nastaveni[-1]["dav1_url"], "http://127.0.0.1:8080/")
+
+    def test_overeni_uloziste(self):
+        class Falesne:
+            def __init__(self, url, user, password, name="", slot=1):
+                self.password = password
+
+            def check(self):
+                if self.password != "tajne":
+                    raise Exception("špatné jméno nebo heslo")
+                return 2
+        r = router()
+        r.dav_api = Falesne
+        data = r.check({"dav1_url": "http://nas/", "dav1_password": "tajne",
+                        "dav3_url": "http://nas2/", "dav3_password": "x"}).data["uloziste"]
+        self.assertEqual(data, [{"slot": 1, "ok": True, "polozek": 2},
+                                {"slot": 3, "ok": False, "chyba": "špatné jméno nebo heslo"}])
+
+    def test_formular_ma_tri_uloziste(self):
+        html = router().route("/configure", ZAKLAD).html
+        for i in (1, 2, 3):
+            self.assertIn(f'name="dav{i}_url"', html)
+        self.assertNotIn("__ULOZISTE__", html)
+
+    def test_proxy_preposle_range_a_heslo(self):
+        import threading
+        import urllib.request
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        from nokturno.routes import Odpoved
+        from nokturno.server import Handler
+
+        videno = {}
+
+        class Zdroj(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_GET(self):
+                videno["auth"] = self.headers.get("Authorization")
+                videno["range"] = self.headers.get("Range")
+                if self.headers.get("Authorization") != "Basic ok":
+                    self.send_response(401)
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
+                self.send_response(206)
+                self.send_header("Content-Range", "bytes 2-5/10")
+                self.send_header("Content-Length", "4")
+                self.end_headers()
+                self.wfile.write(b"2345")
+
+        zdroj = ThreadingHTTPServer(("127.0.0.1", 0), Zdroj)
+        doplnek = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        url = f"http://127.0.0.1:{zdroj.server_address[1]}/a.mkv"
+
+        class Smerovac:
+            heslo = "Basic ok"
+
+            def route(self, cesta, zaklad, verejny=False):
+                return Odpoved(proxy=(url, {"Authorization": self.heslo}))
+        doplnek.router = Smerovac()
+        for s in (zdroj, doplnek):
+            threading.Thread(target=s.serve_forever, daemon=True).start()
+        try:
+            req = urllib.request.Request(f"http://127.0.0.1:{doplnek.server_address[1]}/play/x",
+                                         headers={"Range": "bytes=2-5"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                self.assertEqual((resp.status, resp.read(), resp.headers["Content-Range"]),
+                                 (206, b"2345", "bytes 2-5/10"))
+            self.assertEqual(videno, {"auth": "Basic ok", "range": "bytes=2-5"})
+            Smerovac.heslo = "Basic spatne"
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(f"http://127.0.0.1:{doplnek.server_address[1]}/play/x", timeout=5)
+            self.assertEqual(ctx.exception.code, 502)
+            ctx.exception.close()
+        finally:
+            for s in (zdroj, doplnek):
+                s.shutdown()
+                s.server_close()
 
 
 if __name__ == "__main__":
