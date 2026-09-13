@@ -292,9 +292,38 @@
         </label>
       </div>
 
-      <div class="poznamka">
-        <strong>Máš ve Stremiu i doplněk Luna?</strong> Nokturno Lunu nepoužívá a klidně mohou být nainstalované oba.
-        Některé soubory z WebShare pak uvidíš v seznamu dvakrát — jednou od Luny, jednou od Nokturna.
+      <!-- Luna -->
+      <div class="karta">
+        <div class="karta-hlava">
+          <h3>Luna <span style="color:var(--tlumene);font-weight:400;font-size:.9rem">Absolute Cinema</span></h3>
+          <span class="stitek">Volitelné · vlastní server</span>
+        </div>
+        <p>Streamy z tvého serveru Luna s rozpoznanou kvalitou a jazyky. Když ji zadáš sem, máš Lunu i ostatní zdroje
+          <strong>v jednom doplňku</strong>. Luna má ale i vlastní oficiální doplněk pro Stremio — klidně můžeš používat ten a tady ji nechat prázdnou.</p>
+        <div class="dvojice">
+          <label class="pole"><span>Adresa serveru</span>
+            <input type="text" name="luna_url" autocapitalize="off" spellcheck="false" placeholder="http://192.168.1.10:7126"></label>
+          <label class="pole"><span>Token nebo adresa doplňku</span>
+            <span class="heslo"><input type="password" name="luna_token" spellcheck="false" placeholder="e1.… nebo celá adresa z Ruční instalace">
+              <button type="button" class="ukazat" aria-label="Ukázat token">ukázat</button></span></label>
+        </div>
+        <div class="overeni">
+          <button type="button" class="male" id="overit-luna">Ověřit Lunu</button>
+          <span class="vysledek" id="vysledek-luna"></span>
+        </div>
+        <details class="navod">
+          <summary>Jak na to — Luna v Nokturnu, nebo zvlášť?</summary>
+          <div class="obsah">
+            <ol>
+              <li>Otevři setup svého serveru Luna (<code>http://adresa-Luny:7126/setup</code>) → <strong>Ruční instalace</strong>
+                a zkopíruj adresu <em>Luna: Absolute Cinema</em>. Vlož ji celou do pole <strong>Token</strong> — adresu serveru si doplněk vezme z ní.</li>
+              <li><strong>Jeden doplněk:</strong> s Lunou v Nokturnu oficiální doplněk Luny nepotřebuješ. Když máš oba, některé soubory z WebShare uvidíš dvakrát.</li>
+              <li><strong>Kde to hraje:</strong> streamy Luny jdou přes tvůj server, takže se přehrají jen tam, kde je Luna dosažitelná — doma nebo přes VPN.
+                Když doplněk otevřeš z internetu a Luna má adresu v domácí síti, Nokturno ji přeskočí a ostatní zdroje fungují dál.</li>
+            </ol>
+            <p>Víc o Luně: <a href="https://stremio.cz/d/47-luna-absolute-cinema-addon-pro-prehravani-sifrovaneho-obsahu-z-webshare" target="_blank" rel="noopener">vlákno na stremio.cz</a>.</p>
+          </div>
+        </details>
       </div>
     </section>
 
@@ -445,6 +474,7 @@
           <li><strong>Sosáč</strong> — ručně poskládaný katalog českých filmů a seriálů s dabingem a titulky, přehrává přes Streamuj.tv.</li>
           <li><strong>Sledujteto</strong> — česká úschovna s velkým výběrem, hledá přes tvůj účet a přehrává s Premium.</li>
           <li><strong>HellSpy</strong> — veřejné soubory zdarma, bez účtu. Méně výběru, ale nic nestojí.</li>
+          <li><strong>Luna</strong> — tvůj vlastní server; jde ho mít tady v Nokturnu, nebo přes oficiální doplněk Luny.</li>
         </ul>
       </div>
     </details>
@@ -509,6 +539,7 @@ function zdroje(n = nastaveni()) {
   if (n.ws_username) out.push("WebShare");
   if (n.streamuj_username) out.push("Sosáč");
   if (n.st_email) out.push("Sledujteto");
+  if (n.luna_token) out.push("Luna");
   if (n.hs_enabled) out.push("HellSpy");
   return out;
 }
@@ -521,6 +552,8 @@ function problem(n = nastaveni()) {
   if (!n.streamuj_username && n.streamuj_password) return "U Streamuj.tv chybí uživatelské jméno.";
   if (n.st_email && !n.st_password) return "U Sledujteto chybí heslo.";
   if (!n.st_email && n.st_password) return "U Sledujteto chybí e-mail.";
+  if (n.luna_url && !n.luna_token) return "U Luny chybí token (nebo adresa doplňku).";
+  if (n.luna_token && !n.luna_url && !/^https?:\/\//.test(n.luna_token)) return "U Luny chybí adresa serveru.";
   return "";
 }
 
@@ -542,6 +575,7 @@ form.addEventListener("input", (e) => {
   if (["ws_username", "ws_password"].includes(e.target.name)) vysledek("ws", "", "");
   if (["streamuj_username", "streamuj_password"].includes(e.target.name)) vysledek("su", "", "");
   if (["st_email", "st_password"].includes(e.target.name)) vysledek("st", "", "");
+  if (["luna_url", "luna_token"].includes(e.target.name)) vysledek("luna", "", "");
 });
 prekresli();
 
@@ -610,6 +644,25 @@ $("overit-st").addEventListener("click", async () => {
     else vysledek("st", "pozor", "Přihlášeno, ale bez Premium — streamy se ukážou, přehrát nepůjdou.");
   } catch (err) {
     vysledek("st", "chyba", "Ověření se nepovedlo (" + err.message + "). Zkus to za chvíli.");
+  } finally {
+    tl.disabled = false;
+  }
+});
+
+$("overit-luna").addEventListener("click", async () => {
+  const n = nastaveni();
+  if (!n.luna_token) { vysledek("luna", "pozor", "Vyplň token nebo adresu doplňku."); return; }
+  const tl = $("overit-luna");
+  tl.disabled = true;
+  vysledek("luna", "info", "Zkouším server Luna…");
+  try {
+    const luna = (await overit()).luna;
+    if (!luna) vysledek("luna", "pozor", "Token nejde přečíst — vlož celou adresu z Ruční instalace.");
+    else if (luna.doma) vysledek("luna", "pozor", "Luna je v domácí síti — funguje doma nebo přes VPN, z internetu se přeskočí.");
+    else if (luna.ok) vysledek("luna", "ok", "✓ Luna odpovídá");
+    else vysledek("luna", "chyba", "Luna neodpovídá — zkontroluj adresu a token.");
+  } catch (err) {
+    vysledek("luna", "chyba", "Ověření se nepovedlo (" + err.message + ").");
   } finally {
     tl.disabled = false;
   }
