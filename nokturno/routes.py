@@ -4,6 +4,7 @@
     GET /c/<nastavení>/manifest.json     co doplněk umí
     GET /c/<nastavení>/stream/:t/:id.json   streamy k titulu
     GET /c/<nastavení>/play/:payload     302 na skutečný soubor
+    GET /c/<nastavení>/check             ověření účtů pro formulář (WebShare + VIP)
     GET /health                          pro kontejner
 
 Stremio nemá soubor nastavení — účty se nosí zakódované v cestě adresy, takže
@@ -26,11 +27,12 @@ import pathlib
 import urllib.parse
 
 from .core.engine import NokturnoError, is_sosac_id, split_episode_id
+from .core.lib.webshare_api import WebshareApi, WebshareError
 from . import config, mapping
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "0.2.4"
+VERZE = "0.2.5"
 TYPY = ("movie", "series")
 STATIKA = pathlib.Path(__file__).resolve().parent / "static"
 
@@ -67,6 +69,7 @@ class Router:
         # nabídnout ve formuláři účty z prostředí? Na sdílené instanci NE — ukázalo
         # by je komukoli, kdo formulář otevře. Na vlastní ušetří opisování hashů.
         self.predvyplnit = predvyplnit
+        self.ws_api = WebshareApi   # testy podstrčí falešné, aby nešly na síť
 
     # --- adresy -----------------------------------------------------------
     @staticmethod
@@ -115,6 +118,32 @@ class Router:
         html = html.replace("__ZAKLAD__", zaklad)
         html = html.replace("__VERZE__", self.verze)
         return Odpoved(html=html)
+
+    def check(self, options):
+        """Ověření účtů pro tlačítko ve formuláři.
+
+        WebShare se opravdu přihlásí a řekne, kolik zbývá VIP — bez VIP je rychlost
+        omezená a film se nedá plynule přehrát, což je nejčastější „nic nehraje".
+        Streamuj přihlašovací endpoint nemá, špatné heslo se pozná až při přehrání,
+        takže se jen ohlásí, co je vyplněné. Jádro se kvůli tomu nezakládá — jen
+        jedno přihlášení, žádná cache.
+        """
+        out = {"webshare": None, "streamuj": None, "hellspy": bool(options.get("hs_enabled"))}
+        user = (options.get("ws_username") or "").strip()
+        if user:
+            try:
+                api = self.ws_api(user, options.get("ws_password") or "")
+                if not api.login():
+                    raise WebshareError("přihlášení selhalo")
+                stav = api.account_status()
+                out["webshare"] = {"ok": True, "vip": bool(stav.get("vip")),
+                                   "days": int(stav.get("days") or 0), "until": stav.get("until") or ""}
+            except Exception as err:  # noqa: BLE001 – cokoli, co přihlášení zastaví, je pro uživatele totéž
+                _LOGGER.info("ověření WebShare %s: %s", user[:3] + "…", err)
+                out["webshare"] = {"ok": False, "chyba": str(err) or "přihlášení selhalo"}
+        if (options.get("streamuj_username") or "").strip():
+            out["streamuj"] = {"heslo": bool((options.get("streamuj_password") or "").strip())}
+        return Odpoved(data=out)
 
     def uvod(self, engine, zaklad):
         zdroje = config.sources_summary(engine) if engine is not None else []
@@ -199,6 +228,9 @@ class Router:
                 return Odpoved(data=data)
             return chyba(403, f"Doplněk bez vlastního nastavení jde použít jen z domácí sítě. "
                               f"Vyrob si adresu na {zaklad}/configure")
+
+        if zbytek == "/check":
+            return self.check(options if kousek else self.enginy.vychozi_options)
 
         engine = self.enginy.pro(options)
         if zbytek == "/manifest.json":

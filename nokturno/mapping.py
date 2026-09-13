@@ -208,7 +208,7 @@ def manifest(verze, zdroje=(), nastaveno=True):
         "version": verze,
         "name": "Nokturno",
         "description": popis,
-        "logo": "https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/resources/icon.png",
+        "logo": "https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/resources/media/icon2.png",
         "resources": ["stream"],
         "types": ["movie", "series"],
         "catalogs": [],

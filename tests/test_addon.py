@@ -353,5 +353,70 @@ class TestVerejnyPristup(unittest.TestCase):
         self.assertFalse(je_verejny({}, "192.168.1.50"), "přímo z LAN jako dřív")
 
 
+
+class FalesnyWebshare:
+    def __init__(self, user, password):
+        self.user, self.password = user, password
+
+    def login(self):
+        if self.password != "spravne":
+            raise NokturnoError("Wrong password")
+        return "token"
+
+    def account_status(self):
+        return {"vip": True, "days": 42, "until": "2026-10-25 12:00:00"}
+
+
+class TestOvereniUctu(unittest.TestCase):
+    def _check(self, nastaveni, verejny=False):
+        r = router()
+        r.ws_api = FalesnyWebshare
+        kousek = config.encode(config.from_mapping(nastaveni))
+        return r, r.route(f"/c/{kousek}/check", ZAKLAD, verejny=verejny)
+
+    def test_spravny_ucet_s_vip(self):
+        _r, odpoved = self._check({"ws_username": "u", "ws_password": "spravne"})
+        self.assertEqual(odpoved.data["webshare"], {"ok": True, "vip": True, "days": 42, "until": "2026-10-25 12:00:00"})
+
+    def test_spatne_heslo(self):
+        _r, odpoved = self._check({"ws_username": "u", "ws_password": "spatne"})
+        self.assertFalse(odpoved.data["webshare"]["ok"])
+        self.assertIn("Wrong password", odpoved.data["webshare"]["chyba"])
+
+    def test_streamuj_jen_hlasi_vyplneni(self):
+        _r, odpoved = self._check({"streamuj_username": "u"})
+        self.assertIsNone(odpoved.data["webshare"])
+        self.assertEqual(odpoved.data["streamuj"], {"heslo": False})
+        self.assertTrue(odpoved.data["hellspy"], "HellSpy je ve výchozím stavu zapnutý")
+
+    def test_zvenku_s_vlastnim_nastavenim_jde(self):
+        r, odpoved = self._check({"ws_username": "u", "ws_password": "spravne"}, verejny=True)
+        self.assertTrue(odpoved.data["webshare"]["ok"])
+        self.assertEqual(r.enginy_test.pozadovana_nastaveni, [], "kvůli ověření se jádro nezakládá")
+
+    def test_zvenku_bez_nastaveni_neoveri_ucty_instance(self):
+        r = router()
+        r.ws_api = FalesnyWebshare
+        self.assertEqual(r.route("/check", ZAKLAD, verejny=True).status, 403)
+
+
+class TestBezLuny(unittest.TestCase):
+    """Luna má vlastní doplněk do Stremia a její odkazy vedou do domácí sítě."""
+
+    def test_z_adresy_se_neprevezme(self):
+        options = config.from_mapping({"luna_url": "http://192.168.1.10:7126", "luna_token": "e1.x", "ws_username": "u"})
+        self.assertNotIn("luna_url", options)
+        self.assertNotIn("luna_token", options)
+        self.assertEqual(options["ws_username"], "u")
+
+    def test_z_prostredi_se_neprevezme(self):
+        options = config.from_environ({"NOKTURNO_LUNA_URL": "http://x:7126", "NOKTURNO_LUNA_TOKEN": "e1.x"})
+        self.assertNotIn("luna_url", options)
+
+    def test_logo_manifestu_existuje_v_repu_doplnku(self):
+        logo = mapping.manifest("0").get("logo", "")
+        self.assertTrue(logo.endswith("/resources/media/icon2.png"), logo)
+
+
 if __name__ == "__main__":
     unittest.main()

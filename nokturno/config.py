@@ -12,8 +12,13 @@ Nastavení může přijít dvěma cestami:
 
 Adresa z konfigurace se vyrábí na `/configure` a nese účty **v otevřené podobě**,
 jen zakódované do base64. Není to šifra a nemá být — takhle fungují všechny
-doplňky Stremia. Důsledek: doplněk nepatří na veřejnou adresu, dokud tomu
-nerozumíš. Viz `pristupy.md` projektu.
+doplňky Stremia. Adresu proto nikomu neposílat. Viz `pristupy.md` projektu.
+
+**Luna se ve Stremiu nepoužívá** (od 0.2.5). Má vlastní doplněk do Stremia, takže
+by se soubory z WebShare zdvojovaly, a její odkazy vedou na server v domácí síti —
+přes veřejnou adresu by nešly přehrát. WebShare zůstává, protože Nokturno dává
+podepsaný odkaz rovnou na WebShare, který jde přehrát odkudkoli. Klíče Luny se
+z prostředí ani z adresy nepřebírají; starší adresy, které je nesou, fungují dál.
 """
 import base64
 import json
@@ -31,8 +36,6 @@ PROSTREDI = {
     "NOKTURNO_WS_PASSWORD": "ws_password",
     "NOKTURNO_STREAMUJ_USERNAME": "streamuj_username",
     "NOKTURNO_STREAMUJ_PASSWORD": "streamuj_password",
-    "NOKTURNO_LUNA_URL": "luna_url",
-    "NOKTURNO_LUNA_TOKEN": "luna_token",
     "NOKTURNO_HS_ENABLED": "hs_enabled",
     "NOKTURNO_PREF_LANG": "pref_lang",
     "NOKTURNO_PREF_SURROUND": "pref_surround",
