@@ -9,6 +9,7 @@ odkazů, které by se neměly přehrát.
 import logging
 import pathlib
 import sys
+import tempfile
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -449,6 +450,47 @@ class TestOvereniSledujteto(unittest.TestCase):
     def test_klice_projdou_do_jadra(self):
         options = config.from_mapping({"st_email": "a@b.cz", "st_password": "x"})
         self.assertEqual((options["st_email"], options["st_password"]), ("a@b.cz", "x"))
+
+
+
+class TestStatistiky(unittest.TestCase):
+    def test_zaznam_titulu_a_hlaseni_se_zdroji(self):
+        from nokturno import statistiky as modul
+        from nokturno.core.lib.stats import Stats
+        odeslano = []
+        puvodni = Stats.send
+        Stats.send = lambda self, url, **kw: (odeslano.append(kw), (True, ""))[1]
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                class Jadro:
+                    store = type("Uloziste", (), {"dir": tmp})()
+
+                    def sources(self):
+                        return {"webshare": True, "luna": False, "sledujteto": True}
+
+                    def meta(self, ctype, item_id):
+                        return {"name": "Matrix", "year": 1999}, None
+
+                modul.Statistiky("9.9").zpracuj(Jadro(), "movie", "tt0133093")
+                hotovo = Stats(tmp).data
+        finally:
+            Stats.send = puvodni
+        self.assertEqual(hotovo["plays"]["tt0133093"]["t"], "Matrix")
+        self.assertEqual(odeslano[0]["product"], "stremio")
+        self.assertEqual(set(odeslano[0]["sources"]), {"webshare", "sledujteto"})
+        self.assertEqual(odeslano[0]["platform"], "Stremio")
+
+    def test_vypnuti_promennou(self):
+        from nokturno.statistiky import Statistiky
+        self.assertFalse(Statistiky.z_prostredi("1", {"NOKTURNO_STATS": "0"}).zapnuto)
+        self.assertTrue(Statistiky.z_prostredi("1", {}).zapnuto)
+
+    def test_router_zaznamena_zobrazene_streamy(self):
+        r = router()
+        volani = []
+        r.statistiky = type("S", (), {"zaznamenej": lambda self, *a: volani.append(a)})()
+        r.route(f"/c/{KOUSEK}/stream/movie/tt1.json", ZAKLAD)
+        self.assertEqual(volani[0][1:], ("movie", "tt1"))
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from .config import from_environ, sources_summary
 from .enginy import Enginy
 from .routes import VERZE, Router
+from .statistiky import Statistiky
 
 _LOGGER = logging.getLogger("nokturno")
 
@@ -120,7 +121,7 @@ def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, opti
         predvyplnit = os.environ.get("NOKTURNO_CONFIGURE_PREFILL", "").strip().lower() in ("1", "true", "ano", "yes")
     server = ThreadingHTTPServer((host, port), Handler)
     server.daemon_threads = True
-    server.router = Router(enginy, predvyplnit=predvyplnit)
+    server.router = Router(enginy, predvyplnit=predvyplnit, statistiky=Statistiky.z_prostredi(VERZE))
     return server, zdroje
 
 

@@ -64,12 +64,13 @@ def chyba(status, zprava):
 class Router:
     """Obsluha požadavků. Jádro si bere podle nastavení v adrese."""
 
-    def __init__(self, enginy, verze=VERZE, predvyplnit=False):
+    def __init__(self, enginy, verze=VERZE, predvyplnit=False, statistiky=None):
         self.enginy = enginy
         self.verze = verze
         # nabídnout ve formuláři účty z prostředí? Na sdílené instanci NE — ukázalo
         # by je komukoli, kdo formulář otevře. Na vlastní ušetří opisování hashů.
         self.predvyplnit = predvyplnit
+        self.statistiky = statistiky   # nokturno.statistiky.Statistiky, None = vypnuto
         self.ws_api = WebshareApi   # testy podstrčí falešné, aby nešly na síť
         self.st_api = SledujtetoApi
 
@@ -194,6 +195,8 @@ class Router:
             return Odpoved(data={"streams": []})
 
         _LOGGER.info("streamy %s %s: %d", ctype, item_id, len(popisy))
+        if self.statistiky is not None:
+            self.statistiky.zaznamenej(engine, ctype, item_id)
         return Odpoved(data=mapping.streams_response(popisy, self._odkaz(zaklad, kousek)))
 
     def play(self, engine, payload):
