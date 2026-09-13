@@ -1,16 +1,20 @@
 # Nokturno pro Stremio
 
-Doplněk, který k filmům a seriálům ve Stremiu dohledá streamy z **WebShare**,
-**Sosáče** a **HellSpy**. Stejné zdroje jako [doplněk pro Kodi](https://github.com/matata86/plugin.video.nokturno)
+Doplněk, který k filmům a seriálům ve Stremiu (i v Nuviu a dalších klientech
+s doplňky Stremia) dohledá streamy z **WebShare**, **Sosáče**, **Sledujteto**
+a **HellSpy**. Podrobný návod je ve [wiki](https://github.com/matata86/nokturno-stremio/wiki). Stejné zdroje jako [doplněk pro Kodi](https://github.com/matata86/plugin.video.nokturno)
 a [integrace pro Home Assistant](https://github.com/matata86/nokturno-ha), protože všichni tři
 stojí na společném jádru [nokturno-core](https://github.com/matata86/nokturno-core).
 
-> **Jen do domácí sítě.** Stremio nosí nastavení doplňku zakódované v adrese, takže
-> účty k WebShare a Streamuj putují v každém požadavku v otevřené podobě.
+> **Účty jsou v adrese doplňku.** Stremio nosí nastavení zakódované v adrese, takže
+> účty putují v každém požadavku v otevřené podobě — adresu nikomu neposílej.
 > Na veřejnou adresu vystavuj jen přes Tailscale Funnel: požadavek z Funnelu
 > pozná služba podle hlavičky a bez vlastního nastavení v adrese mu nedá účty
 > z prostředí (od 0.2.4). Jiný tunel nebo reverzní proxy tu značku nenese,
 > takže by instance pouštěla ven účty z `.env`.
+>
+> Luna se od 0.2.5 nepoužívá — má vlastní doplněk do Stremia a její odkazy vedou
+> do domácí sítě.
 
 ## Co umí
 
@@ -22,7 +26,8 @@ identifikátor IMDb, a k tomu přihodí své streamy.
 |---|---|
 | Filmy | ano |
 | Seriály | ano, včetně jednotlivých dílů |
-| Titulky | ano, dohledané na WebShare |
+| Titulky | ano, z WebShare a Sledujteto |
+| Zvuk | jazyk, kanály a kodek — z hlavičky souboru, u Sledujteto přímo z API |
 | Katalogy | ne, a nechystají se — Stremio je má samo |
 | Torrenty | ne, zatím jen v integraci pro Home Assistant |
 | Popisy a katalogy | ne, a nechystají se — ve Stremiu je dodává katalogový doplněk |
@@ -76,20 +81,21 @@ Hodnoty jsou stejné jako v doplňku pro Kodi, takže se dají opsat z jeho
 | `NOKTURNO_ST_EMAIL`, `NOKTURNO_ST_PASSWORD` | Sledujteto — hledání chce účet, přehrávání Premium |
 | `NOKTURNO_HS_ENABLED` | HellSpy je veřejný, stačí přepínač; zapnutý ve výchozím stavu |
 | `NOKTURNO_PREF_LANG`, `NOKTURNO_SORT`, `NOKTURNO_HIDE_SD` | předvolby řazení a filtrování |
+| `NOKTURNO_STATS` | `0` vypne anonymní statistiky, viz níže |
 
 Žádný zdroj není povinný. Bez nastavení běží doplněk jen s HellSpy.
 
 ## Jak to funguje
 
 ```
-Stremio ──▶ /stream/movie/tt0133093.json ──▶ Engine.streams() ──▶ WebShare, Sosáč, HellSpy
+Stremio ──▶ /stream/movie/tt0133093.json ──▶ Engine.streams() ──▶ WebShare, Sosáč, HellSpy, Sledujteto
                         ▼
             streamy s odkazem na /play/<payload>
                         ▼
 Přehrávač ─▶ /play/<payload> ──▶ Engine.resolve() ──▶ 302 na soubor
 ```
 
-**Proč to obchází přes `/play/`.** Odkazy WebShare a HellSpy nesou podpis a platí
+**Proč to obchází přes `/play/`.** Odkazy WebShare, HellSpy a Sledujteto nesou podpis a platí
 jen chvíli. Kdyby se vydaly rovnou v odpovědi, do chvíle, než si uživatel stream
 vybere, by vyhasly. Endpoint `/play/` proto soubor rozklíčuje až ve chvíli, kdy se
 na něj přehrávač skutečně obrátí. Přijímá jen odkazy se známým schématem, jinak by
@@ -113,6 +119,14 @@ python3 tools/sync_core.py --check --diff stremio
 python3 tools/sync_core.py stremio
 ```
 
+## Anonymní statistiky
+
+Doplněk posílá anonymní statistiky na stejný sběrný bod jako Nokturno pro Kodi
+a Home Assistant: náhodný identifikátor nastavení, verzi, které zdroje jsou
+zapnuté a u kterých titulů se otevřely streamy — nejvýš jednou za 6 hodin.
+Jedna „instalace" je jedno nastavení doplňku (vlastní adresa), ne celý server.
+Účty ani adresa doplňku se neposílají. Vypnutí: `NOKTURNO_STATS=0`.
+
 ## Testy
 
 ```bash
@@ -123,8 +137,8 @@ Nesahají na síť a nepotřebují účty. Jádro má vlastní testy ve svém re
 
 ## Stav a co dál
 
-Funkční, nasazené zatím nikde. Ověřeno na skutečných datech: film i díl seriálu
-vrátí streamy ze všech tří zdrojů a `/play/` z nich udělá živý odkaz.
+V provozu na vlastní instanci, veřejně přes Tailscale Funnel. Nastavení
+s návody je na `/configure`, včetně ověření účtů WebShare a Sledujteto.
 
 Chystá se:
 
