@@ -1,5 +1,7 @@
 # Nokturno pro Stremio
 
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-podpo%C5%99%20autora-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/matata86) [![PayPal](https://img.shields.io/badge/PayPal-paypal.me%2Fmatata86-00457C?logo=paypal&logoColor=white)](https://paypal.me/matata86) [![Bitcoin](https://img.shields.io/badge/Bitcoin-BTC-f7931a?logo=bitcoin&logoColor=white)](#podpora)
+
 Doplněk, který k filmům a seriálům ve Stremiu (i v Nuviu a dalších klientech
 s doplňky Stremia) dohledá streamy z **WebShare**, **Sosáče**, **Sledujteto**
 a **HellSpy**. Podrobný návod je ve [wiki](https://github.com/matata86/nokturno-stremio/wiki). Stejné zdroje jako [doplněk pro Kodi](https://github.com/matata86/plugin.video.nokturno)
@@ -151,3 +153,13 @@ Chystá se:
 ## Licence
 
 MIT
+
+---
+
+## Podpora
+
+Pomohlo ti to? Kafe autorovi udělá radost ☕
+
+- **Ko-fi:** https://ko-fi.com/matata86
+- **PayPal:** https://paypal.me/matata86
+- **Bitcoin:** `bc1qhjwt8xxmuym0xsd50yfpvjph00386uz73gqwlc`
