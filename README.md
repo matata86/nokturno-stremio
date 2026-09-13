@@ -20,6 +20,7 @@ stojí na společném jádru [nokturno-core](https://github.com/matata86/nokturn
 
 ## Co umí
 
+- **Vlastní úložiště** (od 3.1.0) — až tři WebDAV složky s vlastními soubory ve formuláři (s ověřením). Soubory jsou mezi streamy první a přehrávají se **přes doplněk** (proxy s `Range`), protože přehrávače Stremia heslo neumí poslat — heslo ani adresa úložiště do nich neodejdou. Veřejná instance ignoruje úložiště s adresou na server samotný nebo link-local. Podrobně ve [wiki](https://github.com/matata86/nokturno-stremio/wiki/Zdroje-a-nastaveni#vlastní-úložiště).
 Zatím jen streamy, a to je záměr. Katalogy a metadata ve Stremiu už máš z Cinemety,
 takže přidaná hodnota Nokturna jsou zdroje. Doplněk se proto chytá na všem, co má
 identifikátor IMDb, a k tomu přihodí své streamy.
