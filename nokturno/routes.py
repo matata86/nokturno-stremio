@@ -1,5 +1,6 @@
 """Endpointy protokolu Stremia nad jádrem Nokturna.
 
+    GET /                                úvodní stránka a rozcestník repozitářů
     GET /configure                       formulář, který vyrobí adresu s účty
     GET /c/<nastavení>/manifest.json     co doplněk umí
     GET /c/<nastavení>/stream/:t/:id.json   streamy k titulu
@@ -173,17 +174,13 @@ class Router:
                     out["luna"] = {"ok": False}
         return Odpoved(data=out)
 
-    def uvod(self, engine, zaklad):
-        zdroje = config.sources_summary(engine) if engine is not None else []
-        radky = [
-            "Nokturno pro Stremio", "",
-            f"verze:  {self.verze}",
-            f"zdroje: {', '.join(zdroje) if zdroje else 'žádný nenastavený'}",
-            "",
-            "Doplněk se přidává adresou, kterou vyrobí formulář:",
-            f"  {zaklad}/configure",
-        ]
-        return Odpoved(text="\n".join(radky) + "\n")
+    def uvod(self, zaklad):
+        """Úvodní stránka a rozcestník celé rodiny Nokturna — nic o nastavení instance neprozradí."""
+        try:
+            html = (STATIKA / "index.html").read_text(encoding="utf-8")
+        except OSError:
+            return Odpoved(text=f"Nokturno pro Stremio {self.verze}\nNastavení: {zaklad}/configure\n")
+        return Odpoved(html=html.replace("__ZAKLAD__", zaklad).replace("__VERZE__", self.verze))
 
     def streams(self, engine, ctype, item_id, zaklad, kousek):
         if ctype not in TYPY:
@@ -252,7 +249,7 @@ class Router:
         if zbytek in ("", "/", "/configure", "/configure/"):
             if zbytek in ("/configure", "/configure/"):
                 return self.configure(kousek, zaklad, verejny)
-            return self.uvod(None if verejny and not kousek else self.enginy.pro(options), zaklad)
+            return self.uvod(zaklad)
 
         if verejny and not kousek:
             if zbytek == "/manifest.json":

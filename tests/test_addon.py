@@ -335,9 +335,20 @@ class TestVerejnyPristup(unittest.TestCase):
         self.assertNotIn("z-prostredi", r.route("/configure", ZAKLAD, verejny=True).html)
         self.assertIn("z-prostredi", r.route("/configure", ZAKLAD).html, "z domácí sítě dál ano")
 
-    def test_uvod_zvenku_neprozradi_zdroje(self):
-        text = router().route("/", ZAKLAD, verejny=True).text
-        self.assertIn("žádný nenastavený", text)
+    def test_uvod_je_rozcestnik_a_neprozradi_zdroje(self):
+        r = router()
+        html = r.route("/", ZAKLAD, verejny=True).html
+        self.assertIn(f"{ZAKLAD}/configure", html)
+        for repo in ("plugin.video.nokturno", "nokturno-ha", "nokturno-stremio", "nokturno-core"):
+            self.assertIn(f"github.com/matata86/{repo}", html)
+        self.assertNotIn("__ZAKLAD__", html)
+        self.assertNotIn("__VERZE__", html)
+        self.assertEqual(r.enginy_test.pozadovana_nastaveni, [], "úvod jádro nezakládá")
+
+    def test_formular_umi_nuvio(self):
+        html = router().route("/configure", ZAKLAD).html
+        self.assertIn('"nuvio://"', html)
+        self.assertIn("Streamlet", html)
 
     def test_s_vlastnim_nastavenim_zvenku_funguje(self):
         r = router()

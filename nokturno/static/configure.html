@@ -132,11 +132,14 @@
     .akce-radek { flex-wrap: nowrap; gap: .5rem; }
     .akce-radek button { flex: 1; padding: .62rem .5rem; font-size: .9rem; white-space: nowrap; }
     .akce-souhrn { display: none; }
+    .dlouhe { display: none; }
     details.adresa { margin-top: .25rem; }
   }
   .zarizeni { display: grid; grid-template-columns: repeat(3, 1fr); gap: .8rem; }
   @media (max-width: 40rem) { .zarizeni { grid-template-columns: 1fr; } }
   .zarizeni .karta { margin: 0; }
+  .zarizeni.jine { grid-template-columns: repeat(2, 1fr); margin-top: .8rem; }
+  @media (max-width: 40rem) { .zarizeni.jine { grid-template-columns: 1fr; } }
   .zarizeni h3 { font-size: .98rem; margin-bottom: .45rem; }
   .zarizeni ol { margin: 0; padding-left: 1.1rem; font-size: .9rem; }
   .zarizeni li { margin: .3rem 0; }
@@ -173,7 +176,7 @@
   <ul class="kroky">
     <li><a href="#zdroje"><b>1</b>Zdroje a účty</a></li>
     <li><a href="#predvolby"><b>2</b>Předvolby</a></li>
-    <li><a href="#instalace"><b>3</b>Přidat do Stremia</a></li>
+    <li><a href="#instalace"><b>3</b>Přidat do aplikace</a></li>
     <li><a href="#otazky"><b>?</b>Časté otázky</a></li>
   </ul>
 
@@ -368,8 +371,9 @@
 
   <!-- ============================== 3. INSTALACE ============================== -->
   <section id="instalace">
-    <h2><b>3</b>Přidat do Stremia</h2>
-    <p class="popis">Tlačítko dole vyrobí z nastavení tvou vlastní adresu doplňku a otevře s ní Stremio.</p>
+    <h2><b>3</b>Přidat do aplikace</h2>
+    <p class="popis">Tlačítka dole vyrobí z nastavení tvou vlastní adresu doplňku a otevřou s ní Stremio nebo Nuvio.
+      Stejná adresa funguje i ve Streamletu a v dalších aplikacích, které umí doplňky Stremia.</p>
 
     <div class="zarizeni">
       <div class="karta">
@@ -394,6 +398,25 @@
           <li>Nainstaluj doplněk na počítači nebo telefonu <strong>pod stejným účtem Stremio</strong>.</li>
           <li>Doplňky se mezi zařízeními synchronizují samy — na TV se objeví do minuty.</li>
           <li>Ruční cesta: Stremio → <strong>Doplňky</strong> → pole nahoře → vložit adresu → <strong>Instalovat</strong>.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="zarizeni jine">
+      <div class="karta">
+        <h3>🟣 Nuvio</h3>
+        <ol>
+          <li>Otevři tuhle stránku na zařízení, kde máš Nuvio.</li>
+          <li>Klikni na <strong>Přidat do Nuvia</strong> a instalaci potvrď.</li>
+          <li>Nuvio na TV: <strong>Zkopírovat adresu</strong> a v Nuviu → Nastavení → Doplňky → vložit adresu → <strong>Instalovat</strong>.</li>
+        </ol>
+      </div>
+      <div class="karta">
+        <h3>🔷 Streamlet</h3>
+        <ol>
+          <li>Streamlet odkaz pro přidání doplňku nemá — klikni na <strong>Zkopírovat adresu</strong>.</li>
+          <li>Ve Streamletu přidej doplněk Stremia (modul) a vlož zkopírovanou adresu.</li>
+          <li>Na TV adresu nejsnáz pošleš z telefonu, třeba zprávou sám sobě.</li>
         </ol>
       </div>
     </div>
@@ -435,7 +458,7 @@
       <summary>Jak nastavení později změnit?</summary>
       <div class="obsah">
         <p>Ve Stremiu otevři <strong>Doplňky</strong> → <strong>Nokturno</strong> → ikona ozubeného kola (<em>Konfigurovat</em>).
-          Otevře se tahle stránka s tvým současným nastavením. Uprav, co potřebuješ, a znovu klikni na <strong>Přidat do Stremia</strong>.</p>
+          Otevře se tahle stránka s tvým současným nastavením. Uprav, co potřebuješ, a znovu klikni na <strong>Přidat do Stremia</strong> (nebo Nuvia).</p>
         <p>Změněné nastavení je nová adresa — starou verzi doplňku pak ve Stremiu odinstaluj, ať nemáš Nokturno dvakrát.</p>
       </div>
     </details>
@@ -480,14 +503,15 @@
     </details>
   </section>
 
-  <footer>Nokturno · <a href="https://github.com/matata86/nokturno-stremio" target="_blank" rel="noopener">zdrojový kód</a> · nastavení se ukládá jen do adresy doplňku</footer>
+  <footer><a href="__ZAKLAD__/">Nokturno</a> · <a href="https://github.com/matata86/nokturno-stremio" target="_blank" rel="noopener">zdrojový kód</a> · nastavení se ukládá jen do adresy doplňku</footer>
 </main>
 
 <!-- lišta s instalací: vždy po ruce -->
 <div class="akce" id="akce">
   <div class="akce-radek">
-    <button type="button" class="hlavni" id="instalovat">Přidat do Stremia</button>
-    <button type="button" id="kopirovat">Zkopírovat adresu</button>
+    <button type="button" class="hlavni" id="instalovat"><span class="dlouhe">Přidat do </span>Stremia</button>
+    <button type="button" class="hlavni" id="nuvio"><span class="dlouhe">Přidat do </span>Nuvia</button>
+    <button type="button" id="kopirovat">Zkopírovat<span class="dlouhe"> adresu</span></button>
     <span class="akce-souhrn" id="souhrn-zdroju"></span>
   </div>
   <div class="stav" id="stav"></div>
@@ -683,12 +707,21 @@ $("instalovat").addEventListener("click", () => {
   window.location.href = adresa().replace(/^https?:\/\//, "stremio://");
 });
 
+// Nuvio (mobil i TV) má vlastní schéma nuvio://adresa — stremio:// umí taky, ale to by
+// se při nainstalovaném Stremiu otevřelo tam
+$("nuvio").addEventListener("click", () => {
+  const chyba = problem();
+  if (chyba) { nastavStav(chyba, true); return; }
+  nastavStav("Otevírám Nuvio… Když se nic nestane, použij Zkopírovat adresu.");
+  window.location.href = adresa().replace(/^https?:\/\//, "nuvio://");
+});
+
 $("kopirovat").addEventListener("click", async () => {
   const chyba = problem();
   if (chyba) { nastavStav(chyba, true); return; }
   try {
     await navigator.clipboard.writeText(adresa());
-    nastavStav("Adresa zkopírována. Ve Stremiu: Doplňky → vlož adresu do pole nahoře → Instalovat.");
+    nastavStav("Adresa zkopírována. Vlož ji v aplikaci mezi doplňky (Stremio: Doplňky → pole nahoře → Instalovat).");
   } catch {
     document.querySelector("details.adresa").open = true;
     nastavStav("Kopírování prohlížeč nedovolil — adresu označ a zkopíruj ručně z rámečku.", true);

@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nokturno</title>
+<meta name="description" content="Nokturno — WebShare, Sosáč, Sledujteto, HellSpy a Luna v Kodi, Home Assistantu, Stremiu, Nuviu a Streamletu.">
+<link rel="icon" href="https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/resources/media/icon2.png">
+<style>
+  :root {
+    --pozadi: #0d0c1d; --panel: #17162b; --panel-2: #1c1b33; --pole: #201f38; --okraj: #2f2d4d;
+    --text: #e8e6f5; --tlumene: #9a97b8; --akcent: #7b5bf5; --akcent-tmavy: #6547d6; --ok: #3ecf8e;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 0 1rem; background: var(--pozadi); color: var(--text);
+         font: 15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 64rem; margin: 0 auto; padding: 2rem 0 1rem; }
+  a { color: #a993ff; }
+  a:hover { color: #c7b8ff; }
+  code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .84em; background: var(--pole);
+         border: 1px solid var(--okraj); border-radius: 5px; padding: .08rem .38rem; word-break: break-all; }
+
+  .hlava { display: flex; gap: 1rem; align-items: center; }
+  .hlava img { width: 72px; height: 72px; border-radius: 16px; flex: none; }
+  h1 { font-size: 2rem; margin: 0; line-height: 1.15; }
+  .podtitul { color: var(--tlumene); margin: .2rem 0 0; }
+  .banner { display: block; width: 100%; aspect-ratio: 16 / 7; object-fit: cover; border-radius: 16px;
+            border: 1px solid var(--okraj); margin: 1.5rem 0 1rem; background: var(--panel); }
+  .zdroje { display: flex; flex-wrap: wrap; gap: .45rem; margin: 0 0 2rem; padding: 0; list-style: none; }
+  .zdroje li { padding: .25rem .75rem; border-radius: 99px; border: 1px solid var(--okraj); background: var(--panel);
+               font-size: .86rem; }
+  .zdroje li span { color: var(--tlumene); }
+
+  h2 { font-size: 1.25rem; margin: 0 0 .9rem; }
+  .mrizka { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2.25rem; }
+  @media (max-width: 52rem) { .mrizka { grid-template-columns: 1fr; } }
+  .karta { background: var(--panel); border: 1px solid var(--okraj); border-radius: 14px; padding: 1.2rem;
+           display: flex; flex-direction: column; }
+  .karta h3 { margin: 0; font-size: 1.15rem; display: flex; align-items: center; gap: .5rem; }
+  .karta .kde { color: var(--tlumene); font-size: .85rem; margin: .1rem 0 .7rem; }
+  .karta p { margin: 0 0 .7rem; color: var(--tlumene); font-size: .92rem; }
+  .karta ol { margin: 0 0 .9rem; padding-left: 1.1rem; font-size: .9rem; }
+  .karta li { margin: .3rem 0; }
+  .tlacitka { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: auto; padding-top: .4rem; }
+  .tl { display: inline-block; font-weight: 600; font-size: .9rem; padding: .55rem .95rem; border-radius: 9px;
+        border: 1px solid var(--okraj); background: var(--pole); color: var(--text); text-decoration: none; cursor: pointer; font-family: inherit; }
+  .tl:hover { border-color: var(--akcent); color: var(--text); }
+  .tl.hlavni { background: var(--akcent); border-color: var(--akcent); color: #fff; }
+  .tl.hlavni:hover { background: var(--akcent-tmavy); }
+  .aplikace { display: flex; flex-wrap: wrap; gap: .35rem; margin: 0 0 .8rem; }
+  .aplikace span { font-size: .75rem; padding: .1rem .5rem; border-radius: 99px; border: 1px solid var(--okraj); color: var(--tlumene); }
+
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  .tabulka { overflow-x: auto; background: var(--panel); border: 1px solid var(--okraj); border-radius: 14px; }
+  th, td { text-align: left; padding: .65rem .9rem; border-bottom: 1px solid var(--okraj); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { color: var(--tlumene); font-weight: 500; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+  td:first-child { white-space: nowrap; }
+  td .tlumene { color: var(--tlumene); }
+  .stav { color: var(--ok); font-size: .85rem; min-height: 1.3em; margin-top: .4rem; }
+  footer { margin: 2.5rem 0 2rem; color: var(--tlumene); font-size: .82rem; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <header class="hlava">
+    <img src="https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/resources/media/icon2.png" alt="">
+    <div>
+      <h1>Nokturno</h1>
+      <p class="podtitul">Filmy a seriály z českých a slovenských úschoven — jedno hledání, všechny zdroje.</p>
+    </div>
+  </header>
+
+  <img class="banner" src="https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/resources/media/fanart.jpg" alt="">
+
+  <ul class="zdroje">
+    <li>WebShare <span>· VIP</span></li>
+    <li>Sosáč <span>· Streamuj.tv</span></li>
+    <li>Sledujteto <span>· Premium</span></li>
+    <li>HellSpy <span>· zdarma</span></li>
+    <li>Luna <span>· vlastní server</span></li>
+  </ul>
+
+  <h2>Kde Nokturno běží</h2>
+  <div class="mrizka">
+    <div class="karta">
+      <h3>📺 Kodi</h3>
+      <p class="kde">Android TV, CoreELEC, LibreELEC, Windows, Linux</p>
+      <p>Plnohodnotný doplněk s menu, hledáním, Traktem, stahováním a pokračováním ve sledování.</p>
+      <ol>
+        <li>Kodi → Nastavení → Správce souborů → Přidat zdroj:<br><code>https://nokturno.tailf0014.ts.net/repo/</code></li>
+        <li>Doplňky → Instalovat ze ZIP → <strong>repository.nokturno</strong></li>
+        <li>Instalovat z repozitáře → Nokturno → Video doplňky → <strong>Nokturno</strong></li>
+      </ol>
+      <div class="tlacitka">
+        <button type="button" class="tl hlavni" data-kopirovat="https://nokturno.tailf0014.ts.net/repo/">Zkopírovat zdroj</button>
+        <a class="tl" href="https://github.com/matata86/plugin.video.nokturno/wiki" target="_blank" rel="noopener">Návod</a>
+        <a class="tl" href="https://github.com/matata86/plugin.video.nokturno" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+
+    <div class="karta">
+      <h3>🎬 Stremio a spol.</h3>
+      <p class="kde">Počítač, telefon, TV — všude, kde jdou doplňky Stremia</p>
+      <div class="aplikace"><span>Stremio</span><span>Nuvio</span><span>Streamlet</span></div>
+      <p>Streamy Nokturna se objeví v detailu filmu nebo dílu mezi ostatními. Účty vyplníš ve formuláři,
+        ten ti vyrobí vlastní adresu doplňku a rovnou ho přidá do aplikace.</p>
+      <div class="tlacitka">
+        <a class="tl hlavni" href="__ZAKLAD__/configure">Nastavit a přidat</a>
+        <a class="tl" href="https://github.com/matata86/nokturno-stremio/wiki" target="_blank" rel="noopener">Návod</a>
+        <a class="tl" href="https://github.com/matata86/nokturno-stremio" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+
+    <div class="karta">
+      <h3>🏠 Home Assistant</h3>
+      <p class="kde">Integrace přes HACS a karta do dashboardu</p>
+      <p>Hledání z karty, přehrání v Kodi, stahování s titulky, odkaz do mobilu, sledované seriály
+        a seznam k zhlédnutí i pro filmy, které teprve vyjdou.</p>
+      <div class="tlacitka">
+        <a class="tl hlavni" href="https://my.home-assistant.io/redirect/hacs_repository/?owner=matata86&amp;repository=nokturno-ha&amp;category=integration" target="_blank" rel="noopener">Otevřít v HACS</a>
+        <a class="tl" href="https://github.com/matata86/nokturno-ha/wiki" target="_blank" rel="noopener">Návod</a>
+        <a class="tl" href="https://github.com/matata86/nokturno-ha" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </div>
+  <div class="stav" id="stav"></div>
+
+  <h2>Všechny repozitáře</h2>
+  <div class="tabulka">
+    <table>
+      <thead><tr><th>Repozitář</th><th>Co v něm je</th></tr></thead>
+      <tbody>
+        <tr><td><a href="https://github.com/matata86/plugin.video.nokturno" target="_blank" rel="noopener">plugin.video.nokturno</a></td>
+          <td>Doplněk pro Kodi a jeho repozitář · <a href="https://github.com/matata86/plugin.video.nokturno/wiki" target="_blank" rel="noopener">wiki</a> · <a href="https://github.com/matata86/plugin.video.nokturno/releases" target="_blank" rel="noopener">vydání</a></td></tr>
+        <tr><td><a href="https://github.com/matata86/nokturno-ha" target="_blank" rel="noopener">nokturno-ha</a></td>
+          <td>Integrace a karta pro Home Assistant · <a href="https://github.com/matata86/nokturno-ha/wiki" target="_blank" rel="noopener">wiki</a> · <a href="https://github.com/matata86/nokturno-ha/releases" target="_blank" rel="noopener">vydání</a></td></tr>
+        <tr><td><a href="https://github.com/matata86/nokturno-stremio" target="_blank" rel="noopener">nokturno-stremio</a></td>
+          <td>Doplněk pro Stremio, Nuvio a Streamlet · <a href="https://github.com/matata86/nokturno-stremio/wiki" target="_blank" rel="noopener">wiki</a></td></tr>
+        <tr><td><a href="https://github.com/matata86/nokturno-core" target="_blank" rel="noopener">nokturno-core</a></td>
+          <td>Sdílené jádro všech tří <span class="tlumene">— hledání, párování souborů s tituly, klienti zdrojů</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>Nokturno pro Stremio __VERZE__ · anonymní statistiky, žádné účty na serveru</footer>
+</main>
+<script>
+document.querySelectorAll("[data-kopirovat]").forEach((tl) => tl.addEventListener("click", async () => {
+  const stav = document.getElementById("stav");
+  try {
+    await navigator.clipboard.writeText(tl.dataset.kopirovat);
+    stav.textContent = "Zkopírováno: " + tl.dataset.kopirovat;
+  } catch {
+    stav.textContent = "Kopírování prohlížeč nedovolil — adresu opiš z návodu.";
+  }
+}));
+</script>
+</body>
+</html>
