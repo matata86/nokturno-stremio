@@ -37,6 +37,8 @@ PROSTREDI = {
     "NOKTURNO_STREAMUJ_USERNAME": "streamuj_username",
     "NOKTURNO_STREAMUJ_PASSWORD": "streamuj_password",
     "NOKTURNO_HS_ENABLED": "hs_enabled",
+    "NOKTURNO_ST_EMAIL": "st_email",
+    "NOKTURNO_ST_PASSWORD": "st_password",
     "NOKTURNO_PREF_LANG": "pref_lang",
     "NOKTURNO_PREF_SURROUND": "pref_surround",
     "NOKTURNO_HIDE_SD": "hide_sd",
@@ -136,5 +138,5 @@ def sources_summary(engine):
     """
     zdroje = engine.sources()
     nazvy = {"luna": "Luna", "sosac": "Sosáč", "webshare": "WebShare",
-             "hellspy": "HellSpy", "torrent": "torrenty"}
+             "hellspy": "HellSpy", "sledujteto": "Sledujteto", "torrent": "torrenty"}
     return [nazvy[k] for k, zapnuto in zdroje.items() if zapnuto and k in nazvy]

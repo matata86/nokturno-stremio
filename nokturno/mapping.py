@@ -200,7 +200,7 @@ def manifest(verze, zdroje=(), nastaveno=True):
     a co neumíme, vrátí prázdno; jeden dotaz navíc je levnější než chybějící
     streamy u poloviny knihovny.
     """
-    popis = "Streamy z WebShare, Sosáče a HellSpy k filmům a seriálům, které už ve Stremiu vidíš."
+    popis = "Streamy z WebShare, Sosáče, Sledujteto a HellSpy k filmům a seriálům, které už ve Stremiu vidíš."
     if zdroje:
         popis += " Nastavené zdroje: " + ", ".join(zdroje) + "."
     return {

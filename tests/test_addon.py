@@ -418,5 +418,38 @@ class TestBezLuny(unittest.TestCase):
         self.assertTrue(logo.endswith("/resources/media/icon2.png"), logo)
 
 
+
+class FalesneSledujteto:
+    def __init__(self, email, password):
+        self.password = password
+
+    def me(self):
+        if self.password != "spravne":
+            raise NokturnoError("přihlášení se nepovedlo — zkontroluj e-mail a heslo")
+        return {"is_premium": self.password == "spravne"}
+
+
+class TestOvereniSledujteto(unittest.TestCase):
+    def _check(self, nastaveni):
+        r = router()
+        r.st_api = FalesneSledujteto
+        kousek = config.encode(config.from_mapping(nastaveni))
+        return r.route(f"/c/{kousek}/check", ZAKLAD).data["sledujteto"]
+
+    def test_premium(self):
+        self.assertEqual(self._check({"st_email": "a@b.cz", "st_password": "spravne"}), {"ok": True, "premium": True})
+
+    def test_spatne_heslo(self):
+        vysledek = self._check({"st_email": "a@b.cz", "st_password": "spatne"})
+        self.assertFalse(vysledek["ok"])
+
+    def test_nevyplneno(self):
+        self.assertIsNone(self._check({"ws_username": "u"}))
+
+    def test_klice_projdou_do_jadra(self):
+        options = config.from_mapping({"st_email": "a@b.cz", "st_password": "x"})
+        self.assertEqual((options["st_email"], options["st_password"]), ("a@b.cz", "x"))
+
+
 if __name__ == "__main__":
     unittest.main()

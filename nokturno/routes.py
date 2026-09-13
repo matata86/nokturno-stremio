@@ -28,6 +28,7 @@ import urllib.parse
 
 from .core.engine import NokturnoError, is_sosac_id, split_episode_id
 from .core.lib.webshare_api import WebshareApi, WebshareError
+from .core.lib.sledujteto_api import SledujtetoApi
 from . import config, mapping
 
 _LOGGER = logging.getLogger(__name__)
@@ -70,6 +71,7 @@ class Router:
         # by je komukoli, kdo formulář otevře. Na vlastní ušetří opisování hashů.
         self.predvyplnit = predvyplnit
         self.ws_api = WebshareApi   # testy podstrčí falešné, aby nešly na síť
+        self.st_api = SledujtetoApi
 
     # --- adresy -----------------------------------------------------------
     @staticmethod
@@ -128,7 +130,7 @@ class Router:
         takže se jen ohlásí, co je vyplněné. Jádro se kvůli tomu nezakládá — jen
         jedno přihlášení, žádná cache.
         """
-        out = {"webshare": None, "streamuj": None, "hellspy": bool(options.get("hs_enabled"))}
+        out = {"webshare": None, "streamuj": None, "sledujteto": None, "hellspy": bool(options.get("hs_enabled"))}
         user = (options.get("ws_username") or "").strip()
         if user:
             try:
@@ -143,6 +145,15 @@ class Router:
                 out["webshare"] = {"ok": False, "chyba": str(err) or "přihlášení selhalo"}
         if (options.get("streamuj_username") or "").strip():
             out["streamuj"] = {"heslo": bool((options.get("streamuj_password") or "").strip())}
+        email = (options.get("st_email") or "").strip()
+        if email:
+            # Sledujteto: přihlášení a jestli má účet Premium — bez něj přehrání neprojde
+            try:
+                user = self.st_api(email, options.get("st_password") or "").me()
+                out["sledujteto"] = {"ok": True, "premium": bool(user.get("is_premium"))}
+            except Exception as err:  # noqa: BLE001 – pro uživatele je každé selhání totéž
+                _LOGGER.info("ověření Sledujteto %s: %s", email[:3] + "…", err)
+                out["sledujteto"] = {"ok": False, "chyba": str(err) or "přihlášení selhalo"}
         return Odpoved(data=out)
 
     def uvod(self, engine, zaklad):

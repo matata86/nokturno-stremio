@@ -165,7 +165,7 @@
   </header>
 
   <p class="uvod">
-    Nokturno přidá k filmům a seriálům ve Stremiu <strong>streamy z WebShare, Sosáče a HellSpy</strong> —
+    Nokturno přidá k filmům a seriálům ve Stremiu <strong>streamy z WebShare, Sosáče, Sledujteto a HellSpy</strong> —
     často s českým dabingem nebo titulky. Tituly hledáš ve Stremiu jako obvykle, streamy
     Nokturna se objeví v detailu filmu nebo dílu mezi ostatními.
   </p>
@@ -244,6 +244,37 @@
               <li>Vyplň jméno a heslo ze Streamuj.tv. Streamuj neumí přihlášení ověřit dopředu; špatné heslo se pozná až při přehrání.</li>
             </ol>
             <p><strong>Místo hesla</strong> jde vložit i jeho 32znakový otisk — ten ukládá doplněk Nokturno pro Kodi, dá se odtamtud opsat.</p>
+          </div>
+        </details>
+      </div>
+
+      <!-- Sledujteto -->
+      <div class="karta">
+        <div class="karta-hlava">
+          <h3>Sledujteto</h3>
+          <span class="stitek">Volitelné · potřebuje Premium</span>
+        </div>
+        <p>Česká úschovna videí s velkým výběrem filmů a seriálů, často s dabingem. Hledá se přes tvůj účet, přehrávat jde jen s Premium.</p>
+        <div class="dvojice">
+          <label class="pole"><span>E-mail</span>
+            <input type="text" name="st_email" autocapitalize="off" spellcheck="false" inputmode="email"></label>
+          <label class="pole"><span>Heslo</span>
+            <span class="heslo"><input type="password" name="st_password" spellcheck="false">
+              <button type="button" class="ukazat" aria-label="Ukázat heslo">ukázat</button></span></label>
+        </div>
+        <div class="overeni">
+          <button type="button" class="male" id="overit-st">Ověřit účet</button>
+          <span class="vysledek" id="vysledek-st"></span>
+        </div>
+        <details class="navod">
+          <summary>Jak na to — účet Sledujteto</summary>
+          <div class="obsah">
+            <ol>
+              <li>Zaregistruj se na <a href="https://www.sledujteto.cz/account/registration/" target="_blank" rel="noopener">sledujteto.cz</a> (zdarma, jde i přes Google).</li>
+              <li>Aktivuj si <strong>Premium</strong> v <a href="https://www.sledujteto.cz/credits/buy/" target="_blank" rel="noopener">ceníku</a>. Bez něj Sledujteto odkaz na přehrání nevydá — streamy se ukážou, ale nepustí se.</li>
+              <li>Sem vyplň e-mail a heslo, jakým se přihlašuješ na web, a klikni na <strong>Ověřit účet</strong>.</li>
+            </ol>
+            <p>Podle podmínek Sledujteto nesmí jeden účet používat lidé z různých domácností — adresu doplňku s účtem proto nikomu nedávej.</p>
           </div>
         </details>
       </div>
@@ -403,6 +434,7 @@
         <ul>
           <li><strong>WebShare</strong> — nejvíc souborů, všechny kvality, potřebuje placené VIP.</li>
           <li><strong>Sosáč</strong> — ručně poskládaný katalog českých filmů a seriálů s dabingem a titulky, přehrává přes Streamuj.tv.</li>
+          <li><strong>Sledujteto</strong> — česká úschovna s velkým výběrem, hledá přes tvůj účet a přehrává s Premium.</li>
           <li><strong>HellSpy</strong> — veřejné soubory zdarma, bez účtu. Méně výběru, ale nic nestojí.</li>
         </ul>
       </div>
@@ -467,6 +499,7 @@ function zdroje(n = nastaveni()) {
   const out = [];
   if (n.ws_username) out.push("WebShare");
   if (n.streamuj_username) out.push("Sosáč");
+  if (n.st_email) out.push("Sledujteto");
   if (n.hs_enabled) out.push("HellSpy");
   return out;
 }
@@ -477,6 +510,8 @@ function problem(n = nastaveni()) {
   if (!n.ws_username && n.ws_password) return "U WebShare chybí uživatelské jméno.";
   if (n.streamuj_username && !n.streamuj_password) return "U Streamuj.tv chybí heslo.";
   if (!n.streamuj_username && n.streamuj_password) return "U Streamuj.tv chybí uživatelské jméno.";
+  if (n.st_email && !n.st_password) return "U Sledujteto chybí heslo.";
+  if (!n.st_email && n.st_password) return "U Sledujteto chybí e-mail.";
   return "";
 }
 
@@ -497,6 +532,7 @@ form.addEventListener("input", (e) => {
   nastavStav("");
   if (["ws_username", "ws_password"].includes(e.target.name)) vysledek("ws", "", "");
   if (["streamuj_username", "streamuj_password"].includes(e.target.name)) vysledek("su", "", "");
+  if (["st_email", "st_password"].includes(e.target.name)) vysledek("st", "", "");
 });
 prekresli();
 
@@ -543,6 +579,28 @@ $("overit-ws").addEventListener("click", async () => {
     else vysledek("ws", "pozor", "Přihlášeno, ale bez VIP — přehrávání bude pomalé.");
   } catch (err) {
     vysledek("ws", "chyba", "Ověření se nepovedlo (" + err.message + "). Zkus to za chvíli.");
+  } finally {
+    tl.disabled = false;
+  }
+});
+
+$("overit-st").addEventListener("click", async () => {
+  const n = nastaveni();
+  if (!n.st_email || !n.st_password) {
+    vysledek("st", "pozor", "Vyplň e-mail i heslo.");
+    return;
+  }
+  const tl = $("overit-st");
+  tl.disabled = true;
+  vysledek("st", "info", "Přihlašuji se na Sledujteto…");
+  try {
+    const st = (await overit()).sledujteto;
+    if (!st) vysledek("st", "pozor", "Účet není vyplněný.");
+    else if (!st.ok) vysledek("st", "chyba", "Přihlášení neprošlo — zkontroluj e-mail a heslo.");
+    else if (st.premium) vysledek("st", "ok", "✓ Přihlášeno · Premium aktivní");
+    else vysledek("st", "pozor", "Přihlášeno, ale bez Premium — streamy se ukážou, přehrát nepůjdou.");
+  } catch (err) {
+    vysledek("st", "chyba", "Ověření se nepovedlo (" + err.message + "). Zkus to za chvíli.");
   } finally {
     tl.disabled = false;
   }
