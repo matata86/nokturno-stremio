@@ -1165,6 +1165,12 @@ class Engine:
         for query in queries:
             try:
                 files, _total = self.st.search(query, limit=ST_LIMIT)
+                # diagnostika: kolik výsledků přišlo a kolik prošlo přísným filtrem názvu
+                # (názvy jsou veřejné tituly videí, nic z účtu)
+                odmitnute = [f.get("name") for f in files if not relevant(f.get("name") or "")]
+                _LOGGER.info("Sledujteto „%s“: %d výsledků, relevantních %d%s", query, len(files),
+                             len(files) - len(odmitnute),
+                             f", zahozeno např. {odmitnute[:3]}" if odmitnute else "")
             except SledujtetoError as err:
                 _LOGGER.warning("Sledujteto hledání „%s“: %s", query, err)
                 if failures is not None:
