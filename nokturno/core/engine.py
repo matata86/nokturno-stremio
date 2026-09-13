@@ -30,6 +30,7 @@ from .lib.store import Store
 from .lib.streams import arrange, estimate_rank, langs_from_name, parse_stream
 from .lib.hellspy_api import HellspyApi, HellspyError
 from .lib.sledujteto_api import SledujtetoApi, SledujtetoError
+from .lib.wikidata_api import local_titles
 from .lib.mediainfo import describe as describe_media, probe as probe_media, quality_from_size
 from .lib.webshare_api import WebshareApi, WebshareError, human_size
 
@@ -897,10 +898,14 @@ class Engine:
         }
 
     def original_titles(self, meta, ctype, alt=None):
-        """Další názvy titulu pro fulltext: originál ze Sosáče (`_orig`), anglický název z Cinemety.
+        """Další názvy titulu pro fulltext: originál ze Sosáče (`_orig`), anglický název
+        z Cinemety a český/slovenský z Wikidat.
 
         Luna originál neposílá, přitom soubory na WebShare se často jmenují originálem
-        („Outlander: Blood of My Blood“, „The Matrix“).
+        („Outlander: Blood of My Blood“, „The Matrix“). A naopak bez Luny a TMDB (doplněk
+        pro Stremio) je název titulu jen anglický, zatímco soubory jsou česky — bez českého
+        názvu z Wikidat je přísný filtr zahazoval všechny („Harry Potter and the Goblet
+        of Fire“ × „Harry Potter a Ohnivý pohár 2005 CZ dabing HD“).
         """
         title = meta.get("_title") or meta.get("name") or ""
         names = [meta.get("_orig") or ""]
@@ -918,6 +923,16 @@ class Engine:
                 except Exception:  # noqa: BLE001
                     return {"name": ""}
             names.append((self.store.cached(f"cmname:{ctype}:{imdb}", 30 * 86400, load) or {}).get("name", ""))
+
+            def load_local():
+                try:
+                    return {"ok": True, "names": local_titles(imdb)}
+                except Exception as err:  # noqa: BLE001 – jen doplňkový zdroj názvů
+                    _LOGGER.debug("Wikidata %s: %s", imdb, err)
+                    return {"ok": False, "names": []}
+            # výpadek Wikidat se necachuje, jinak by titul měsíc zůstal bez českého názvu
+            local = self.store.cached_if(f"wdname:{imdb}", 30 * 86400, load_local, ok=lambda d: d.get("ok"))
+            names += (local or {}).get("names") or []
         out, seen = [], {_fold(title)}
         for name in names:
             key = _fold(name)
@@ -1657,7 +1672,9 @@ class Engine:
                     stream["subs"] = sorted(stream["subs"])
             return found
 
-        cache_key = f"streams:{ctype}:{item_id}:{alt or ''}"
+        # „streams2“: seznamy uložené před doplněním českých názvů z Wikidat byly u titulů
+        # bez Luny/TMDB ořezané přísným filtrem — nový klíč je jednorázově obnoví
+        cache_key = f"streams2:{ctype}:{item_id}:{alt or ''}"
         found = self.store.cached_if(cache_key, STREAMS_CACHE_TTL, _fetch_streams,
                                      ok=lambda data: bool(data) and not failures)
         # z cache se vrátí rovnou, bez jediného tick() výše — doskočit na konec fáze zdrojů
