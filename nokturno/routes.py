@@ -38,6 +38,33 @@ _LOGGER = logging.getLogger(__name__)
 VERZE = "3.1.1"
 TYPY = ("movie", "series")
 STATIKA = pathlib.Path(__file__).resolve().parent / "static"
+JAZYKY = ("cs", "sk")   # stránky úvodu a formuláře; manifest a streamy zůstávají česky
+
+
+def jazyk_z_hlavicky(accept_language):
+    """Jazyk stránek podle `Accept-Language`: slovenština, jen když je první volbou prohlížeče.
+
+    Bere se nejvyšší `q` (při shodě dřívější položka), `q=0` znamená „nechci".
+    Cokoli jiného, prázdná nebo rozbitá hlavička → čeština.
+    """
+    kandidati = []
+    for poradi, cast in enumerate((accept_language or "").split(",")):
+        kusy = [k.strip() for k in cast.split(";")]
+        tag = kusy[0].lower()
+        if not tag:
+            continue
+        q = 1.0
+        for parametr in kusy[1:]:
+            if parametr.lower().startswith("q="):
+                try:
+                    q = float(parametr[2:])
+                except ValueError:
+                    q = 0.0
+        if q > 0:
+            kandidati.append((-q, poradi, tag))
+    if not kandidati:
+        return "cs"
+    return "sk" if min(kandidati)[2].split("-")[0] == "sk" else "cs"
 
 
 class Odpoved:
@@ -112,10 +139,20 @@ class Router:
     def health(self):
         return Odpoved(data={"ok": True, "verze": self.verze, "jader": len(self.enginy)})
 
-    def configure(self, kousek, zaklad, verejny=False):
+    @staticmethod
+    def _stranka(jmeno, jazyk):
+        """`configure` + `sk` → `configure.sk.html`; když jazyková verze chybí, česká."""
+        if jazyk and jazyk != "cs":
+            try:
+                return (STATIKA / f"{jmeno}.{jazyk}.html").read_text(encoding="utf-8")
+            except OSError:
+                pass
+        return (STATIKA / f"{jmeno}.html").read_text(encoding="utf-8")
+
+    def configure(self, kousek, zaklad, verejny=False, jazyk="cs"):
         """Formulář, který vyrobí adresu s účty. Předvyplní se z adresy, na které stojí."""
         try:
-            html = (STATIKA / "configure.html").read_text(encoding="utf-8")
+            html = self._stranka("configure", jazyk)
         except OSError:
             return chyba(500, "Formulář nastavení chybí.")
         soucasne = config.decode(kousek) if kousek else None
@@ -174,10 +211,10 @@ class Router:
                 out["uloziste"].append({"slot": n, "ok": False, "chyba": str(err) or "nedostupné"})
         return Odpoved(data=out)
 
-    def uvod(self, zaklad):
+    def uvod(self, zaklad, jazyk="cs"):
         """Úvodní stránka a rozcestník celé rodiny Nokturna — nic o nastavení instance neprozradí."""
         try:
-            html = (STATIKA / "index.html").read_text(encoding="utf-8")
+            html = self._stranka("index", jazyk)
         except OSError:
             return Odpoved(text=f"Nokturno pro Stremio {self.verze}\nNastavení: {zaklad}/configure\n")
         return Odpoved(html=html.replace("__ZAKLAD__", zaklad).replace("__VERZE__", self.verze))
@@ -237,10 +274,18 @@ class Router:
         return Odpoved(status=302, location=skutecna, text="")
 
     # --- rozcestník -------------------------------------------------------
-    def route(self, cesta, zaklad, verejny=False):
+    def route(self, cesta, zaklad, verejny=False, jazyk=None):
         """Cesta požadavku na odpověď. `zaklad` je absolutní adresa služby,
-        `verejny` říká, že přišel z internetu (viz docstring modulu)."""
-        cesta = urllib.parse.unquote(cesta.split("?", 1)[0])
+        `verejny` říká, že přišel z internetu (viz docstring modulu), `jazyk`
+        je jazyk stránek z `Accept-Language` (viz `jazyk_z_hlavicky`).
+        Parametr `?lang=cs|sk` v adrese má přednost, bez obojího čeština."""
+        cesta, _, dotaz = cesta.partition("?")
+        lang = (urllib.parse.parse_qs(dotaz).get("lang") or [""])[0].strip().lower().split("-")[0]
+        if lang in JAZYKY:
+            jazyk = lang
+        elif jazyk not in JAZYKY:
+            jazyk = "cs"
+        cesta = urllib.parse.unquote(cesta)
         if cesta == "/health":
             return self.health()
 
@@ -253,8 +298,8 @@ class Router:
 
         if zbytek in ("", "/", "/configure", "/configure/"):
             if zbytek in ("/configure", "/configure/"):
-                return self.configure(kousek, zaklad, verejny)
-            return self.uvod(zaklad)
+                return self.configure(kousek, zaklad, verejny, jazyk)
+            return self.uvod(zaklad, jazyk)
 
         if verejny and not kousek:
             if zbytek == "/manifest.json":

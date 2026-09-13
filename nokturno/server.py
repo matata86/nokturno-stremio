@@ -17,7 +17,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .config import from_environ, sources_summary
 from .enginy import Enginy
-from .routes import VERZE, Odpoved, Router
+from .routes import VERZE, Odpoved, Router, jazyk_z_hlavicky
 from .statistiky import Statistiky
 
 _LOGGER = logging.getLogger("nokturno")
@@ -119,6 +119,8 @@ class Handler(BaseHTTPRequestHandler):
         # Stremio si doplněk tahá z webového klienta, takže bez CORS by neprošel
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Headers", "*")
+        if odpoved.html is not None:
+            self.send_header("Vary", "Accept-Language")   # stránky jsou česky nebo slovensky
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(telo)
@@ -127,7 +129,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
             verejny = je_verejny(self.headers, self.client_address[0])
-            self._posli(self.server.router.route(self.path, self._zaklad(), verejny=verejny))
+            jazyk = jazyk_z_hlavicky(self.headers.get("Accept-Language"))
+            self._posli(self.server.router.route(self.path, self._zaklad(), verejny=verejny, jazyk=jazyk))
         except (BrokenPipeError, ConnectionResetError):
             # přehrávač si to rozmyslel a zavřel spojení — běžné, ne chyba
             _LOGGER.debug("klient zavřel spojení při %s", self.path)

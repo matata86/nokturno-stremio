@@ -630,7 +630,7 @@ class TestVlastniUloziste(unittest.TestCase):
         class Smerovac:
             heslo = "Basic ok"
 
-            def route(self, cesta, zaklad, verejny=False):
+            def route(self, cesta, zaklad, verejny=False, jazyk=None):
                 return Odpoved(proxy=(url, {"Authorization": self.heslo}))
         doplnek.router = Smerovac()
         for s in (zdroj, doplnek):
@@ -651,6 +651,85 @@ class TestVlastniUloziste(unittest.TestCase):
             for s in (zdroj, doplnek):
                 s.shutdown()
                 s.server_close()
+
+
+class TestSlovencina(unittest.TestCase):
+    """Úvod a formulář slovensky: `?lang=` má přednost, jinak Accept-Language, jinak čeština."""
+
+    def html(self, cesta, jazyk=None):
+        return router().route(cesta, ZAKLAD, jazyk=jazyk).html
+
+    @staticmethod
+    def jmena_poli(html):
+        import re
+        return set(re.findall(r'name="([^"]+)"', html)) - {"viewport", "description"}
+
+    def test_parametr_lang_da_slovenstinu(self):
+        uvod = self.html("/?lang=sk")
+        self.assertIn('lang="sk"', uvod)
+        self.assertIn("Kde Nokturno beží", uvod)
+        formular = self.html(f"/c/{KOUSEK}/configure?lang=sk")
+        self.assertIn('<html lang="sk">', formular)
+        self.assertIn("U WebShare chýba heslo.", formular)
+        self.assertIn('"uzivatel"', formular, "předvyplnění funguje i slovensky")
+
+    def test_parametr_lang_prebije_hlavicku(self):
+        self.assertIn('<html lang="cs">', self.html("/configure?lang=cs", jazyk="sk"))
+        self.assertIn('<html lang="sk">', self.html("/configure?lang=sk", jazyk="cs"))
+
+    def test_accept_language(self):
+        from nokturno.routes import jazyk_z_hlavicky
+        self.assertEqual(jazyk_z_hlavicky("sk-SK,sk;q=0.9"), "sk")
+        self.assertEqual(jazyk_z_hlavicky("sk"), "sk")
+        self.assertEqual(jazyk_z_hlavicky("en;q=0.5, sk;q=0.8"), "sk", "rozhoduje q, ne pořadí")
+        for hlavicka in ("cs", "cs-CZ,cs;q=0.9,sk;q=0.8", "en-US,en;q=0.9", "", None, "sk;q=0, en", "rozbite;;q=x"):
+            self.assertEqual(jazyk_z_hlavicky(hlavicka), "cs", hlavicka)
+        self.assertIn('<html lang="sk">', self.html("/configure", jazyk=jazyk_z_hlavicky("sk-SK,sk;q=0.9")))
+        for jazyk in ("cs", "en", None):
+            self.assertIn('<html lang="cs">', self.html("/configure", jazyk=jazyk), jazyk)
+            self.assertIn('lang="cs"', self.html("/", jazyk=jazyk), jazyk)
+
+    def test_bez_hlavicky_i_parametru_cestina(self):
+        # dosavadní volání bez `jazyk`
+        self.assertIn('<html lang="cs">', router().route("/configure", ZAKLAD).html)
+
+    def test_zastupne_symboly_nahrazene(self):
+        for cesta in ("/?lang=sk", "/configure?lang=sk", f"/c/{KOUSEK}/configure?lang=sk"):
+            html = self.html(cesta)
+            for symbol in ("__ZAKLAD__", "__VERZE__", "__NASTAVENI__"):
+                self.assertNotIn(symbol, html, (cesta, symbol))
+            self.assertIn(ZAKLAD, html)
+
+    def test_slovensky_formular_ma_tataz_pole(self):
+        cs, sk = self.html("/configure?lang=cs"), self.html("/configure?lang=sk")
+        self.assertTrue(self.jmena_poli(cs))
+        self.assertEqual(self.jmena_poli(cs), self.jmena_poli(sk),
+                         "každá změna české stránky se musí promítnout i do configure.sk.html")
+        for n in (1, 2, 3):
+            for pole in ("url", "username", "password", "name"):
+                self.assertIn(f'name="dav{n}_{pole}"', sk)
+
+    def test_adresa_doplnku_nenese_jazyk(self):
+        for jazyk in ("cs", "sk"):
+            html = self.html(f"/configure?lang={jazyk}")
+            self.assertIn('const adresa = () => ZAKLAD + "/c/" + kousek() + "/manifest.json";', html)
+            self.assertIn(f'const ZAKLAD = "{ZAKLAD}";', html)
+
+    def test_manifest_zustava_cesky_a_lang_ho_nerozbije(self):
+        r = router()
+        self.assertEqual(r.route(f"/c/{KOUSEK}/manifest.json?lang=sk", ZAKLAD).data,
+                         r.route(f"/c/{KOUSEK}/manifest.json", ZAKLAD).data)
+
+    def test_chybejici_slovenska_stranka_spadne_na_ceskou(self):
+        from nokturno import routes
+        puvodni = routes.STATIKA
+        with tempfile.TemporaryDirectory() as adresar:
+            (pathlib.Path(adresar) / "index.html").write_text('<html lang="cs">__ZAKLAD__', encoding="utf-8")
+            routes.STATIKA = pathlib.Path(adresar)
+            try:
+                self.assertEqual(self.html("/?lang=sk"), f'<html lang="cs">{ZAKLAD}')
+            finally:
+                routes.STATIKA = puvodni
 
 
 if __name__ == "__main__":

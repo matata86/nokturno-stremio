@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="cs">
+<html lang="sk">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nokturno — nastavení doplňku pro Stremio</title>
+<title>Nokturno — nastavenie doplnku pre Stremio</title>
 <link rel="icon" href="https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/resources/media/icon2.png">
 <style>
   :root {
@@ -170,22 +170,22 @@
   <header class="hlava">
     <img src="https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/resources/media/icon2.png" alt="">
     <div>
-      <h1>Nokturno pro Stremio</h1>
-      <p class="podtitul">Nastavení doplňku · verze __VERZE__</p>
+      <h1>Nokturno pre Stremio</h1>
+      <p class="podtitul">Nastavenie doplnku · verzia __VERZE__</p>
     </div>
-    <nav class="jazyky" aria-label="Jazyk"><a href="?lang=cs" hreflang="cs" lang="cs" aria-current="true">CZ</a> | <a href="?lang=sk" hreflang="sk" lang="sk">SK</a></nav>
+    <nav class="jazyky" aria-label="Jazyk"><a href="?lang=cs" hreflang="cs" lang="cs">CZ</a> | <a href="?lang=sk" hreflang="sk" lang="sk" aria-current="true">SK</a></nav>
   </header>
 
   <p class="uvod">
-    Nokturno přidá k filmům a seriálům ve Stremiu <strong>streamy z WebShare, Sosáče, Sledujteto a HellSpy</strong> —
-    často s českým dabingem nebo titulky. Tituly hledáš ve Stremiu jako obvykle, streamy
-    Nokturna se objeví v detailu filmu nebo dílu mezi ostatními.
+    Nokturno pridá k filmom a seriálom v Stremiu <strong>streamy z WebShare, Sosáča, Sledujteto a HellSpy</strong> —
+    často s českým dabingom alebo titulkami. Tituly hľadáš v Stremiu ako zvyčajne, streamy
+    Nokturna sa zobrazia v detaile filmu alebo epizódy medzi ostatnými.
   </p>
 
   <ul class="kroky">
     <li><a href="#zdroje"><b>1</b>Zdroje a účty</a></li>
-    <li><a href="#predvolby"><b>2</b>Předvolby</a></li>
-    <li><a href="#instalace"><b>3</b>Přidat do aplikace</a></li>
+    <li><a href="#predvolby"><b>2</b>Predvoľby</a></li>
+    <li><a href="#instalace"><b>3</b>Pridať do aplikácie</a></li>
     <li><a href="#otazky"><b>?</b>Časté otázky</a></li>
   </ul>
 
@@ -194,37 +194,37 @@
     <!-- ============================== 1. ZDROJE ============================== -->
     <section id="zdroje">
       <h2><b>1</b>Zdroje a účty</h2>
-      <p class="popis">Stačí jeden zdroj, víc zdrojů najde víc streamů. Účty zůstávají jen v adrese doplňku, server si je nikam neukládá.</p>
+      <p class="popis">Stačí jeden zdroj, viac zdrojov nájde viac streamov. Účty zostávajú len v adrese doplnku, server si ich nikam neukladá.</p>
 
       <!-- WebShare -->
       <div class="karta">
         <div class="karta-hlava">
           <h3>WebShare</h3>
-          <span class="stitek doporuceno">Doporučeno · potřebuje VIP</span>
+          <span class="stitek doporuceno">Odporúčané · potrebuje VIP</span>
         </div>
-        <p>Největší česká úschovna — u většiny filmů a seriálů najde nejvíc souborů, i ve 4K. Přehrává se přímo z WebShare, takže to funguje odkudkoli.</p>
+        <p>Najväčšie české úložisko — pri väčšine filmov a seriálov nájde najviac súborov, aj v 4K. Prehráva sa priamo z WebShare, takže to funguje odkiaľkoľvek.</p>
         <div class="dvojice">
-          <label class="pole"><span>Uživatelské jméno nebo e-mail</span>
+          <label class="pole"><span>Používateľské meno alebo e-mail</span>
             <input type="text" name="ws_username" autocapitalize="off" spellcheck="false"></label>
           <label class="pole"><span>Heslo</span>
             <span class="heslo"><input type="password" name="ws_password" spellcheck="false">
-              <button type="button" class="ukazat" aria-label="Ukázat heslo">ukázat</button></span></label>
+              <button type="button" class="ukazat" aria-label="Ukázať heslo">ukázať</button></span></label>
         </div>
         <div class="overeni">
-          <button type="button" class="male" id="overit-ws">Ověřit účet</button>
+          <button type="button" class="male" id="overit-ws">Overiť účet</button>
           <span class="vysledek" id="vysledek-ws"></span>
         </div>
         <details class="navod">
-          <summary>Jak na to — nemám účet / nevím, co vyplnit</summary>
+          <summary>Ako na to — nemám účet / neviem, čo vyplniť</summary>
           <div class="obsah">
             <ol>
-              <li>Zaregistruj se na <a href="https://webshare.cz/" target="_blank" rel="noopener">webshare.cz</a> — odkaz <em>Registrace</em> je nahoře na stránce, registrace je zdarma.</li>
-              <li>Po přihlášení si tamtéž kup <strong>VIP</strong>. Bez něj WebShare stahování zpomalí natolik, že se film nedá plynule přehrávat.</li>
-              <li>Sem vyplň stejné jméno (nebo e-mail) a heslo, jakým se přihlašuješ na web.</li>
-              <li>Klikni na <strong>Ověřit účet</strong> — ukáže, jestli přihlášení prošlo a kolik dní VIP ti zbývá.</li>
+              <li>Zaregistruj sa na <a href="https://webshare.cz/" target="_blank" rel="noopener">webshare.cz</a> — odkaz <em>Registrace</em> je hore na stránke, registrácia je zadarmo.</li>
+              <li>Po prihlásení si tam kúp <strong>VIP</strong>. Bez neho WebShare sťahovanie spomalí natoľko, že sa film nedá plynulo prehrávať.</li>
+              <li>Sem vyplň rovnaké meno (alebo e-mail) a heslo, akým sa prihlasuješ na web.</li>
+              <li>Klikni na <strong>Overiť účet</strong> — ukáže, či prihlásenie prešlo a koľko dní VIP ti zostáva.</li>
             </ol>
-            <p><strong>Nechceš mít heslo v adrese čitelné?</strong> Místo hesla jde vložit 40znakový „salted hash",
-              který používají i jiné doplňky (WebShare pro Kodi / Stremio). Doplněk ho pozná sám.</p>
+            <p><strong>Nechceš mať heslo v adrese čitateľné?</strong> Namiesto hesla môžeš vložiť 40-znakový „salted hash“,
+              ktorý používajú aj iné doplnky (WebShare pre Kodi / Stremio). Doplnok ho rozpozná sám.</p>
           </div>
         </details>
       </div>
@@ -232,30 +232,30 @@
       <!-- Sosáč -->
       <div class="karta">
         <div class="karta-hlava">
-          <h3>Sosáč <span style="color:var(--tlumene);font-weight:400;font-size:.9rem">přes Streamuj.tv</span></h3>
-          <span class="stitek">Volitelné · účet Streamuj</span>
+          <h3>Sosáč <span style="color:var(--tlumene);font-weight:400;font-size:.9rem">cez Streamuj.tv</span></h3>
+          <span class="stitek">Voliteľné · účet Streamuj</span>
         </div>
-        <p>České filmy a seriály s dabingem a titulky, pěkně po dílech. Streamy se přehrávají ze Streamuj.tv, proto chce účet tam.</p>
+        <p>České filmy a seriály s dabingom a titulkami, pekne po epizódach. Streamy sa prehrávajú zo Streamuj.tv, preto treba účet tam.</p>
         <div class="dvojice">
-          <label class="pole"><span>Uživatelské jméno Streamuj.tv</span>
+          <label class="pole"><span>Používateľské meno Streamuj.tv</span>
             <input type="text" name="streamuj_username" autocapitalize="off" spellcheck="false"></label>
           <label class="pole"><span>Heslo</span>
             <span class="heslo"><input type="password" name="streamuj_password" spellcheck="false">
-              <button type="button" class="ukazat" aria-label="Ukázat heslo">ukázat</button></span></label>
+              <button type="button" class="ukazat" aria-label="Ukázať heslo">ukázať</button></span></label>
         </div>
         <div class="overeni">
-          <button type="button" class="male" id="overit-su">Zkontrolovat</button>
+          <button type="button" class="male" id="overit-su">Skontrolovať</button>
           <span class="vysledek" id="vysledek-su"></span>
         </div>
         <details class="navod">
-          <summary>Jak na to — účet Streamuj.tv</summary>
+          <summary>Ako na to — účet Streamuj.tv</summary>
           <div class="obsah">
             <ol>
               <li>Založ si účet na <a href="https://www.streamuj.tv" target="_blank" rel="noopener">streamuj.tv</a>.</li>
-              <li>Bez účtu (nebo s neplatným) Sosáč hraje jen omezeně — s účtem bez omezení rychlosti podle tvého tarifu.</li>
-              <li>Vyplň jméno a heslo ze Streamuj.tv. Streamuj neumí přihlášení ověřit dopředu; špatné heslo se pozná až při přehrání.</li>
+              <li>Bez účtu (alebo s neplatným) Sosáč hrá len obmedzene — s účtom bez obmedzenia rýchlosti podľa tvojho tarifu.</li>
+              <li>Vyplň meno a heslo zo Streamuj.tv. Streamuj nevie prihlásenie overiť vopred; nesprávne heslo sa zistí až pri prehrávaní.</li>
             </ol>
-            <p><strong>Místo hesla</strong> jde vložit i jeho 32znakový otisk — ten ukládá doplněk Nokturno pro Kodi, dá se odtamtud opsat.</p>
+            <p><strong>Namiesto hesla</strong> môžeš vložiť aj jeho 32-znakový odtlačok — ten ukladá doplnok Nokturno pre Kodi, dá sa odtiaľ odpísať.</p>
           </div>
         </details>
       </div>
@@ -264,29 +264,29 @@
       <div class="karta">
         <div class="karta-hlava">
           <h3>Sledujteto</h3>
-          <span class="stitek">Volitelné · potřebuje Premium</span>
+          <span class="stitek">Voliteľné · potrebuje Premium</span>
         </div>
-        <p>Česká úschovna videí s velkým výběrem filmů a seriálů, často s dabingem. Hledá se přes tvůj účet, přehrávat jde jen s Premium.</p>
+        <p>České úložisko videí s veľkým výberom filmov a seriálov, často s dabingom. Hľadá sa cez tvoj účet, prehrávať sa dá len s Premium.</p>
         <div class="dvojice">
           <label class="pole"><span>E-mail</span>
             <input type="text" name="st_email" autocapitalize="off" spellcheck="false" inputmode="email"></label>
           <label class="pole"><span>Heslo</span>
             <span class="heslo"><input type="password" name="st_password" spellcheck="false">
-              <button type="button" class="ukazat" aria-label="Ukázat heslo">ukázat</button></span></label>
+              <button type="button" class="ukazat" aria-label="Ukázať heslo">ukázať</button></span></label>
         </div>
         <div class="overeni">
-          <button type="button" class="male" id="overit-st">Ověřit účet</button>
+          <button type="button" class="male" id="overit-st">Overiť účet</button>
           <span class="vysledek" id="vysledek-st"></span>
         </div>
         <details class="navod">
-          <summary>Jak na to — účet Sledujteto</summary>
+          <summary>Ako na to — účet Sledujteto</summary>
           <div class="obsah">
             <ol>
-              <li>Zaregistruj se na <a href="https://www.sledujteto.cz/account/registration/" target="_blank" rel="noopener">sledujteto.cz</a> (zdarma, jde i přes Google).</li>
-              <li>Aktivuj si <strong>Premium</strong> v <a href="https://www.sledujteto.cz/credits/buy/" target="_blank" rel="noopener">ceníku</a>. Bez něj Sledujteto odkaz na přehrání nevydá — streamy se ukážou, ale nepustí se.</li>
-              <li>Sem vyplň e-mail a heslo, jakým se přihlašuješ na web, a klikni na <strong>Ověřit účet</strong>.</li>
+              <li>Zaregistruj sa na <a href="https://www.sledujteto.cz/account/registration/" target="_blank" rel="noopener">sledujteto.cz</a> (zadarmo, dá sa aj cez Google).</li>
+              <li>Aktivuj si <strong>Premium</strong> v <a href="https://www.sledujteto.cz/credits/buy/" target="_blank" rel="noopener">cenníku</a>. Bez neho Sledujteto odkaz na prehrávanie nevydá — streamy sa zobrazia, ale nespustia sa.</li>
+              <li>Sem vyplň e-mail a heslo, akým sa prihlasuješ na web, a klikni na <strong>Overiť účet</strong>.</li>
             </ol>
-            <p>Podle podmínek Sledujteto nesmí jeden účet používat lidé z různých domácností — adresu doplňku s účtem proto nikomu nedávej.</p>
+            <p>Podľa podmienok Sledujteto nesmú jeden účet používať ľudia z rôznych domácností — adresu doplnku s účtom preto nikomu nedávaj.</p>
           </div>
         </details>
       </div>
@@ -295,155 +295,155 @@
       <div class="karta">
         <div class="karta-hlava">
           <h3>HellSpy</h3>
-          <span class="stitek zdarma">Zdarma · bez účtu</span>
+          <span class="stitek zdarma">Zadarmo · bez účtu</span>
         </div>
         <label class="prepinac">
           <input type="checkbox" name="hs_enabled">
-          <span><strong>Hledat i na HellSpy</strong>
-            <small>Veřejná úschovna s původními soubory (často ve vysoké kvalitě). Nic se nevyplňuje, stačí nechat zapnuté.</small></span>
+          <span><strong>Hľadať aj na HellSpy</strong>
+            <small>Verejné úložisko s pôvodnými súbormi (často vo vysokej kvalite). Nič sa nevypĺňa, stačí nechať zapnuté.</small></span>
         </label>
       </div>
 
       <!-- Vlastní úložiště -->
       <div class="karta">
         <div class="karta-hlava">
-          <h3>Vlastní úložiště</h3>
-          <span class="stitek">Volitelné · až 3 · WebDAV</span>
+          <h3>Vlastné úložisko</h3>
+          <span class="stitek">Voliteľné · až 3 · WebDAV</span>
         </div>
-        <p>Tvoje vlastní filmy a seriály na NAS, Nextcloudu nebo serveru s WebDAV. Nokturno projde složky a soubory přiřadí k titulům podle názvu souboru a složky nad ním („Sherlock/S01E02.mkv“).</p>
+        <p>Tvoje vlastné filmy a seriály na NAS, Nextcloude alebo serveri s WebDAV. Nokturno prejde priečinky a súbory priradí k titulom podľa názvu súboru a priečinka nad ním („Sherlock/S01E02.mkv“).</p>
         <details class="uloziste" open>
-          <summary>Úložiště 1</summary>
+          <summary>Úložisko 1</summary>
           <div class="dvojice">
-            <label class="pole"><span>Název (ukáže se u streamu)</span>
-              <input type="text" name="dav1_name" spellcheck="false" placeholder="třeba NAS"></label>
-            <label class="pole"><span>Adresa složky</span>
+            <label class="pole"><span>Názov (zobrazí sa pri streame)</span>
+              <input type="text" name="dav1_name" spellcheck="false" placeholder="napríklad NAS"></label>
+            <label class="pole"><span>Adresa priečinka</span>
               <input type="url" name="dav1_url" autocapitalize="off" spellcheck="false" placeholder="https://…"></label>
-            <label class="pole"><span>Uživatelské jméno</span>
+            <label class="pole"><span>Používateľské meno</span>
               <input type="text" name="dav1_username" autocapitalize="off" spellcheck="false"></label>
             <label class="pole"><span>Heslo</span>
               <span class="heslo"><input type="password" name="dav1_password" spellcheck="false">
-                <button type="button" class="ukazat" aria-label="Ukázat heslo">ukázat</button></span></label>
+                <button type="button" class="ukazat" aria-label="Ukázať heslo">ukázať</button></span></label>
           </div>
         </details>
         <details class="uloziste">
-          <summary>Úložiště 2</summary>
+          <summary>Úložisko 2</summary>
           <div class="dvojice">
-            <label class="pole"><span>Název (ukáže se u streamu)</span>
-              <input type="text" name="dav2_name" spellcheck="false" placeholder="třeba NAS"></label>
-            <label class="pole"><span>Adresa složky</span>
+            <label class="pole"><span>Názov (zobrazí sa pri streame)</span>
+              <input type="text" name="dav2_name" spellcheck="false" placeholder="napríklad NAS"></label>
+            <label class="pole"><span>Adresa priečinka</span>
               <input type="url" name="dav2_url" autocapitalize="off" spellcheck="false" placeholder="https://…"></label>
-            <label class="pole"><span>Uživatelské jméno</span>
+            <label class="pole"><span>Používateľské meno</span>
               <input type="text" name="dav2_username" autocapitalize="off" spellcheck="false"></label>
             <label class="pole"><span>Heslo</span>
               <span class="heslo"><input type="password" name="dav2_password" spellcheck="false">
-                <button type="button" class="ukazat" aria-label="Ukázat heslo">ukázat</button></span></label>
+                <button type="button" class="ukazat" aria-label="Ukázať heslo">ukázať</button></span></label>
           </div>
         </details>
         <details class="uloziste">
-          <summary>Úložiště 3</summary>
+          <summary>Úložisko 3</summary>
           <div class="dvojice">
-            <label class="pole"><span>Název (ukáže se u streamu)</span>
-              <input type="text" name="dav3_name" spellcheck="false" placeholder="třeba NAS"></label>
-            <label class="pole"><span>Adresa složky</span>
+            <label class="pole"><span>Názov (zobrazí sa pri streame)</span>
+              <input type="text" name="dav3_name" spellcheck="false" placeholder="napríklad NAS"></label>
+            <label class="pole"><span>Adresa priečinka</span>
               <input type="url" name="dav3_url" autocapitalize="off" spellcheck="false" placeholder="https://…"></label>
-            <label class="pole"><span>Uživatelské jméno</span>
+            <label class="pole"><span>Používateľské meno</span>
               <input type="text" name="dav3_username" autocapitalize="off" spellcheck="false"></label>
             <label class="pole"><span>Heslo</span>
               <span class="heslo"><input type="password" name="dav3_password" spellcheck="false">
-                <button type="button" class="ukazat" aria-label="Ukázat heslo">ukázat</button></span></label>
+                <button type="button" class="ukazat" aria-label="Ukázať heslo">ukázať</button></span></label>
           </div>
         </details>
         <div class="overeni">
-          <button type="button" class="male" id="overit-dav">Ověřit úložiště</button>
+          <button type="button" class="male" id="overit-dav">Overiť úložisko</button>
           <span class="vysledek" id="vysledek-dav"></span>
         </div>
         <details class="navod">
-          <summary>Jak na to — adresa, heslo, jak pojmenovat soubory</summary>
+          <summary>Ako na to — adresa, heslo, ako pomenovať súbory</summary>
           <div class="obsah">
             <ol>
-              <li>Adresa je složka na WebDAV, třeba <code>https://nas.example.cz/remote.php/dav/files/jmeno/Video/</code> (Nextcloud) nebo <code>https://server:10000/</code>. Tvar <code>davs://</code> z Kodi jde taky.</li>
-              <li>Jméno a heslo jsou ty, kterými se k úložišti přihlašuješ. Zůstanou jen v adrese doplňku — soubory jdou přes doplněk, aby je přehrávač dostal i bez hesla.</li>
-              <li>Soubory pojmenuj jako obvykle: <code>Pelisky (1999).mkv</code>, nebo složka <code>Sherlock/Season 1/S01E02.mkv</code>. Nový soubor se ukáže nejpozději do hodiny.</li>
+              <li>Adresa je priečinok na WebDAV, napríklad <code>https://nas.example.cz/remote.php/dav/files/meno/Video/</code> (Nextcloud) alebo <code>https://server:10000/</code>. Tvar <code>davs://</code> z Kodi funguje tiež.</li>
+              <li>Meno a heslo sú tie, ktorými sa k úložisku prihlasuješ. Zostanú len v adrese doplnku — súbory idú cez doplnok, aby ich prehrávač dostal aj bez hesla.</li>
+              <li>Súbory pomenuj ako zvyčajne: <code>Pelisky (1999).mkv</code>, alebo priečinok <code>Sherlock/Season 1/S01E02.mkv</code>. Nový súbor sa zobrazí najneskôr do hodiny.</li>
             </ol>
-            <p>Úložiště musí být dosažitelné z <strong>serveru doplňku</strong>, ne z tvého zařízení. Adresy v domácí síti proto fungují jen s doplňkem, který běží u tebe doma.</p>
+            <p>Úložisko musí byť dosiahnuteľné zo <strong>servera doplnku</strong>, nie z tvojho zariadenia. Adresy v domácej sieti preto fungujú len s doplnkom, ktorý beží u teba doma.</p>
           </div>
         </details>
       </div>
 
       <div class="poznamka">
-        <strong>Máš ve Stremiu i doplněk Luna?</strong> Nokturno Lunu nepoužívá a klidně mohou být nainstalované oba.
-        Některé soubory z WebShare pak uvidíš v seznamu dvakrát — jednou od Luny, jednou od Nokturna.
+        <strong>Máš v Stremiu aj doplnok Luna?</strong> Nokturno Lunu nepoužíva a pokojne môžu byť nainštalované oba.
+        Niektoré súbory z WebShare potom uvidíš v zozname dvakrát — raz od Luny, raz od Nokturna.
       </div>
     </section>
 
     <!-- ============================== 2. PŘEDVOLBY ============================== -->
     <section id="predvolby">
-      <h2><b>2</b>Předvolby</h2>
-      <p class="popis">Jak se mají streamy řadit a co skrýt. Výchozí nastavení sedí většině lidí, klidně tenhle krok přeskoč.</p>
+      <h2><b>2</b>Predvoľby</h2>
+      <p class="popis">Ako sa majú streamy radiť a čo skryť. Predvolené nastavenie vyhovuje väčšine ľudí, pokojne tento krok preskoč.</p>
       <div class="karta">
         <div class="dvojice">
           <label class="pole"><span>Preferovaný jazyk zvuku</span>
             <select name="pref_lang">
-              <option value="CZ">čeština</option><option value="SK">slovenština</option>
-              <option value="EN">angličtina</option><option value="">nezáleží</option>
+              <option value="CZ">čeština</option><option value="SK">slovenčina</option>
+              <option value="EN">angličtina</option><option value="">na tom nezáleží</option>
             </select></label>
-          <label class="pole"><span>Řazení streamů</span>
+          <label class="pole"><span>Radenie streamov</span>
             <select name="sort_streams">
-              <option value="quality">nejlepší kvalita nahoře</option>
-              <option value="size_desc">největší soubory nahoře</option>
-              <option value="size_asc">nejmenší soubory nahoře</option>
-              <option value="source">podle zdroje</option>
+              <option value="quality">najlepšia kvalita hore</option>
+              <option value="size_desc">najväčšie súbory hore</option>
+              <option value="size_asc">najmenšie súbory hore</option>
+              <option value="source">podľa zdroja</option>
             </select></label>
         </div>
-        <p class="drobne">Streamy se zvolenou řečí jdou nahoru. Ve Stremiu je bez posouvání vidět jen pár prvních řádků, proto na řazení záleží.</p>
+        <p class="drobne">Streamy so zvoleným jazykom idú hore. V Stremiu je bez posúvania vidieť len pár prvých riadkov, preto na radení záleží.</p>
 
         <label class="prepinac">
           <input type="checkbox" name="hide_sd">
-          <span><strong>Skrýt streamy v SD kvalitě</strong>
-            <small>Vynechá staré nahrávky v nízkém rozlišení (pod 720p).</small></span>
+          <span><strong>Skryť streamy v SD kvalite</strong>
+            <small>Vynechá staré nahrávky v nízkom rozlíšení (pod 720p).</small></span>
         </label>
         <label class="prepinac">
           <input type="checkbox" name="pref_surround">
-          <span><strong>Upřednostnit prostorový zvuk 5.1</strong>
-            <small>Hodí se, když máš soundbar nebo domácí kino.</small></span>
+          <span><strong>Uprednostniť priestorový zvuk 5.1</strong>
+            <small>Hodí sa, keď máš soundbar alebo domáce kino.</small></span>
         </label>
-        <label class="pole" style="margin:.7rem 0 0"><span>Nejvyšší datový tok (Mb/s) — nepovinné</span>
-          <input type="number" name="max_bitrate_mbps" min="0" step="1" inputmode="numeric" placeholder="bez omezení"></label>
-        <p class="drobne" style="margin:.35rem 0 0">Pro pomalejší internet: soubory, které by se nestihly načítat, se nenabídnou.
-          Orientačně Full HD potřebuje 8–15 Mb/s, 4K 25–60 Mb/s.</p>
+        <label class="pole" style="margin:.7rem 0 0"><span>Najvyšší dátový tok (Mb/s) — nepovinné</span>
+          <input type="number" name="max_bitrate_mbps" min="0" step="1" inputmode="numeric" placeholder="bez obmedzenia"></label>
+        <p class="drobne" style="margin:.35rem 0 0">Pre pomalší internet: súbory, ktoré by sa nestihli načítavať, sa neponúknu.
+          Orientačne Full HD potrebuje 8–15 Mb/s, 4K 25–60 Mb/s.</p>
       </div>
     </section>
   </form>
 
   <!-- ============================== 3. INSTALACE ============================== -->
   <section id="instalace">
-    <h2><b>3</b>Přidat do aplikace</h2>
-    <p class="popis">Tlačítka dole vyrobí z nastavení tvou vlastní adresu doplňku a otevřou s ní Stremio nebo Nuvio.
-      Stejná adresa funguje i ve Streamletu a v dalších aplikacích, které umí doplňky Stremia.</p>
+    <h2><b>3</b>Pridať do aplikácie</h2>
+    <p class="popis">Tlačidlá dole vytvoria z nastavenia tvoju vlastnú adresu doplnku a otvoria s ňou Stremio alebo Nuvio.
+      Rovnaká adresa funguje aj v Streamlete a v ďalších aplikáciách, ktoré podporujú doplnky Stremia.</p>
 
     <div class="zarizeni">
       <div class="karta">
         <h3><svg xmlns="http://www.w3.org/2000/svg" class="ik" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">  <path d="M3 19l18 0"/> <path d="M5 7a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v8a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1l0 -8"/> </svg>Počítač</h3>
         <ol>
-          <li>Klikni na <strong>Přidat do Stremia</strong>.</li>
-          <li>Prohlížeč se zeptá, jestli otevřít Stremio — potvrď.</li>
-          <li>Ve Stremiu klikni na <strong>Instalovat</strong>.</li>
+          <li>Klikni na <strong>Pridať do Stremia</strong>.</li>
+          <li>Prehliadač sa opýta, či otvoriť Stremio — potvrď.</li>
+          <li>V Stremiu klikni na <strong>Inštalovať</strong>.</li>
         </ol>
       </div>
       <div class="karta">
-        <h3><svg xmlns="http://www.w3.org/2000/svg" class="ik" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">  <path d="M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14"/> <path d="M11 4h2"/> <path d="M12 17v.01"/> </svg>Telefon</h3>
+        <h3><svg xmlns="http://www.w3.org/2000/svg" class="ik" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">  <path d="M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14"/> <path d="M11 4h2"/> <path d="M12 17v.01"/> </svg>Telefón</h3>
         <ol>
-          <li>Otevři tuhle stránku v telefonu, kde máš Stremio.</li>
-          <li>Klikni na <strong>Přidat do Stremia</strong> a potvrď <strong>Instalovat</strong>.</li>
-          <li>Když se Stremio neotevře, použij <strong>Zkopírovat adresu</strong> a postup vpravo.</li>
+          <li>Otvor túto stránku v telefóne, kde máš Stremio.</li>
+          <li>Klikni na <strong>Pridať do Stremia</strong> a potvrď <strong>Inštalovať</strong>.</li>
+          <li>Keď sa Stremio neotvorí, použi <strong>Skopírovať adresu</strong> a postup vpravo.</li>
         </ol>
       </div>
       <div class="karta">
-        <h3><svg xmlns="http://www.w3.org/2000/svg" class="ik" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">  <path d="M3 9a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2l0 -9"/> <path d="M16 3l-4 4l-4 -4"/> </svg>Televize</h3>
+        <h3><svg xmlns="http://www.w3.org/2000/svg" class="ik" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">  <path d="M3 9a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2l0 -9"/> <path d="M16 3l-4 4l-4 -4"/> </svg>Televízor</h3>
         <ol>
-          <li>Nainstaluj doplněk na počítači nebo telefonu <strong>pod stejným účtem Stremio</strong>.</li>
-          <li>Doplňky se mezi zařízeními synchronizují samy — na TV se objeví do minuty.</li>
-          <li>Ruční cesta: Stremio → <strong>Doplňky</strong> → pole nahoře → vložit adresu → <strong>Instalovat</strong>.</li>
+          <li>Nainštaluj doplnok na počítači alebo telefóne <strong>pod rovnakým účtom Stremio</strong>.</li>
+          <li>Doplnky sa medzi zariadeniami synchronizujú samy — na TV sa zobrazia do minúty.</li>
+          <li>Ručný postup: Stremio → <strong>Doplnky</strong> → pole hore → vložiť adresu → <strong>Inštalovať</strong>.</li>
         </ol>
       </div>
     </div>
@@ -452,24 +452,24 @@
       <div class="karta">
         <h3><svg xmlns="http://www.w3.org/2000/svg" class="ik" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">  <path d="M7 4v16l13 -8l-13 -8"/> </svg>Nuvio</h3>
         <ol>
-          <li>Otevři tuhle stránku na zařízení, kde máš Nuvio.</li>
-          <li>Klikni na <strong>Přidat do Nuvia</strong> a instalaci potvrď.</li>
-          <li>Nuvio na TV: <strong>Zkopírovat adresu</strong> a v Nuviu → Nastavení → Doplňky → vložit adresu → <strong>Instalovat</strong>.</li>
+          <li>Otvor túto stránku na zariadení, kde máš Nuvio.</li>
+          <li>Klikni na <strong>Pridať do Nuvia</strong> a inštaláciu potvrď.</li>
+          <li>Nuvio na TV: <strong>Skopírovať adresu</strong> a v Nuviu → Nastavenia → Doplnky → vložiť adresu → <strong>Inštalovať</strong>.</li>
         </ol>
       </div>
       <div class="karta">
         <h3><svg xmlns="http://www.w3.org/2000/svg" class="ik" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">  <path d="M3 19l.01 0"/> <path d="M7 19a4 4 0 0 0 -4 -4"/> <path d="M11 19a8 8 0 0 0 -8 -8"/> <path d="M15 19h3a3 3 0 0 0 3 -3v-8a3 3 0 0 0 -3 -3h-12a3 3 0 0 0 -2.8 2"/> </svg>Streamlet</h3>
         <ol>
-          <li>Streamlet odkaz pro přidání doplňku nemá — klikni na <strong>Zkopírovat adresu</strong>.</li>
-          <li>Ve Streamletu přidej doplněk Stremia (modul) a vlož zkopírovanou adresu.</li>
-          <li>Na TV adresu nejsnáz pošleš z telefonu, třeba zprávou sám sobě.</li>
+          <li>Streamlet odkaz na pridanie doplnku nemá — klikni na <strong>Skopírovať adresu</strong>.</li>
+          <li>V Streamlete pridaj doplnok Stremia (modul) a vlož skopírovanú adresu.</li>
+          <li>Na TV adresu najľahšie pošleš z telefónu, napríklad správou sám sebe.</li>
         </ol>
       </div>
     </div>
 
     <div class="vystraha">
-      <strong>Adresa doplňku obsahuje tvoje účty.</strong> Není zašifrovaná, jen zakódovaná.
-      Nikomu ji neposílej a nesdílej — kdo ji má, přehrává přes tvůj WebShare a Streamuj.
+      <strong>Adresa doplnku obsahuje tvoje účty.</strong> Nie je zašifrovaná, len zakódovaná.
+      Nikomu ju neposielaj a nezdieľaj — kto ju má, prehráva cez tvoj WebShare a Streamuj.
     </div>
   </section>
 
@@ -478,89 +478,89 @@
     <h2><b>?</b>Časté otázky</h2>
 
     <details>
-      <summary>Nainstaloval jsem to, ale u filmu nevidím žádné streamy Nokturna</summary>
+      <summary>Nainštaloval som to, ale pri filme nevidím žiadne streamy Nokturna</summary>
       <div class="obsah">
         <ul>
-          <li>Klikni výše na <strong>Ověřit účet</strong> — nejčastější příčinou je překlep v hesle nebo vypršelé VIP na WebShare.</li>
-          <li>Hledání trvá pár sekund. Stremio ukazuje streamy postupně, jak které doplňky odpovídají — chvilku počkej.</li>
-          <li>Titul nemusí na zdrojích vůbec být, hlavně úplné novinky a málo známé seriály.</li>
-          <li>Nokturno bere jen soubory, které k titulu opravdu patří (název, rok, díl). Podobné, ale jiné filmy záměrně vynechá.</li>
+          <li>Klikni vyššie na <strong>Overiť účet</strong> — najčastejšou príčinou je preklep v hesle alebo vypršané VIP na WebShare.</li>
+          <li>Vyhľadávanie trvá pár sekúnd. Stremio ukazuje streamy postupne, ako ktoré doplnky odpovedajú — chvíľu počkaj.</li>
+          <li>Titul nemusí na zdrojoch vôbec byť, hlavne úplné novinky a málo známe seriály.</li>
+          <li>Nokturno berie len súbory, ktoré k titulu naozaj patria (názov, rok, epizóda). Podobné, ale iné filmy zámerne vynechá.</li>
         </ul>
       </div>
     </details>
 
     <details>
-      <summary>Stream se nechce přehrát nebo se často zasekává</summary>
+      <summary>Stream sa nechce prehrať alebo sa často zasekáva</summary>
       <div class="obsah">
         <ul>
-          <li>U WebShare bez VIP je rychlost omezená — přehrávání pak neustále čeká.</li>
-          <li>Zkus menší soubor (nižší kvalitu), nebo v předvolbách nastav <strong>nejvyšší datový tok</strong> podle svého internetu.</li>
-          <li>WebShare občas hlásí „soubor dočasně nedostupný" — stačí vybrat jiný stream.</li>
+          <li>Pri WebShare bez VIP je rýchlosť obmedzená — prehrávanie potom neustále čaká.</li>
+          <li>Skús menší súbor (nižšiu kvalitu), alebo v predvoľbách nastav <strong>najvyšší dátový tok</strong> podľa svojho internetu.</li>
+          <li>WebShare občas hlási, že súbor je dočasne nedostupný — stačí vybrať iný stream.</li>
         </ul>
       </div>
     </details>
 
     <details>
-      <summary>Jak nastavení později změnit?</summary>
+      <summary>Ako nastavenie neskôr zmeniť?</summary>
       <div class="obsah">
-        <p>Ve Stremiu otevři <strong>Doplňky</strong> → <strong>Nokturno</strong> → ikona ozubeného kola (<em>Konfigurovat</em>).
-          Otevře se tahle stránka s tvým současným nastavením. Uprav, co potřebuješ, a znovu klikni na <strong>Přidat do Stremia</strong> (nebo Nuvia).</p>
-        <p>Změněné nastavení je nová adresa — starou verzi doplňku pak ve Stremiu odinstaluj, ať nemáš Nokturno dvakrát.</p>
+        <p>V Stremiu otvor <strong>Doplnky</strong> → <strong>Nokturno</strong> → ikona ozubeného kolesa (<em>Konfigurovať</em>).
+          Otvorí sa táto stránka s tvojím súčasným nastavením. Uprav, čo potrebuješ, a znova klikni na <strong>Pridať do Stremia</strong> (alebo Nuvia).</p>
+        <p>Zmenené nastavenie je nová adresa — starú verziu doplnku potom v Stremiu odinštaluj, nech nemáš Nokturno dvakrát.</p>
       </div>
     </details>
 
     <details>
-      <summary>Kde jsou moje hesla uložená? Je to bezpečné?</summary>
+      <summary>Kde sú moje heslá uložené? Je to bezpečné?</summary>
       <div class="obsah">
-        <p>Nikde na serveru. Celé nastavení je zakódované v adrese doplňku, kterou má uloženou tvoje Stremio.
-          Server ho při každém dotazu jen přečte, použije a zapomene. Tak fungují všechny konfigurovatelné doplňky Stremia.</p>
-        <p>Proto adresu nikomu neposílej. Kdo chce heslo WebShare v adrese nečitelné, může místo něj vložit salted hash (viz návod u WebShare).</p>
+        <p>Nikde na serveri. Celé nastavenie je zakódované v adrese doplnku, ktorú má uloženú tvoje Stremio.
+          Server ho pri každej požiadavke len prečíta, použije a zabudne. Tak fungujú všetky konfigurovateľné doplnky Stremia.</p>
+        <p>Preto adresu nikomu neposielaj. Kto chce mať heslo WebShare v adrese nečitateľné, môže namiesto neho vložiť salted hash (pozri návod pri WebShare).</p>
       </div>
     </details>
 
     <details>
-      <summary>Posílá doplněk nějaké statistiky?</summary>
+      <summary>Posiela doplnok nejaké štatistiky?</summary>
       <div class="obsah">
-        <p>Ano, anonymní — stejně jako Nokturno pro Kodi a Home Assistant. Nejvýš jednou za 6 hodin odejde náhodný
-          identifikátor tvého nastavení, verze doplňku, které zdroje máš zapnuté a u kterých titulů sis otevřel streamy.
-          Žádné účty, hesla ani adresa doplňku se neposílají. Slouží jen k tomu, abychom věděli, co se používá.</p>
+        <p>Áno, anonymné — rovnako ako Nokturno pre Kodi a Home Assistant. Najviac raz za 6 hodín sa odošle náhodný
+          identifikátor tvojho nastavenia, verzia doplnku, ktoré zdroje máš zapnuté a pri ktorých tituloch si otvoril streamy.
+          Žiadne účty, heslá ani adresa doplnku sa neposielajú. Slúži len na to, aby sme vedeli, čo sa používa.</p>
       </div>
     </details>
 
     <details>
-      <summary>Proč Nokturno nemá vlastní katalog filmů?</summary>
+      <summary>Prečo Nokturno nemá vlastný katalóg filmov?</summary>
       <div class="obsah">
-        <p>Katalogy, plakáty a popisy má Stremio samo (Cinemeta) a spousta doplňků je umí líp. Nokturno dělá jednu věc:
-          k titulu, který si otevřeš, najde streamy z českých a slovenských úschoven.</p>
+        <p>Katalógy, plagáty a popisy má Stremio samo (Cinemeta) a množstvo doplnkov ich zvláda lepšie. Nokturno robí jednu vec:
+          k titulu, ktorý si otvoríš, nájde streamy z českých a slovenských úložísk.</p>
       </div>
     </details>
 
     <details>
-      <summary>Jaký je rozdíl mezi WebShare, Sosáčem a HellSpy?</summary>
+      <summary>Aký je rozdiel medzi WebShare, Sosáčom a HellSpy?</summary>
       <div class="obsah">
         <ul>
-          <li><strong>WebShare</strong> — nejvíc souborů, všechny kvality, potřebuje placené VIP.</li>
-          <li><strong>Sosáč</strong> — ručně poskládaný katalog českých filmů a seriálů s dabingem a titulky, přehrává přes Streamuj.tv.</li>
-          <li><strong>Sledujteto</strong> — česká úschovna s velkým výběrem, hledá přes tvůj účet a přehrává s Premium.</li>
-          <li><strong>HellSpy</strong> — veřejné soubory zdarma, bez účtu. Méně výběru, ale nic nestojí.</li>
+          <li><strong>WebShare</strong> — najviac súborov, všetky kvality, potrebuje platené VIP.</li>
+          <li><strong>Sosáč</strong> — ručne poskladaný katalóg českých filmov a seriálov s dabingom a titulkami, prehráva cez Streamuj.tv.</li>
+          <li><strong>Sledujteto</strong> — české úložisko s veľkým výberom, hľadá cez tvoj účet a prehráva s Premium.</li>
+          <li><strong>HellSpy</strong> — verejné súbory zadarmo, bez účtu. Menší výber, ale nič nestojí.</li>
         </ul>
       </div>
     </details>
   </section>
 
-  <footer><a href="__ZAKLAD__/">Nokturno</a> · <a href="https://github.com/matata86/nokturno-stremio" target="_blank" rel="noopener">zdrojový kód</a> · nastavení se ukládá jen do adresy doplňku<br><svg xmlns="http://www.w3.org/2000/svg" class="ik" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">  <path d="M3 14c.83 .642 2.077 1.017 3.5 1c1.423 .017 2.67 -.358 3.5 -1c.83 -.642 2.077 -1.017 3.5 -1c1.423 -.017 2.67 .358 3.5 1"/> <path d="M8 3a2.4 2.4 0 0 0 -1 2a2.4 2.4 0 0 0 1 2"/> <path d="M12 3a2.4 2.4 0 0 0 -1 2a2.4 2.4 0 0 0 1 2"/> <path d="M3 10h14v5a6 6 0 0 1 -6 6h-2a6 6 0 0 1 -6 -6v-5"/> <path d="M16.746 16.726a3 3 0 1 0 .252 -5.555"/> </svg> podpoř autora: <a href="https://ko-fi.com/matata86" target="_blank" rel="noopener">Ko-fi</a> · <a href="https://paypal.me/matata86" target="_blank" rel="noopener">PayPal</a> · <a href="__ZAKLAD__/#podpora">Bitcoin</a></footer>
+  <footer><a href="__ZAKLAD__/?lang=sk">Nokturno</a> · <a href="https://github.com/matata86/nokturno-stremio" target="_blank" rel="noopener">zdrojový kód</a> · nastavenie sa ukladá len do adresy doplnku<br><svg xmlns="http://www.w3.org/2000/svg" class="ik" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">  <path d="M3 14c.83 .642 2.077 1.017 3.5 1c1.423 .017 2.67 -.358 3.5 -1c.83 -.642 2.077 -1.017 3.5 -1c1.423 -.017 2.67 .358 3.5 1"/> <path d="M8 3a2.4 2.4 0 0 0 -1 2a2.4 2.4 0 0 0 1 2"/> <path d="M12 3a2.4 2.4 0 0 0 -1 2a2.4 2.4 0 0 0 1 2"/> <path d="M3 10h14v5a6 6 0 0 1 -6 6h-2a6 6 0 0 1 -6 -6v-5"/> <path d="M16.746 16.726a3 3 0 1 0 .252 -5.555"/> </svg> podpor autora: <a href="https://ko-fi.com/matata86" target="_blank" rel="noopener">Ko-fi</a> · <a href="https://paypal.me/matata86" target="_blank" rel="noopener">PayPal</a> · <a href="__ZAKLAD__/?lang=sk#podpora">Bitcoin</a></footer>
 </main>
 
 <!-- lišta s instalací: vždy po ruce -->
 <div class="akce" id="akce">
   <div class="akce-radek">
-    <button type="button" class="hlavni" id="instalovat"><span class="dlouhe">Přidat do </span>Stremia</button>
-    <button type="button" class="hlavni" id="nuvio"><span class="dlouhe">Přidat do </span>Nuvia</button>
-    <button type="button" id="kopirovat">Zkopírovat<span class="dlouhe"> adresu</span></button>
+    <button type="button" class="hlavni" id="instalovat"><span class="dlouhe">Pridať do </span>Stremia</button>
+    <button type="button" class="hlavni" id="nuvio"><span class="dlouhe">Pridať do </span>Nuvia</button>
+    <button type="button" id="kopirovat">Skopírovať<span class="dlouhe"> adresu</span></button>
     <span class="akce-souhrn" id="souhrn-zdroju"></span>
   </div>
   <div class="stav" id="stav"></div>
-  <details class="adresa"><summary>Zobrazit adresu doplňku</summary><pre id="adresa"></pre></details>
+  <details class="adresa"><summary>Zobraziť adresu doplnku</summary><pre id="adresa"></pre></details>
 </div>
 
 <script>
@@ -610,22 +610,22 @@ function zdroje(n = nastaveni()) {
   if (n.st_email) out.push("Sledujteto");
   if (n.hs_enabled) out.push("HellSpy");
   const uloziste = [1, 2, 3].filter((i) => n["dav" + i + "_url"]);
-  if (uloziste.length) out.push(uloziste.length === 1 ? "vlastní úložiště" : uloziste.length + " vlastní úložiště");
+  if (uloziste.length) out.push(uloziste.length === 1 ? "vlastné úložisko" : uloziste.length + " vlastné úložiská");
   return out;
 }
 
 function problem(n = nastaveni()) {
-  if (!zdroje(n).length) return "Vyber aspoň jeden zdroj — bez něj doplněk nic nenajde.";
-  if (n.ws_username && !n.ws_password) return "U WebShare chybí heslo.";
-  if (!n.ws_username && n.ws_password) return "U WebShare chybí uživatelské jméno.";
-  if (n.streamuj_username && !n.streamuj_password) return "U Streamuj.tv chybí heslo.";
-  if (!n.streamuj_username && n.streamuj_password) return "U Streamuj.tv chybí uživatelské jméno.";
-  if (n.st_email && !n.st_password) return "U Sledujteto chybí heslo.";
-  if (!n.st_email && n.st_password) return "U Sledujteto chybí e-mail.";
+  if (!zdroje(n).length) return "Vyber aspoň jeden zdroj — bez neho doplnok nič nenájde.";
+  if (n.ws_username && !n.ws_password) return "U WebShare chýba heslo.";
+  if (!n.ws_username && n.ws_password) return "U WebShare chýba používateľské meno.";
+  if (n.streamuj_username && !n.streamuj_password) return "U Streamuj.tv chýba heslo.";
+  if (!n.streamuj_username && n.streamuj_password) return "U Streamuj.tv chýba používateľské meno.";
+  if (n.st_email && !n.st_password) return "U Sledujteto chýba heslo.";
+  if (!n.st_email && n.st_password) return "U Sledujteto chýba e-mail.";
   for (const i of [1, 2, 3]) {
     const url = n["dav" + i + "_url"];
-    if (!url && (n["dav" + i + "_username"] || n["dav" + i + "_password"])) return "U úložiště " + i + " chybí adresa.";
-    if (url && !/^(https?|davs?):\/\/[^\/]+/i.test(url)) return "Adresa úložiště " + i + " má začínat https:// nebo http://.";
+    if (!url && (n["dav" + i + "_username"] || n["dav" + i + "_password"])) return "Pri úložisku " + i + " chýba adresa.";
+    if (url && !/^(https?|davs?):\/\/[^\/]+/i.test(url)) return "Adresa úložiska " + i + " má začínať https:// alebo http://.";
   }
   return "";
 }
@@ -633,7 +633,7 @@ function problem(n = nastaveni()) {
 function prekresli() {
   $("adresa").textContent = adresa();
   const z = zdroje();
-  $("souhrn-zdroju").textContent = z.length ? "Zdroje: " + z.join(", ") : "Zatím žádný zdroj";
+  $("souhrn-zdroju").textContent = z.length ? "Zdroje: " + z.join(", ") : "Zatiaľ žiadny zdroj";
 }
 
 function nastavStav(text, chyba = false) {
@@ -658,7 +658,7 @@ for (const tl of document.querySelectorAll("button.ukazat")) {
     const pole = tl.previousElementSibling;
     const ukazat = pole.type === "password";
     pole.type = ukazat ? "text" : "password";
-    tl.textContent = ukazat ? "skrýt" : "ukázat";
+    tl.textContent = ukazat ? "skryť" : "ukázať";
   });
 }
 
@@ -669,32 +669,32 @@ function vysledek(kde, trida, text) {
   el.textContent = text;
 }
 
-function dny(n) { return n === 1 ? "den" : n >= 2 && n <= 4 ? "dny" : "dní"; }
+function dny(n) { return n === 1 ? "deň" : n >= 2 && n <= 4 ? "dni" : "dní"; }
 
 async function overit() {
   const res = await fetch(ZAKLAD + "/c/" + kousek() + "/check", { cache: "no-store" });
-  if (!res.ok) throw new Error("server odpověděl " + res.status);
+  if (!res.ok) throw new Error("server odpovedal " + res.status);
   return res.json();
 }
 
 $("overit-ws").addEventListener("click", async () => {
   const n = nastaveni();
   if (!n.ws_username || !n.ws_password) {
-    vysledek("ws", "pozor", "Vyplň jméno i heslo.");
+    vysledek("ws", "pozor", "Vyplň meno aj heslo.");
     return;
   }
   const tl = $("overit-ws");
   tl.disabled = true;
-  vysledek("ws", "info", "Přihlašuji se na WebShare…");
+  vysledek("ws", "info", "Prihlasujem sa na WebShare…");
   try {
     const data = await overit();
     const ws = data.webshare;
-    if (!ws) vysledek("ws", "pozor", "Účet není vyplněný.");
-    else if (!ws.ok) vysledek("ws", "chyba", "Přihlášení neprošlo — zkontroluj jméno a heslo.");
-    else if (ws.vip) vysledek("ws", "ok", `✓ Přihlášeno · VIP ještě ${ws.days} ${dny(ws.days)}`);
-    else vysledek("ws", "pozor", "Přihlášeno, ale bez VIP — přehrávání bude pomalé.");
+    if (!ws) vysledek("ws", "pozor", "Účet nie je vyplnený.");
+    else if (!ws.ok) vysledek("ws", "chyba", "Prihlásenie neprešlo — skontroluj meno a heslo.");
+    else if (ws.vip) vysledek("ws", "ok", `✓ Prihlásené · VIP ešte ${ws.days} ${dny(ws.days)}`);
+    else vysledek("ws", "pozor", "Prihlásené, ale bez VIP — prehrávanie bude pomalé.");
   } catch (err) {
-    vysledek("ws", "chyba", "Ověření se nepovedlo (" + err.message + "). Zkus to za chvíli.");
+    vysledek("ws", "chyba", "Overenie sa nepodarilo (" + err.message + "). Skús to o chvíľu.");
   } finally {
     tl.disabled = false;
   }
@@ -703,20 +703,20 @@ $("overit-ws").addEventListener("click", async () => {
 $("overit-st").addEventListener("click", async () => {
   const n = nastaveni();
   if (!n.st_email || !n.st_password) {
-    vysledek("st", "pozor", "Vyplň e-mail i heslo.");
+    vysledek("st", "pozor", "Vyplň e-mail aj heslo.");
     return;
   }
   const tl = $("overit-st");
   tl.disabled = true;
-  vysledek("st", "info", "Přihlašuji se na Sledujteto…");
+  vysledek("st", "info", "Prihlasujem sa na Sledujteto…");
   try {
     const st = (await overit()).sledujteto;
-    if (!st) vysledek("st", "pozor", "Účet není vyplněný.");
-    else if (!st.ok) vysledek("st", "chyba", "Přihlášení neprošlo — zkontroluj e-mail a heslo.");
-    else if (st.premium) vysledek("st", "ok", "✓ Přihlášeno · Premium aktivní");
-    else vysledek("st", "pozor", "Přihlášeno, ale bez Premium — streamy se ukážou, přehrát nepůjdou.");
+    if (!st) vysledek("st", "pozor", "Účet nie je vyplnený.");
+    else if (!st.ok) vysledek("st", "chyba", "Prihlásenie neprešlo — skontroluj e-mail a heslo.");
+    else if (st.premium) vysledek("st", "ok", "✓ Prihlásené · Premium aktívne");
+    else vysledek("st", "pozor", "Prihlásené, ale bez Premium — streamy sa zobrazia, prehrať nepôjdu.");
   } catch (err) {
-    vysledek("st", "chyba", "Ověření se nepovedlo (" + err.message + "). Zkus to za chvíli.");
+    vysledek("st", "chyba", "Overenie sa nepodarilo (" + err.message + "). Skús to o chvíľu.");
   } finally {
     tl.disabled = false;
   }
@@ -725,22 +725,22 @@ $("overit-st").addEventListener("click", async () => {
 $("overit-dav").addEventListener("click", async () => {
   const n = nastaveni();
   if (![1, 2, 3].some((i) => n["dav" + i + "_url"])) {
-    vysledek("dav", "pozor", "Vyplň adresu aspoň jednoho úložiště.");
+    vysledek("dav", "pozor", "Vyplň adresu aspoň jedného úložiska.");
     return;
   }
   const tl = $("overit-dav");
   tl.disabled = true;
-  vysledek("dav", "info", "Zkouším se připojit…");
+  vysledek("dav", "info", "Skúšam sa pripojiť…");
   try {
     const seznam = (await overit()).uloziste || [];
     const radky = seznam.map((u) => {
-      const jmeno = n["dav" + u.slot + "_name"] || "Úložiště " + u.slot;
-      return u.ok ? `✓ ${jmeno}: ${u.polozek} položek v kořeni` : `✗ ${jmeno}: ${u.chyba}`;
+      const jmeno = n["dav" + u.slot + "_name"] || "Úložisko " + u.slot;
+      return u.ok ? `✓ ${jmeno}: ${u.polozek} položiek v koreni` : `✗ ${jmeno}: ${u.chyba}`;
     });
     const vse = seznam.length && seznam.every((u) => u.ok);
-    vysledek("dav", vse ? "ok" : "chyba", radky.join(" · ") || "Úložiště z internetu nejde ověřit — adresa míří na server samotný.");
+    vysledek("dav", vse ? "ok" : "chyba", radky.join(" · ") || "Úložisko sa z internetu nedá overiť — adresa smeruje na samotný server.");
   } catch (err) {
-    vysledek("dav", "chyba", "Ověření se nepovedlo (" + err.message + "). Zkus to za chvíli.");
+    vysledek("dav", "chyba", "Overenie sa nepodarilo (" + err.message + "). Skús to o chvíľu.");
   } finally {
     tl.disabled = false;
   }
@@ -748,16 +748,16 @@ $("overit-dav").addEventListener("click", async () => {
 
 $("overit-su").addEventListener("click", () => {
   const n = nastaveni();
-  if (!n.streamuj_username && !n.streamuj_password) vysledek("su", "info", "Nevyplněno — Sosáč se vynechá.");
-  else if (!n.streamuj_username || !n.streamuj_password) vysledek("su", "pozor", "Vyplň jméno i heslo.");
-  else vysledek("su", "info", "Vyplněno. Streamuj neumí heslo ověřit dopředu, pozná se to při prvním přehrání.");
+  if (!n.streamuj_username && !n.streamuj_password) vysledek("su", "info", "Nevyplnené — Sosáč sa vynechá.");
+  else if (!n.streamuj_username || !n.streamuj_password) vysledek("su", "pozor", "Vyplň meno aj heslo.");
+  else vysledek("su", "info", "Vyplnené. Streamuj nevie heslo overiť vopred, zistí sa to pri prvom prehrávaní.");
 });
 
 // --- instalace ---
 $("instalovat").addEventListener("click", () => {
   const chyba = problem();
   if (chyba) { nastavStav(chyba, true); return; }
-  nastavStav("Otevírám Stremio… Když se nic nestane, použij Zkopírovat adresu.");
+  nastavStav("Otváram Stremio… Keď sa nič nestane, použi Skopírovať adresu.");
   window.location.href = adresa().replace(/^https?:\/\//, "stremio://");
 });
 
@@ -766,7 +766,7 @@ $("instalovat").addEventListener("click", () => {
 $("nuvio").addEventListener("click", () => {
   const chyba = problem();
   if (chyba) { nastavStav(chyba, true); return; }
-  nastavStav("Otevírám Nuvio… Když se nic nestane, použij Zkopírovat adresu.");
+  nastavStav("Otváram Nuvio… Keď sa nič nestane, použi Skopírovať adresu.");
   window.location.href = adresa().replace(/^https?:\/\//, "nuvio://");
 });
 
@@ -775,10 +775,10 @@ $("kopirovat").addEventListener("click", async () => {
   if (chyba) { nastavStav(chyba, true); return; }
   try {
     await navigator.clipboard.writeText(adresa());
-    nastavStav("Adresa zkopírována. Vlož ji v aplikaci mezi doplňky (Stremio: Doplňky → pole nahoře → Instalovat).");
+    nastavStav("Adresa skopírovaná. Vlož ju v aplikácii medzi doplnky (Stremio: Doplnky → pole hore → Inštalovať).");
   } catch {
     document.querySelector("details.adresa").open = true;
-    nastavStav("Kopírování prohlížeč nedovolil — adresu označ a zkopíruj ručně z rámečku.", true);
+    nastavStav("Kopírovanie prehliadač nepovolil — adresu označ a skopíruj ručne z rámčeka.", true);
   }
 });
 </script>
