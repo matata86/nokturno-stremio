@@ -25,13 +25,11 @@ prefix, rozklíčuje ho pod správným účtem.
 """
 import logging
 import pathlib
-import urllib.error
 import urllib.parse
 
 from .core.engine import NokturnoError, is_sosac_id, split_episode_id
 from .core.lib.webshare_api import WebshareApi, WebshareError
 from .core.lib.sledujteto_api import SledujtetoApi
-from .core.lib.luna_api import LunaApi, parse_token
 from . import config, mapping
 
 _LOGGER = logging.getLogger(__name__)
@@ -76,7 +74,6 @@ class Router:
         self.statistiky = statistiky   # nokturno.statistiky.Statistiky, None = vypnuto
         self.ws_api = WebshareApi   # testy podstrčí falešné, aby nešly na síť
         self.st_api = SledujtetoApi
-        self.luna_api = LunaApi
 
     # --- adresy -----------------------------------------------------------
     @staticmethod
@@ -126,7 +123,7 @@ class Router:
         html = html.replace("__VERZE__", self.verze)
         return Odpoved(html=html)
 
-    def check(self, options, verejny=False):
+    def check(self, options):
         """Ověření účtů pro tlačítko ve formuláři.
 
         WebShare se opravdu přihlásí a řekne, kolik zbývá VIP — bez VIP je rychlost
@@ -135,8 +132,7 @@ class Router:
         takže se jen ohlásí, co je vyplněné. Jádro se kvůli tomu nezakládá — jen
         jedno přihlášení, žádná cache.
         """
-        out = {"webshare": None, "streamuj": None, "sledujteto": None, "luna": None,
-               "hellspy": bool(options.get("hs_enabled"))}
+        out = {"webshare": None, "streamuj": None, "sledujteto": None, "hellspy": bool(options.get("hs_enabled"))}
         user = (options.get("ws_username") or "").strip()
         if user:
             try:
@@ -160,23 +156,6 @@ class Router:
             except Exception as err:  # noqa: BLE001 – pro uživatele je každé selhání totéž
                 _LOGGER.info("ověření Sledujteto %s: %s", email[:3] + "…", err)
                 out["sledujteto"] = {"ok": False, "chyba": str(err) or "přihlášení selhalo"}
-        token = parse_token(options.get("luna_token") or "")
-        if token:
-            base = (options.get("luna_url") or "").strip()
-            if verejny and config.neverejna_adresa(base):
-                out["luna"] = {"ok": False, "doma": True}
-            else:
-                try:
-                    api = self.luna_api(base, token)
-                    katalogy = (api._get(api._meta_url("manifest.json")) or {}).get("catalogs") or []
-                    out["luna"] = {"ok": True, "katalogy": len(katalogy)}
-                except Exception as err:  # noqa: BLE001 – pro uživatele je každé selhání totéž
-                    _LOGGER.info("ověření Luny: %s", str(err)[:60])
-                    # nespojil se (špatná adresa, jiná síť) × Luna odpověděla chybou (token)
-                    pricina = err.__cause__ or err
-                    spojeni = isinstance(pricina, OSError) and not isinstance(pricina, urllib.error.HTTPError)
-                    out["luna"] = {"ok": False, "spojeni": spojeni,
-                                   "lan": spojeni and config.adresa_v_lan(base)}
         return Odpoved(data=out)
 
     def uvod(self, zaklad):
@@ -246,10 +225,6 @@ class Router:
         options = config.decode(kousek) if kousek else None
         if kousek and options is None:
             return chyba(404, "Adresa nese nečitelné nastavení. Vyrob si novou na /configure")
-        puvodni = options
-        if verejny and options:
-            # zvenku přes server nesahat do domácí sítě (odkazy Luny by se stejně nepřehrály)
-            options = config.bez_luny_v_domaci_siti(options)
 
         if zbytek in ("", "/", "/configure", "/configure/"):
             if zbytek in ("/configure", "/configure/"):
@@ -266,7 +241,7 @@ class Router:
                               f"Vyrob si adresu na {zaklad}/configure")
 
         if zbytek == "/check":
-            return self.check(puvodni if kousek else self.enginy.vychozi_options, verejny)
+            return self.check(options if kousek else self.enginy.vychozi_options)
 
         engine = self.enginy.pro(options)
         if zbytek == "/manifest.json":

@@ -412,85 +412,23 @@ class TestOvereniUctu(unittest.TestCase):
         self.assertEqual(r.route("/check", ZAKLAD, verejny=True).status, 403)
 
 
-class TestLuna(unittest.TestCase):
-    """Luna je volitelná a jen z adresy doplňku; zvenku se nesmí sahat do domácí sítě."""
+class TestBezLuny(unittest.TestCase):
+    """Luna má vlastní doplněk do Stremia a její odkazy vedou do domácí sítě."""
 
-    DOMA = {"luna_url": "http://192.168.1.10:7126", "luna_token": "e1.x", "ws_username": "u"}
-
-    def test_z_adresy_se_prevezme(self):
-        options = config.from_mapping(self.DOMA)
-        self.assertEqual((options["luna_url"], options["luna_token"]), ("http://192.168.1.10:7126", "e1.x"))
-
-    def test_z_prostredi_ne(self):
-        options = config.from_environ({"NOKTURNO_LUNA_URL": "http://x:7126", "NOKTURNO_LUNA_TOKEN": "e1.x"})
+    def test_z_adresy_se_neprevezme(self):
+        options = config.from_mapping({"luna_url": "http://192.168.1.10:7126", "luna_token": "e1.x", "ws_username": "u"})
         self.assertNotIn("luna_url", options)
         self.assertNotIn("luna_token", options)
+        self.assertEqual(options["ws_username"], "u")
 
-    def test_adresa_serveru_z_tokenu(self):
-        options = config.from_mapping({"luna_token": "http://192.168.1.10:7126/e1.abc/manifest.json"})
-        self.assertEqual(options["luna_url"], "http://192.168.1.10:7126")
-
-    def test_zvenku_bez_luny_v_domaci_siti(self):
-        doma = config.from_mapping(self.DOMA)
-        self.assertNotIn("luna_url", config.bez_luny_v_domaci_siti(doma))
-        self.assertEqual(config.bez_luny_v_domaci_siti(doma)["ws_username"], "u")
-        verejna = config.from_mapping({"luna_url": "http://93.184.216.34:7126", "luna_token": "e1.x"})
-        self.assertIn("luna_url", config.bez_luny_v_domaci_siti(verejna))
-        tailscale = config.from_mapping({"luna_url": "http://100.101.102.103:7126", "luna_token": "e1.x"})
-        self.assertNotIn("luna_url", config.bez_luny_v_domaci_siti(tailscale))
-
-    def test_router_zvenku_neposle_lunu_do_jadra(self):
-        kousek = config.encode(config.from_mapping(self.DOMA))
-        r = router()
-        r.route(f"/c/{kousek}/stream/movie/tt1.json", ZAKLAD, verejny=True)
-        self.assertNotIn("luna_url", r.enginy_test.pozadovana_nastaveni[-1])
-        r.route(f"/c/{kousek}/stream/movie/tt1.json", ZAKLAD)
-        self.assertIn("luna_url", r.enginy_test.pozadovana_nastaveni[-1], "z domácí sítě Luna zůstane")
-
-    def test_overeni_luny(self):
-        class FalesnaLuna:
-            def __init__(self, base, token):
-                self.base = base
-
-            def _meta_url(self, *parts):
-                return "x"
-
-            def _get(self, url):
-                return {"catalogs": [1, 2]}
-        r = router()
-        r.luna_api = FalesnaLuna
-        kousek = config.encode(config.from_mapping(self.DOMA))
-        self.assertEqual(r.route(f"/c/{kousek}/check", ZAKLAD).data["luna"], {"ok": True, "katalogy": 2})
-        self.assertEqual(r.route(f"/c/{kousek}/check", ZAKLAD, verejny=True).data["luna"], {"ok": False, "doma": True})
-
-    def test_overeni_luny_rozlisi_spojeni_a_token(self):
-        import urllib.error
-        from nokturno.core.lib.luna_api import LunaError
-
-        def luna_s_chybou(chyba):
-            class Luna:
-                def __init__(self, base, token):
-                    pass
-
-                def _meta_url(self, *parts):
-                    return "x"
-
-                def _get(self, url):
-                    raise LunaError("selhalo") from chyba
-            return Luna
-        r = router()
-        kousek = config.encode(config.from_mapping(self.DOMA))
-        r.luna_api = luna_s_chybou(urllib.error.URLError(ConnectionRefusedError(111, "refused")))
-        self.assertEqual(r.route(f"/c/{kousek}/check", ZAKLAD).data["luna"], {"ok": False, "spojeni": True, "lan": True})
-        r.luna_api = luna_s_chybou(urllib.error.HTTPError("x", 404, "Not Found", {}, None))
-        self.assertEqual(r.route(f"/c/{kousek}/check", ZAKLAD).data["luna"], {"ok": False, "spojeni": False, "lan": False})
-        tailscale = config.encode(config.from_mapping({"luna_url": "http://100.94.191.65:7126", "luna_token": "e1.x"}))
-        r.luna_api = luna_s_chybou(urllib.error.URLError(TimeoutError()))
-        self.assertEqual(r.route(f"/c/{tailscale}/check", ZAKLAD).data["luna"], {"ok": False, "spojeni": True, "lan": False})
+    def test_z_prostredi_se_neprevezme(self):
+        options = config.from_environ({"NOKTURNO_LUNA_URL": "http://x:7126", "NOKTURNO_LUNA_TOKEN": "e1.x"})
+        self.assertNotIn("luna_url", options)
 
     def test_logo_manifestu_existuje_v_repu_doplnku(self):
         logo = mapping.manifest("0").get("logo", "")
         self.assertTrue(logo.endswith("/resources/media/icon2.png"), logo)
+
 
 
 class FalesneSledujteto:

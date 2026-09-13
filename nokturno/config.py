@@ -14,20 +14,15 @@ Adresa z konfigurace se vyrábí na `/configure` a nese účty **v otevřené po
 jen zakódované do base64. Není to šifra a nemá být — takhle fungují všechny
 doplňky Stremia. Adresu proto nikomu neposílat. Viz `pristupy.md` projektu.
 
-**Luna je volitelná a jen z adresy doplňku** (formulář), ne z prostředí instance —
-výchozí nastavení ji nemá, aby se streamy ze sdíleného `.env` nezdvojovaly s oficiálním
-doplňkem Luny. Její odkazy vedou na server Luny, takže se přehrají jen tam, kde je
-dosažitelný. Požadavek z internetu (`verejny`) s Lunou v soukromé síti ji nepoužije
-(`bez_luny_v_domaci_siti`) — jinak by se přes veřejnou instanci dalo sahat do domácí sítě.
+**Luna se ve Stremiu nepoužívá** (od 0.2.5). Má vlastní doplněk do Stremia, takže
+by se soubory z WebShare zdvojovaly, a její odkazy vedou na server v domácí síti —
+přes veřejnou adresu by nešly přehrát. WebShare zůstává, protože Nokturno dává
+podepsaný odkaz rovnou na WebShare, který jde přehrát odkudkoli. Klíče Luny se
+z prostředí ani z adresy nepřebírají; starší adresy, které je nesou, fungují dál.
 """
 import base64
-import functools
-import ipaddress
 import json
 import os
-import re
-import socket
-import urllib.parse
 
 from .core.lib.const import LANGS, SORT_ORDERS
 
@@ -50,9 +45,6 @@ PROSTREDI = {
     "NOKTURNO_MAX_BITRATE": "max_bitrate_mbps",
     "NOKTURNO_SORT": "sort_streams",
 }
-# klíče, které jdou zadat jen adresou doplňku, ne proměnnou prostředí (viz docstring)
-JEN_Z_ADRESY = ("luna_url", "luna_token")
-POVOLENE = set(PROSTREDI.values()) | set(JEN_Z_ADRESY)
 PRAVDA = ("1", "true", "yes", "ano", "on")
 # klíče, u kterých engine čeká pravdivostní hodnotu, ne řetězec
 LOGICKE = ("hs_enabled", "pref_surround", "hide_sd")
@@ -79,7 +71,7 @@ def from_mapping(raw):
     """
     options = dict(VYCHOZI)
     for key, value in (raw or {}).items():
-        if value is None or key not in POVOLENE:
+        if value is None or key not in set(PROSTREDI.values()):
             continue
         if key in LOGICKE:
             options[key] = str(value).strip().lower() in PRAVDA if isinstance(value, str) else bool(value)
@@ -87,12 +79,6 @@ def from_mapping(raw):
             options[key] = _cislo(value)
         else:
             options[key] = str(value).strip()
-
-    # do tokenu jde vložit celá adresa doplňku z Ruční instalace Luny — adresa serveru je v ní
-    if options.get("luna_token") and not options.get("luna_url"):
-        m = re.match(r"(https?://[^/]+)", str(options["luna_token"]))
-        if m:
-            options["luna_url"] = m.group(1)
 
     # nepovolená hodnota by v jádru propadla na výchozí, ale tiše — lepší ji srovnat tady
     if options.get("pref_lang") not in LANGS:
@@ -154,47 +140,3 @@ def sources_summary(engine):
     nazvy = {"luna": "Luna", "sosac": "Sosáč", "webshare": "WebShare",
              "hellspy": "HellSpy", "sledujteto": "Sledujteto", "torrent": "torrenty"}
     return [nazvy[k] for k, zapnuto in zdroje.items() if zapnuto and k in nazvy]
-
-
-@functools.lru_cache(maxsize=256)
-def _neverejny_host(host):
-    try:
-        infos = socket.getaddrinfo(host, None)
-    except OSError:
-        return True   # nerozluštitelnou adresu radši nepoužít
-    for info in infos:
-        ip = ipaddress.ip_address(str(info[4][0]).split("%")[0])
-        if not ip.is_global:
-            return True
-    return False
-
-
-def neverejna_adresa(url):
-    """Míří adresa do soukromé sítě (LAN, loopback, Tailscale 100.64/10…)?"""
-    host = urllib.parse.urlparse(str(url or "")).hostname
-    return True if not host else _neverejny_host(host.lower())
-
-
-@functools.lru_cache(maxsize=256)
-def _host_v_lan(host):
-    try:
-        infos = socket.getaddrinfo(host, None)
-    except OSError:
-        return False
-    return any(ipaddress.ip_address(str(i[4][0]).split("%")[0]).is_private for i in infos)
-
-
-def adresa_v_lan(url):
-    """Adresa v místní síti (192.168…, 10…, loopback) — ne Tailscale 100.64/10, ta je
-    dosažitelná odkudkoli z tailnetu. Slouží jen k radě, proč se server na Lunu nedostal."""
-    host = urllib.parse.urlparse(str(url or "")).hostname
-    return bool(host) and _host_v_lan(host.lower())
-
-
-def bez_luny_v_domaci_siti(options):
-    """Požadavek z internetu: Luna v soukromé síti se vynechá — server by jinak na
-    pokyn cizí adresy sahal do domácí sítě a odkazy Luny by se zvenku stejně nepřehrály."""
-    if options and options.get("luna_token") and neverejna_adresa(options.get("luna_url")):
-        return {k: v for k, v in options.items() if k not in JEN_Z_ADRESY}
-    return options
-
