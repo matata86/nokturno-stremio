@@ -35,7 +35,7 @@ from . import config, mapping
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "0.2.6"
+VERZE = "3.0.0"
 TYPY = ("movie", "series")
 STATIKA = pathlib.Path(__file__).resolve().parent / "static"
 
