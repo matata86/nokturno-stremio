@@ -1674,7 +1674,7 @@ class Engine:
 
         # „streams2“: seznamy uložené před doplněním českých názvů z Wikidat byly u titulů
         # bez Luny/TMDB ořezané přísným filtrem — nový klíč je jednorázově obnoví
-        cache_key = f"streams2:{ctype}:{item_id}:{alt or ''}"
+        cache_key = f"streams3:{ctype}:{item_id}:{alt or ''}"   # 3 = názvy bez koncovky z cizího písma
         found = self.store.cached_if(cache_key, STREAMS_CACHE_TTL, _fetch_streams,
                                      ok=lambda data: bool(data) and not failures)
         # z cache se vrátí rovnou, bez jediného tick() výše — doskočit na konec fáze zdrojů
