@@ -887,6 +887,10 @@ class Engine:
             "length_est": bool(stream.get("_length_est")),
             "langs": codes,
             "channels": channels,
+            # stopy zvuku i s kodekem (z hlavičky souboru nebo z údajů zdroje) —
+            # `channels` výš nese jen počet kanálů podle jazyka
+            "audio": [{"lang": tr.get("lang") or "", "channels": tr.get("channels") or "",
+                       "codec": tr.get("codec") or ""} for tr in tracks],
             "subs": stream.get("subs") or [],
             "url": stream.get("url") or "",
             "subtitles": stream.get("subtitles") or [],
@@ -1070,6 +1074,7 @@ class Engine:
             if text:
                 stream["detail"] = f"{stream['detail']} | {text}" if stream.get("detail") else text
             stream["_tracks"] = info.get("audio") or []
+            stream["_media"] = info
             if info.get("duration"):
                 # z hlavičky je i skutečná délka streamu — přesnější základ pro
                 # datový tok v `_ensure_bitrate()` než odhad ze stopáže titulu
@@ -1188,16 +1193,24 @@ class Engine:
                 if f["id"] in seen or not relevant(name):
                     continue
                 seen.add(f["id"])
-                out.append({
+                info = f.get("media") or {}
+                # technické údaje dává přímo API — jako přečtená hlavička, soubor se číst nemusí
+                text = describe_media(info) if info.get("audio") else ""
+                real = quality_from_size(info.get("width") or 0, info.get("height") or 0)
+                stream = {
                     "url": f"st:{f['id']}",
                     "label": name,
-                    "detail": f.get("size_h") or "",
-                    "quality": f.get("quality") or "",
+                    "detail": " | ".join(x for x in (f.get("size_h") or "", text) if x),
+                    "quality": real or f.get("quality") or "",
                     "source": "st",
                     "subtitles": list(f.get("subtitles") or []),
                     "_duration": f.get("duration") or 0,
                     "_direct": True,
-                })
+                }
+                if info.get("audio") or info.get("height"):
+                    stream["_tracks"] = info.get("audio") or []
+                    stream["_media"] = info
+                out.append(stream)
         return out
 
     def _webshare_subtitles(self, meta, video=None, ctype="movie", alt=None):

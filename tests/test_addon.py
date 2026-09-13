@@ -493,5 +493,22 @@ class TestStatistiky(unittest.TestCase):
         self.assertEqual(volani[0][1:], ("movie", "tt1"))
 
 
+
+class TestZvukKodekKanaly(unittest.TestCase):
+    def test_kanaly_z_hlavicky_jako_text_a_kodek(self):
+        popis = {**POPIS, "langs": ["CZ", "EN"], "channels": {"CZ": "5.1", "EN": "2.0"},
+                 "audio": [{"lang": "CZ", "channels": "5.1", "codec": "AC3"}, {"lang": "EN", "channels": "2.0", "codec": "AAC"}]}
+        text = mapping.stream_object(popis, lambda u: u)["description"]
+        self.assertIn("🇨🇿 5.1 AC3", text)
+        self.assertIn("🇬🇧 2.0 AAC", text)
+
+    def test_stopa_bez_jazyka(self):
+        popis = {**POPIS, "langs": [], "channels": {}, "audio": [{"lang": "", "channels": "5.1", "codec": "EAC3"}]}
+        self.assertIn("5.1 EAC3", mapping.stream_object(popis, lambda u: u)["description"])
+
+    def test_sledujteto_odkaz_projde_prehranim(self):
+        self.assertEqual(mapping.dekoduj(mapping.zakoduj("st:123")), "st:123")
+
+
 if __name__ == "__main__":
     unittest.main()

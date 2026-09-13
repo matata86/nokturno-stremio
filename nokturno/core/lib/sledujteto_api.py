@@ -19,6 +19,7 @@ výsledek hledání měl (klienti je jednou zalogují, ať se to dá dohledat).
 """
 import hashlib
 import json
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -81,6 +82,45 @@ def _size(item):
     return 0
 
 
+CHANNEL_COUNTS = {1: "1.0", 2: "2.0", 3: "2.1", 4: "4.0", 5: "5.0", 6: "5.1", 7: "6.1", 8: "7.1"}
+
+
+def _channels(value):
+    """Počet kanálů zvuku → „5.1". API ho může poslat jako počet stop (6) i jako text („5.1")."""
+    try:
+        num = float(str(value).replace(",", "."))
+    except (TypeError, ValueError):
+        return ""
+    if num <= 0:
+        return ""
+    return CHANNEL_COUNTS.get(int(num), "") if num.is_integer() else f"{num:.1f}"
+
+
+def _resolution(value):
+    """„1920x1080" / „1080p" / 1080 → (šířka, výška)."""
+    text = str(value or "")
+    m = re.search(r"(\d{3,4})\s*[x×]\s*(\d{3,4})", text)
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    m = re.search(r"(\d{3,4})", text)
+    return (0, int(m.group(1))) if m else (0, 0)
+
+
+def media(video):
+    """Stopy a rozlišení z údajů API — stejný tvar jako `mediainfo.probe()`, takže je
+    jádro i klienti použijí jako přečtenou hlavičku a soubor se číst nemusí.
+    Jazyk stopy API neříká, stopa je proto bez jazyka."""
+    channels = _channels(video.get("audio_channels"))
+    codec = str(video.get("audio_codec") or "").strip().upper()[:12]
+    width, height = _resolution(video.get("resolution"))
+    return {
+        "audio": [{"lang": "", "channels": channels, "codec": codec}] if channels or codec else [],
+        "subs": [],
+        "width": width,
+        "height": height,
+    }
+
+
 def normalize(item):
     """Výsledek hledání do tvaru, se kterým pracuje jádro (jako u HellSpy)."""
     video = item.get("video") or {}
@@ -96,6 +136,7 @@ def normalize(item):
         "quality": quality,
         "subtitles": subs,
         "thumb": (video.get("thumb_urls") or [""])[0],
+        "media": media(video),
     }
 
 

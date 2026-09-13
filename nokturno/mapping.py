@@ -41,7 +41,7 @@ ZVUK = (
 # kontejnery, které webový přehrávač Stremia nepřehraje — ať to rovnou ví
 NE_PRO_WEB = (".mkv", ".avi", ".ts", ".m2ts", ".wmv", ".flv")
 # schémata, která umí rozklíčovat `Engine.resolve()`; jiné se k přehrání nepustí
-SCHEMATA = ("ws:", "hs:", "streamuj:", "http://", "https://")
+SCHEMATA = ("ws:", "hs:", "st:", "streamuj:", "http://", "https://")
 
 
 def zakoduj(vnitrni_url):
@@ -67,13 +67,35 @@ def _vlajka(kod):
     return VLAJKY.get(kod, kod)
 
 
+def _kanaly(pocet):
+    if isinstance(pocet, (int, float)) and not isinstance(pocet, bool):
+        return f"{pocet:g}"
+    return str(pocet).strip() if isinstance(pocet, str) else ""
+
+
 def _jazyky_s_kanaly(popis):
-    """„🇨🇿 5.1“, „🇬🇧“ — vlaječky zvuku s počtem kanálů, když je znám."""
+    """„🇨🇿 5.1 AC3“, „🇬🇧“ — vlaječky zvuku s počtem kanálů a kodekem, když jsou známé.
+
+    Kanály z hlavičky souboru chodí jako text („5.1“), z názvu souboru jako číslo —
+    dřív se ukazovalo jen číslo, takže u ověřených stop kanály chyběly. Stopy bez
+    rozpoznaného jazyka (Sledujteto ho u stopy neříká) se připíšou jen kanály a kodekem.
+    """
     kanaly = popis.get("channels") or {}
+    stopy = popis.get("audio") or []
+    kodeky = {}
+    for stopa in stopy:
+        if stopa.get("lang") and stopa.get("codec"):
+            kodeky.setdefault(stopa["lang"], stopa["codec"])
     out = []
     for kod in popis.get("langs") or []:
-        pocet = kanaly.get(kod)
-        out.append(f"{_vlajka(kod)} {pocet:g}" if isinstance(pocet, (int, float)) else _vlajka(kod))
+        casti = [_vlajka(kod), _kanaly(kanaly.get(kod)), kodeky.get(kod, "")]
+        out.append(" ".join(c for c in casti if c))
+    for stopa in stopy:
+        if stopa.get("lang"):
+            continue
+        text = " ".join(c for c in (_kanaly(stopa.get("channels")), stopa.get("codec") or "") if c)
+        if text and text not in out:
+            out.append(text)
     return out
 
 
