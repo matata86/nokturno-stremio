@@ -123,7 +123,6 @@ def stream_object(popis, odkaz, jmeno_doplnku="Nokturno"):
     kvalita = popis.get("quality") or ""
     zdroj = popis.get("source") or ""
     nazev_souboru = popis.get("file") or ""
-    neovereno = bool(popis.get("loose"))
     obraz = _znacky(nazev_souboru, OBRAZ)
     zvuk_navic = _znacky(nazev_souboru, ZVUK)
 
@@ -151,17 +150,13 @@ def stream_object(popis, odkaz, jmeno_doplnku="Nokturno"):
         radek_udaju.append(f"🌐 {zdroj}")
 
     radky = [nazev_souboru, "  ".join(radek_jazyku), "  ".join(radek_udaju)]
-    if neovereno:
-        # volnější shoda: přísný filtr nenašel nic, tohle může být jiný titul,
-        # který název jen obsahuje. Uživatel to musí poznat na první pohled.
-        radky.append("⚠️ neověřená shoda")
 
     # vlevo v úzkém sloupci je místo jen na jméno a kvalitu; HDR/DV k ní patří,
     # protože rozhoduje o tom, jestli má smysl sahat po velkém souboru
     vlevo = kvalita + (" " + " ".join(obraz[:1]) if obraz else "")
     objekt = {
         "url": odkaz(vnitrni),
-        "name": f"{jmeno_doplnku}{' ⚠️' if neovereno else ''}" + (f"\n{vlevo}" if vlevo else ""),
+        "name": jmeno_doplnku + (f"\n{vlevo}" if vlevo else ""),
         "description": "\n".join(r for r in radky if r),
         "behaviorHints": {},
     }

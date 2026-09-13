@@ -16,7 +16,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
-from .lib.const import CONF_HS_ENABLED, LANGS, SORT_ORDERS
+from .lib.const import CONF_HS_ENABLED, DEFAULT_SORT, LANGS, SORT_ORDERS
 from .lib.cinemeta_api import CinemetaApi, CinemetaError
 from .lib.enrich import DEAD_IMAGES, _cinemeta, _fetch, _fetch_title, enrich, enrich_one
 from .lib.luna_api import LunaApi, LunaError, clean_label, parse_base_url, parse_token
@@ -39,7 +39,6 @@ EPISODE_ANY_RE = re.compile(r"(?<![a-z0-9])s\d{1,2}\s?e\d{1,2}(?!\d)|(?<!\d)\d{1
 AUDIO_PROBE_MAX = 24          # u kolika streamů se ještě vyplatí číst hlavičku souboru
 ENRICH_PROGRESS_ESTIMATE = 10  # počáteční odhad délky enrichu, než search() zjistí skutečný počet
 AUDIO_TTL = 30 * 24 * 3600    # obsah souboru se nemění, stačí zjistit jednou
-SOLO_LIMIT = 8   # kolik z nich nechat v seznamu, když k nim Luna nemá protějšek
 SIZE_TOLERANCE = 0.25  # GB – Luna a WebShare zaokrouhlují velikost jinak
 HISTORY_MAX = 12
 SUBS_MAX = 3
@@ -769,8 +768,6 @@ class Engine:
         ) if p]
         return {
             "index": index,
-            # shoda z volnějšího fulltextu — nikdo ji neověřil, může to být jiný titul
-            "loose": bool(stream.get("_loose")),
             # Sosáč streamuje z veřejného streamuj.tv, takže jeho odkazy hrají i mimo domácí síť
             "direct": bool(stream.get("_direct")) or bool(stream.get("_ws_url")) or stream.get("source") == "sosac",
             # odkaz, který funguje i mimo domácí síť (přímo z WebShare)
@@ -888,7 +885,10 @@ class Engine:
             folded = _fold(name)
             if wanted:
                 if strict:
-                    tokens = [t for t in re.split(r"[^a-z0-9]+", folded) if t]
+                    # stejné síto jako `words()` u názvu titulu — jinak „Harry Potter
+                    # a Kámen mudrců" nikdy nesedí: z názvu se „a" vyřadí, ze souboru
+                    # ne, a slova pak nejdou za sebou (spadly všechny přesné shody)
+                    tokens = [t for t in re.split(r"[^a-z0-9]+", folded) if len(t) > 2]
                     if not any(phrase_leads(tokens, group) for group in wanted):
                         return False
                 elif not any(all(w in folded for w in group) for group in wanted):
@@ -1146,7 +1146,11 @@ class Engine:
             out.append(stream)
         solo = [s for s in streams if s.get("_direct") and id(s) not in used]
         solo.sort(key=lambda s: -(s.get("size_gb") or 0))
-        merged = out + solo[:SOLO_LIMIT]
+        # Bez ořezu: dřív tu byl strop 8 osamocených souborů (WebShare i HellSpy
+        # dohromady), takže karta HA u titulu bez Luny ukázala zlomek toho, co
+        # Kodi (Toy Story 5: 17 proti 64). Kodi žádný strop nemá, pořadí a filtr
+        # stejně řeší až `arrange()` podle nastavení.
+        merged = out + solo
         # Lunino vlastní "Search" (fulltext přes WebShare uvnitř Luny) umí tentýž
         # soubor vrátit i víckrát — všechny kopie mají stejnou velikost a kvalitu,
         # ale generický popisek bez jména ("(WS) Full HD"), protože Luna sama
@@ -1230,8 +1234,6 @@ class Engine:
         ) if p]
         return {
             "index": index,
-            # shoda z volnějšího fulltextu — nikdo ji neověřil, může to být jiný titul
-            "loose": bool(stream.get("_loose")),
             # torrent není odkaz na video — nedá se přehrát ani poslat do mobilu,
             # jde s ním jen jedno: zařadit do stahování
             "kind": "torrent",
@@ -1416,13 +1418,8 @@ class Engine:
     # kroků v _fetch_streams(), než začne (obvykle nejdelší) čtení hlaviček
     STREAM_SOURCE_STEPS = 5
 
-    def streams(self, ctype, item_id, alt=None, series_id=None, on_progress=None, loose_fallback=False):
+    def streams(self, ctype, item_id, alt=None, series_id=None, on_progress=None):
         """Seřazené streamy titulu ze všech dostupných zdrojů.
-
-        `loose_fallback=True` zkusí volnější fulltext, když přísný nenajde vůbec nic
-        — totéž, co v Kodi dělá tlačítko „Zkusit fulltext", ale automaticky. Výsledky
-        jsou označené `loose`, protože mezi nimi může být jiný titul, který název jen
-        obsahuje. Prochází stejným řazením i čtením hlaviček jako běžné streamy.
 
         Síťové dohledání streamů se cachuje 72 h, ale JEN když něco našlo (`cached_if`) —
         prázdný výsledek by mohl být jen dočasný výpadek zdroje, takže se zkusí znovu
@@ -1475,14 +1472,6 @@ class Engine:
             tick()
             found += self._hellspy_streams(meta, video, ctype, alt)
             tick()
-            if not found and loose_fallback:
-                # přísný filtr chce slova názvu blízko začátku souboru; když takhle
-                # nepadne nic, je lepší nabídnout i volnější shodu než prázdný seznam.
-                # Značí se `_loose`, ať je venku poznat, že ji nikdo neověřil.
-                found = (self._webshare_streams(meta, video, ctype, alt, strict=False)
-                         + self._hellspy_streams(meta, video, ctype, alt, strict=False))
-                for stream in found:
-                    stream["_loose"] = True
             for stream in found:
                 parse_stream(stream)
                 # bez kvality v názvu („Matrix (1999).mkv") by soubor spadl na konec seznamu,
@@ -1509,7 +1498,7 @@ class Engine:
                     stream["subs"] = sorted(stream["subs"])
             return found
 
-        cache_key = f"streams:{ctype}:{item_id}:{alt or ''}" + (":loose" if loose_fallback else "")
+        cache_key = f"streams:{ctype}:{item_id}:{alt or ''}"
         found = self.store.cached_if(cache_key, STREAMS_CACHE_TTL, _fetch_streams)
         # z cache se vrátí rovnou, bez jediného tick() výše — doskočit na konec fáze zdrojů
         if on_progress and done[0] < self.STREAM_SOURCE_STEPS:
@@ -1517,14 +1506,14 @@ class Engine:
             on_progress(done[0], total)
         max_gb = self._effective_max_gb(video or meta)
         lang = self._opt("pref_lang", "")
-        order = self._opt("sort_streams", "quality")
+        order = self._opt("sort_streams", DEFAULT_SORT)
         def sort(items):
             return arrange(
                 items,
                 pref_lang=lang if lang in LANGS else "",
                 hide_sd=bool(self.options.get("hide_sd")),
                 max_size_gb=max_gb,
-                order=order if order in SORT_ORDERS else "quality",
+                order=order if order in SORT_ORDERS else DEFAULT_SORT,
                 pref_surround=bool(self.options.get("pref_surround")),
             )
 

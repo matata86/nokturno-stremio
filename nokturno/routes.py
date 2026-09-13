@@ -27,7 +27,7 @@ from . import config, mapping
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "0.2.0"
+VERZE = "0.2.1"
 TYPY = ("movie", "series")
 STATIKA = pathlib.Path(__file__).resolve().parent / "static"
 
@@ -139,9 +139,9 @@ class Router:
             return chyba(400, "U seriálu čekám id ve tvaru tt…:sezóna:díl")
 
         try:
-            # volnější shoda, když přísný filtr nenajde nic — v Kodi je to tlačítko
-            # „Zkusit fulltext", tady se pustí sama, protože není kam ho dát
-            popisy = engine.streams(ctype, item_id, loose_fallback=True)
+            # jen přísná shoda, stejně jako v Kodi a HA: volnější fulltext si má
+            # uživatel vyžádat sám (tlačítko v Kodi), ve Stremiu na to není místo
+            popisy = engine.streams(ctype, item_id)
         except NokturnoError as err:
             # chybějící zdroj není chyba služby; Stremio má ukázat prázdno a jít dál
             _LOGGER.info("streamy %s %s: %s", ctype, item_id, err)
