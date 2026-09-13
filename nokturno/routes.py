@@ -35,7 +35,7 @@ from . import config, mapping
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "3.1.1"
+VERZE = "3.1.3"
 TYPY = ("movie", "series")
 STATIKA = pathlib.Path(__file__).resolve().parent / "static"
 JAZYKY = ("cs", "sk")   # stránky úvodu a formuláře; manifest a streamy zůstávají česky
