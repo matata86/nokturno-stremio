@@ -175,6 +175,22 @@ def neverejna_adresa(url):
     return True if not host else _neverejny_host(host.lower())
 
 
+@functools.lru_cache(maxsize=256)
+def _host_v_lan(host):
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except OSError:
+        return False
+    return any(ipaddress.ip_address(str(i[4][0]).split("%")[0]).is_private for i in infos)
+
+
+def adresa_v_lan(url):
+    """Adresa v místní síti (192.168…, 10…, loopback) — ne Tailscale 100.64/10, ta je
+    dosažitelná odkudkoli z tailnetu. Slouží jen k radě, proč se server na Lunu nedostal."""
+    host = urllib.parse.urlparse(str(url or "")).hostname
+    return bool(host) and _host_v_lan(host.lower())
+
+
 def bez_luny_v_domaci_siti(options):
     """Požadavek z internetu: Luna v soukromé síti se vynechá — server by jinak na
     pokyn cizí adresy sahal do domácí sítě a odkazy Luny by se zvenku stejně nepřehrály."""

@@ -321,6 +321,8 @@
               <li>Otevři setup svého serveru Luna (<code>http://adresa-Luny:7126/setup</code>) → <strong>Ruční instalace</strong>
                 a zkopíruj adresu <em>Luna: Absolute Cinema</em>. Vlož ji celou do pole <strong>Token</strong> — adresu serveru si doplněk vezme z ní.</li>
               <li><strong>Jeden doplněk:</strong> s Lunou v Nokturnu oficiální doplněk Luny nepotřebuješ. Když máš oba, některé soubory z WebShare uvidíš dvakrát.</li>
+              <li><strong>Adresa serveru</strong> musí být dosažitelná ze serveru, na kterém Nokturno běží — ne jen z tvého zařízení.
+                Nokturno na <code>nokturno.tailf0014.ts.net</code> neběží u tebe doma, takže místo <code>192.168.…</code> zadej Tailscale adresu Luny (<code>http://100.x.x.x:7126</code>).</li>
               <li><strong>Kde to hraje:</strong> streamy Luny jdou přes tvůj server, takže se přehrají jen tam, kde je Luna dosažitelná — doma nebo přes VPN.
                 Když doplněk otevřeš z internetu a Luna má adresu v domácí síti, Nokturno ji přeskočí a ostatní zdroje fungují dál.</li>
             </ol>
@@ -684,7 +686,9 @@ $("overit-luna").addEventListener("click", async () => {
     if (!luna) vysledek("luna", "pozor", "Token nejde přečíst — vlož celou adresu z Ruční instalace.");
     else if (luna.doma) vysledek("luna", "pozor", "Luna je v domácí síti — funguje doma nebo přes VPN, z internetu se přeskočí.");
     else if (luna.ok) vysledek("luna", "ok", "✓ Luna odpovídá");
-    else vysledek("luna", "chyba", "Luna neodpovídá — zkontroluj adresu a token.");
+    else if (luna.lan) vysledek("luna", "chyba", "Server Nokturna se na tuhle adresu nedostal. Adresa v domácí síti funguje, jen když server běží ve stejné síti jako Luna — zadej Tailscale adresu Luny (http://100.x.x.x:7126).");
+    else if (luna.spojeni) vysledek("luna", "chyba", "Server Nokturna se na Lunu nedostal — zkontroluj adresu serveru.");
+    else vysledek("luna", "chyba", "Luna odpověděla chybou — zkontroluj token (celou adresu z Ruční instalace).");
   } catch (err) {
     vysledek("luna", "chyba", "Ověření se nepovedlo (" + err.message + ").");
   } finally {

@@ -25,6 +25,7 @@ prefix, rozklíčuje ho pod správným účtem.
 """
 import logging
 import pathlib
+import urllib.error
 import urllib.parse
 
 from .core.engine import NokturnoError, is_sosac_id, split_episode_id
@@ -171,7 +172,11 @@ class Router:
                     out["luna"] = {"ok": True, "katalogy": len(katalogy)}
                 except Exception as err:  # noqa: BLE001 – pro uživatele je každé selhání totéž
                     _LOGGER.info("ověření Luny: %s", str(err)[:60])
-                    out["luna"] = {"ok": False}
+                    # nespojil se (špatná adresa, jiná síť) × Luna odpověděla chybou (token)
+                    pricina = err.__cause__ or err
+                    spojeni = isinstance(pricina, OSError) and not isinstance(pricina, urllib.error.HTTPError)
+                    out["luna"] = {"ok": False, "spojeni": spojeni,
+                                   "lan": spojeni and config.adresa_v_lan(base)}
         return Odpoved(data=out)
 
     def uvod(self, zaklad):
