@@ -11,7 +11,10 @@ každý, kdo si doplněk přidá, má vlastní. Server si nic nepamatuje a hled�
 pod účtem toho, kdo se ptá.
 
 Adresy bez `/c/<nastavení>/` fungují dál a berou nastavení z prostředí. Drží to
-při životě instance nasazené dřív, než tahle vrstva vznikla.
+při životě instance nasazené dřív, než tahle vrstva vznikla. **Jen ze soukromé
+sítě:** požadavek z internetu (Tailscale Funnel, viz `server.je_verejny`) bez
+vlastního nastavení v adrese dostane 403 a formulář se mu nepředvyplní — jinak by
+hledal a stahoval pod účty majitele instance a formulář by mu je ukázal.
 
 Odkazy WebShare a HellSpy platí jen chvíli a nesou podpis, takže se nedávají
 rovnou do odpovědi. Stremio dostane adresu na `/play/`, která soubor rozklíčuje
@@ -27,7 +30,7 @@ from . import config, mapping
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "0.2.3"
+VERZE = "0.2.4"
 TYPY = ("movie", "series")
 STATIKA = pathlib.Path(__file__).resolve().parent / "static"
 
@@ -99,14 +102,14 @@ class Router:
     def health(self):
         return Odpoved(data={"ok": True, "verze": self.verze, "jader": len(self.enginy)})
 
-    def configure(self, kousek, zaklad):
+    def configure(self, kousek, zaklad, verejny=False):
         """Formulář, který vyrobí adresu s účty. Předvyplní se z adresy, na které stojí."""
         try:
             html = (STATIKA / "configure.html").read_text(encoding="utf-8")
         except OSError:
             return chyba(500, "Formulář nastavení chybí.")
         soucasne = config.decode(kousek) if kousek else None
-        if soucasne is None and self.predvyplnit:
+        if soucasne is None and self.predvyplnit and not verejny:
             soucasne = self.enginy.vychozi_options
         html = html.replace("__NASTAVENI__", mapping.json_bytes(soucasne or {}).decode("utf-8"))
         html = html.replace("__ZAKLAD__", zaklad)
@@ -114,7 +117,7 @@ class Router:
         return Odpoved(html=html)
 
     def uvod(self, engine, zaklad):
-        zdroje = config.sources_summary(engine)
+        zdroje = config.sources_summary(engine) if engine is not None else []
         radky = [
             "Nokturno pro Stremio", "",
             f"verze:  {self.verze}",
@@ -171,8 +174,9 @@ class Router:
         return Odpoved(status=302, location=skutecna, text="")
 
     # --- rozcestník -------------------------------------------------------
-    def route(self, cesta, zaklad):
-        """Cesta požadavku na odpověď. `zaklad` je absolutní adresa služby."""
+    def route(self, cesta, zaklad, verejny=False):
+        """Cesta požadavku na odpověď. `zaklad` je absolutní adresa služby,
+        `verejny` říká, že přišel z internetu (viz docstring modulu)."""
         cesta = urllib.parse.unquote(cesta.split("?", 1)[0])
         if cesta == "/health":
             return self.health()
@@ -184,8 +188,17 @@ class Router:
 
         if zbytek in ("", "/", "/configure", "/configure/"):
             if zbytek in ("/configure", "/configure/"):
-                return self.configure(kousek, zaklad)
-            return self.uvod(self.enginy.pro(options), zaklad)
+                return self.configure(kousek, zaklad, verejny)
+            return self.uvod(None if verejny and not kousek else self.enginy.pro(options), zaklad)
+
+        if verejny and not kousek:
+            if zbytek == "/manifest.json":
+                # Stremio z toho pozná, že si má doplněk nejdřív nastavit
+                data = mapping.manifest(self.verze, (), nastaveno=False)
+                data["behaviorHints"].update(configurable=True, configurationRequired=True)
+                return Odpoved(data=data)
+            return chyba(403, f"Doplněk bez vlastního nastavení jde použít jen z domácí sítě. "
+                              f"Vyrob si adresu na {zaklad}/configure")
 
         engine = self.enginy.pro(options)
         if zbytek == "/manifest.json":

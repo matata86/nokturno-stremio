@@ -310,5 +310,48 @@ class TestNastaveni(unittest.TestCase):
         self.assertEqual(chybi, [], f"engine tyhle klíče nezná: {chybi}")
 
 
+
+class TestVerejnyPristup(unittest.TestCase):
+    """Přes Tailscale Funnel je doplněk na internetu — výchozí účty instance nesmí ven."""
+
+    def test_bez_nastaveni_zvenku_nic_nenajde(self):
+        r = router()
+        odpoved = r.route("/stream/movie/tt1.json", ZAKLAD, verejny=True)
+        self.assertEqual(odpoved.status, 403)
+        self.assertEqual(r.engine.dotazy, [], "jádro s účty instance se nesmí ani zeptat")
+        self.assertEqual(r.route("/play/eHh4", ZAKLAD, verejny=True).status, 403)
+
+    def test_manifest_zvenku_chce_nastaveni(self):
+        r = router()
+        data = r.route("/manifest.json", ZAKLAD, verejny=True).data
+        self.assertTrue(data["behaviorHints"]["configurationRequired"])
+        self.assertNotIn("Nastavené zdroje", data["description"], "neprozradí, co má instance nastavené")
+        self.assertEqual(r.enginy_test.pozadovana_nastaveni, [])
+
+    def test_formular_zvenku_se_nepredvyplni(self):
+        r = router()
+        r.predvyplnit = True
+        self.assertNotIn("z-prostredi", r.route("/configure", ZAKLAD, verejny=True).html)
+        self.assertIn("z-prostredi", r.route("/configure", ZAKLAD).html, "z domácí sítě dál ano")
+
+    def test_uvod_zvenku_neprozradi_zdroje(self):
+        text = router().route("/", ZAKLAD, verejny=True).text
+        self.assertIn("žádný nenastavený", text)
+
+    def test_s_vlastnim_nastavenim_zvenku_funguje(self):
+        r = router()
+        self.assertEqual(r.route(f"/c/{KOUSEK}/stream/movie/tt1.json", ZAKLAD, verejny=True).status, 200)
+        self.assertEqual(r.enginy_test.pozadovana_nastaveni[-1], NASTAVENI)
+
+    def test_rozpoznani_verejneho_pozadavku(self):
+        from nokturno.server import je_verejny
+        self.assertTrue(je_verejny({"Tailscale-Funnel-Request": "?1"}, "127.0.0.1"))
+        self.assertTrue(je_verejny({"Tailscale-Funnel-Request": "?1", "Tailscale-User-Login": "x@y"}, "127.0.0.1"),
+                        "značka Funnelu vyhrává")
+        self.assertFalse(je_verejny({"Tailscale-User-Login": "x@y"}, "127.0.0.1"), "tailnet přes serve")
+        self.assertTrue(je_verejny({}, "127.0.0.1"), "přes proxy bez identity = pochybnost = veřejný")
+        self.assertFalse(je_verejny({}, "192.168.1.50"), "přímo z LAN jako dřív")
+
+
 if __name__ == "__main__":
     unittest.main()

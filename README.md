@@ -7,7 +7,10 @@ stojí na společném jádru [nokturno-core](https://github.com/matata86/nokturn
 
 > **Jen do domácí sítě.** Stremio nosí nastavení doplňku zakódované v adrese, takže
 > účty k WebShare a Streamuj putují v každém požadavku v otevřené podobě.
-> Nevystavuj službu na veřejnou adresu ani přes tunel.
+> Na veřejnou adresu vystavuj jen přes Tailscale Funnel: požadavek z Funnelu
+> pozná služba podle hlavičky a bez vlastního nastavení v adrese mu nedá účty
+> z prostředí (od 0.2.4). Jiný tunel nebo reverzní proxy tu značku nenese,
+> takže by instance pouštěla ven účty z `.env`.
 
 ## Co umí
 

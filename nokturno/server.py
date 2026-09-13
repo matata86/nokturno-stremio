@@ -23,6 +23,27 @@ VYCHOZI_PORT = 7127          # hned vedle Luny na 7126
 VYCHOZI_DATA = "./data"      # cache a mezipaměť jádra; v kontejneru svazek
 
 
+def je_verejny(headers, client_ip):
+    """Přišel požadavek z internetu přes Tailscale Funnel?
+
+    Veřejný požadavek nesmí dostat výchozí nastavení z prostředí — tedy účty
+    WebShare a Streamuj majitele instance. Rozhoduje se tak, aby pochybnost
+    znamenala „veřejný":
+
+    - `Tailscale-Funnel-Request` přidává Funnel ke každému požadavku z internetu;
+    - `Tailscale-User-Login` přidává `tailscale serve` jen přihlášenému uživateli
+      tailnetu. Funnel tyhle hlavičky od klienta zahodí, podvrhnout nejdou
+      (ověřeno 2026-09-13 zvenku s ručně poslanou hlavičkou);
+    - přímý přístup mimo proxy Tailscale (LAN na :7127) je soukromý jako dřív,
+      ale bez identity přes proxy (tagované zařízení, cokoli nečekaného) už ne.
+    """
+    if headers.get("Tailscale-Funnel-Request"):
+        return True
+    if headers.get("Tailscale-User-Login"):
+        return False
+    return client_ip in ("127.0.0.1", "::1", "::ffff:127.0.0.1")
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = f"nokturno/{VERZE}"
     protocol_version = "HTTP/1.1"    # Stremio drží spojení otevřené
@@ -58,7 +79,8 @@ class Handler(BaseHTTPRequestHandler):
     # --- metody -----------------------------------------------------------
     def do_GET(self):
         try:
-            self._posli(self.server.router.route(self.path, self._zaklad()))
+            verejny = je_verejny(self.headers, self.client_address[0])
+            self._posli(self.server.router.route(self.path, self._zaklad(), verejny=verejny))
         except (BrokenPipeError, ConnectionResetError):
             # přehrávač si to rozmyslel a zavřel spojení — běžné, ne chyba
             _LOGGER.debug("klient zavřel spojení při %s", self.path)
