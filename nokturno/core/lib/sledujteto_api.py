@@ -108,6 +108,7 @@ class SledujtetoApi:
         self._token = None
         self.last_keys = []
         self.last_me_keys = []
+        self.last_sample = {}
 
     # --- síť ----------------------------------------------------------------
     def _request(self, method, path, data=None, token=None):
@@ -214,6 +215,12 @@ class SledujtetoApi:
             if results and isinstance(results[0], dict):
                 first = results[0]
                 self.last_keys = sorted(set(first) | {"video." + k for k in (first.get("video") or {})})
+                # ukázka technických údajů (rozlišení, kodeky, kanály) — formát jejich
+                # doplněk nepoužívá a z dokumentace ho neznáme; žádné odkazy ani popis
+                video = first.get("video") or {}
+                self.last_sample = {k: v for k, v in video.items()
+                                    if k not in ("thumb_urls", "subtitles") and not isinstance(v, (dict, list))}
+                self.last_sample["filesize"] = first.get("filesize")
             files = [normalize(r) for r in results if isinstance(r, dict) and r.get("id")]
             return files, int(inner.get("total") or len(files))
         if self.cache is None:

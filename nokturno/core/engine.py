@@ -1175,7 +1175,8 @@ class Engine:
             if self.st.last_keys and not getattr(self, "_st_keys_logged", False):
                 # velikost souboru jejich doplněk nepoužívá, klíč neznáme jistě — jednou do logu
                 self._st_keys_logged = True
-                _LOGGER.info("Sledujteto: klíče výsledku hledání %s", self.st.last_keys)
+                _LOGGER.info("Sledujteto: klíče výsledku hledání %s, ukázka %s", self.st.last_keys,
+                             getattr(self.st, "last_sample", {}))
             for f in files:
                 name = f.get("name") or ""
                 if f["id"] in seen or not relevant(name):
