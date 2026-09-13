@@ -45,7 +45,8 @@ docker compose up -d
 ```
 
 Pak otevřít `http://<adresa stroje>:7127/configure`, vyplnit účty a kliknout na
-**Přidat do Stremia**.
+**Přidat do Stremia** nebo **Přidat do Nuvia**. Do Streamletu se adresa vkládá ručně
+(*Zkopírovat adresu*). Na `/` je úvodní stránka s rozcestníkem všech repozitářů Nokturna.
 
 Bez Dockeru to jde taky, závislosti žádné nejsou:
 
