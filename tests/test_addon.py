@@ -491,8 +491,15 @@ class TestKatalogy(unittest.TestCase):
         cesta = "/catalog/movie/nokturno.sosac.nove.dabing.json"
         data = self.r.route(f"/c/{KOUSEK}{cesta}", ZAKLAD).data
         self.assertEqual(data["metas"], [{"id": "tt0133093", "type": "movie", "name": "Matrix", "posterShape": "poster",
-                                          "poster": "https://img/x.jpg", "description": "popis", "releaseInfo": "1999",
+                                          "poster": "https://images.metahub.space/poster/medium/tt0133093/img",
+                                          "description": "popis", "releaseInfo": "1999",
                                           "genres": ["Sci-Fi"], "imdbRating": "8.7"}])
+        from nokturno.katalogy import nahled
+        tmdb = nahled("movie", {"id": "tt1", "name": "X", "poster": "https://image.tmdb.org/t/p/w500/a.jpg",
+                                "background": "https://image.tmdb.org/t/p/w1280/b.jpg"})
+        self.assertEqual((tmdb["poster"], tmdb["background"]),
+                         ("https://image.tmdb.org/t/p/w500/a.jpg", "https://image.tmdb.org/t/p/w1280/b.jpg"),
+                         "plakát z TMDB zůstává, Sosáčův (přesměruje na web) se nahradí metahubem")
         jina = config.encode(config.from_mapping({"ws_username": "nekdo-jiny"}))
         self.r.route(f"/c/{jina}{cesta}", ZAKLAD)
         self.assertEqual(len(self.volani), 1, "jiná adresa bere tutéž cache")

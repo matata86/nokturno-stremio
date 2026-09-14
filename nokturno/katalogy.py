@@ -25,6 +25,8 @@ _LOGGER = logging.getLogger(__name__)
 TTL = 6 * 3600
 PREFIX = "nokturno."
 STRANKA_SOSAC = 100   # Sosáč vydává dlouhé seznamy, TMDB stránkuje po 20 samo
+TMDB_IMG = "https://image.tmdb.org/"
+METAHUB_POSTER = "https://images.metahub.space/poster/medium/{}/img"
 
 # klíč, typ, zdroj, id katalogu ve zdroji, název česky, název slovensky
 SEZNAM = (
@@ -53,9 +55,14 @@ def nahled(typ, meta):
     if not imdb.startswith("tt"):
         return None
     out = {"id": imdb, "type": typ, "name": meta.get("name") or "", "posterShape": "poster"}
-    for klic in ("poster", "background", "description"):
-        if meta.get(klic):
-            out[klic] = meta[klic]
+    # obrázky Sosáče (movies.sosac.tv) mimo jeho web přesměrují na stránku a jsou na šířku —
+    # plakát proto z TMDB, jinak podle IMDb id z metahubu (ten používá i Cinemeta)
+    poster = str(meta.get("poster") or "")
+    out["poster"] = poster if poster.startswith(TMDB_IMG) else METAHUB_POSTER.format(imdb)
+    if str(meta.get("background") or "").startswith(TMDB_IMG):
+        out["background"] = meta["background"]
+    if meta.get("description"):
+        out["description"] = meta["description"]
     rok = str(meta.get("year") or meta.get("releaseInfo") or "")[:4]
     if rok:
         out["releaseInfo"] = rok
