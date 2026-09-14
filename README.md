@@ -79,6 +79,8 @@ Hodnoty jsou stejné jako v doplňku pro Kodi, takže se dají opsat z jeho
 | `NOKTURNO_HS_ENABLED` | HellSpy je veřejný, stačí přepínač; zapnutý ve výchozím stavu |
 | `NOKTURNO_PREF_LANG`, `NOKTURNO_SORT`, `NOKTURNO_HIDE_SD` | předvolby řazení a filtrování |
 | `NOKTURNO_STATS` | `0` vypne anonymní statistiky, viz níže |
+| `NOKTURNO_HOST`, `NOKTURNO_PORT`, `NOKTURNO_DATA` | na čem poslouchat (v Dockeru `0.0.0.0`, za Tailscale Funnel nebo jinou proxy `127.0.0.1`), port a složka s cache |
+| `NOKTURNO_CONFIGURE_PREFILL` | `1` předvyplní formulář účty z prostředí — jen na vlastní instanci, nikdy na veřejné |
 
 Žádný zdroj není povinný. Bez nastavení běží doplněk jen s HellSpy.
 
@@ -134,8 +136,14 @@ Nesahají na síť a nepotřebují účty. Jádro má vlastní testy ve svém re
 
 ## Stav a co dál
 
-V provozu na vlastní instanci, veřejně přes Tailscale Funnel. Nastavení
-s návody je na `/configure`, včetně ověření účtů WebShare a Sledujteto.
+Stabilní 4.0, v provozu na vlastní instanci, veřejně přes Tailscale Funnel na
+[nokturno.tailf0014.ts.net](https://nokturno.tailf0014.ts.net/). Nastavení s návody je na
+`/configure`, včetně ověření účtů WebShare a Sledujteto i vlastních úložišť.
+
+Veřejná instance je chráněná: ověřování účtů i proxy vlastního úložiště mají limit
+požadavků na jedno nastavení, úložiště s adresou na server samotný nebo link-local se
+ignoruje, `/play/` přijímá jen odkazy známých zdrojů, stránky mají CSP hlavičky a účty
+se nezapisují do logu. Server za proxy má poslouchat jen na `127.0.0.1` (`NOKTURNO_HOST`).
 
 Chystá se:
 
