@@ -8,15 +8,8 @@ a **HellSpy**. Podrobný návod je ve [wiki](https://github.com/matata86/nokturn
 a [integrace pro Home Assistant](https://github.com/matata86/nokturno-ha), protože všichni tři
 stojí na společném jádru [nokturno-core](https://github.com/matata86/nokturno-core).
 
-> **Účty jsou v adrese doplňku.** Stremio nosí nastavení zakódované v adrese, takže
-> účty putují v každém požadavku v otevřené podobě — adresu nikomu neposílej.
-> Na veřejnou adresu vystavuj jen přes Tailscale Funnel: požadavek z Funnelu
-> pozná služba podle hlavičky a bez vlastního nastavení v adrese mu nedá účty
-> z prostředí (od 0.2.4). Jiný tunel nebo reverzní proxy tu značku nenese,
-> takže by instance pouštěla ven účty z `.env`.
->
-> Luna se od 0.2.5 nepoužívá — má vlastní doplněk do Stremia a její odkazy vedou
-> do domácí sítě.
+**Přidat do Stremia:** otevři **[nokturno.tailf0014.ts.net/configure](https://nokturno.tailf0014.ts.net/configure)**,
+vyplň účty a klikni na *Přidat do Stremia* nebo *Přidat do Nuvia*.
 
 ## Co umí
 
