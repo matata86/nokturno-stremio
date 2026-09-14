@@ -4,9 +4,9 @@
 
 Doplněk, který k filmům a seriálům ve Stremiu (i v Nuviu a dalších klientech
 s doplňky Stremia) dohledá streamy z **WebShare**, **Sosáče**, **Sledujteto**
-a **HellSpy**. Podrobný návod je ve [wiki](https://github.com/matata86/nokturno-stremio/wiki). Stejné zdroje jako [doplněk pro Kodi](https://github.com/matata86/plugin.video.nokturno)
-a [integrace pro Home Assistant](https://github.com/matata86/nokturno-ha), protože všichni tři
-stojí na společném jádru [nokturno-core](https://github.com/matata86/nokturno-core).
+a **HellSpy**. Podrobný návod je ve [wiki](https://github.com/matata86/nokturno-stremio/wiki).
+
+> **Patří k sobě:** stejné zdroje nabízí i [**Nokturno pro Kodi**](https://github.com/matata86/plugin.video.nokturno) a [**Nokturno pro Home Assistant**](https://github.com/matata86/nokturno-ha) (HACS integrace, přehrává přes Kodi doplněk). Všechny tři stojí na společném jádru [nokturno-core](https://github.com/matata86/nokturno-core).
 
 **Přidat do Stremia:** otevři **[nokturno.tailf0014.ts.net/configure](https://nokturno.tailf0014.ts.net/configure)**,
 vyplň účty a klikni na *Přidat do Stremia* nebo *Přidat do Nuvia*.
