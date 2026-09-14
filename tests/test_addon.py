@@ -640,6 +640,7 @@ class TestVlastniUloziste(unittest.TestCase):
             def do_GET(self):
                 videno["auth"] = self.headers.get("Authorization")
                 videno["range"] = self.headers.get("Range")
+                videno["enc"] = self.headers.get("Accept-Encoding")
                 if self.headers.get("Authorization") != "Basic ok":
                     self.send_response(401)
                     self.send_header("Content-Length", "0")
@@ -672,7 +673,7 @@ class TestVlastniUloziste(unittest.TestCase):
             with urllib.request.urlopen(req, timeout=5) as resp:
                 self.assertEqual((resp.status, resp.read(), resp.headers["Content-Range"]),
                                  (206, b"2345", "bytes 2-5/10"))
-            self.assertEqual(videno, {"auth": "Basic ok", "range": "bytes=2-5"})
+            self.assertEqual(videno, {"auth": "Basic ok", "range": "bytes=2-5", "enc": "identity"})
             Smerovac.heslo = "Basic spatne"
             with self.assertRaises(urllib.error.HTTPError) as ctx:
                 urllib.request.urlopen(urllib.request.Request(adresa, headers=doma), timeout=5)
@@ -995,3 +996,42 @@ class TestStylFormulare(unittest.TestCase):
             selektor = re.search(r"^\s*(input\[type=[^{]+)\{", html, re.M).group(1)
             stylovane = set(re.findall(r"input\[type=([a-z]+)\]", selektor))
             self.assertEqual(typy - stylovane, set(), f"{jmeno}: input bez stylu")
+
+
+class TestHeadAProxyKodovani(unittest.TestCase):
+    def test_head_na_streamy_nespousti_hledani(self):
+        import threading
+        import urllib.request
+        from http.server import ThreadingHTTPServer
+        from nokturno.routes import Odpoved
+        from nokturno.server import Handler
+        volani = []
+
+        class Smerovac:
+            def route(self, cesta, zaklad, verejny=False, jazyk=None, klient=""):
+                volani.append(cesta)
+                return Odpoved(data={"ok": True})
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        srv.router = Smerovac()
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        zaklad = f"http://127.0.0.1:{srv.server_address[1]}"
+        try:
+            for cesta in ("/c/abc/stream/movie/tt1.json", "/c/abc/check"):
+                with urllib.request.urlopen(urllib.request.Request(zaklad + cesta, method="HEAD"), timeout=5) as resp:
+                    self.assertEqual(resp.status, 204, cesta)
+            self.assertEqual(volani, [], "HEAD na streamy/check se k routeru nedostane")
+            with urllib.request.urlopen(urllib.request.Request(zaklad + "/health", method="HEAD"), timeout=5) as resp:
+                self.assertEqual(resp.status, 200)
+            self.assertEqual(volani, ["/health"])
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+    def test_env_example_a_compose_znaji_vsechny_promenne(self):
+        env = (ROOT / ".env.example").read_text(encoding="utf-8")
+        compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+        for name in ("NOKTURNO_ST_EMAIL", "NOKTURNO_DAV1_URL", "NOKTURNO_STATS", "NOKTURNO_HOST", "NOKTURNO_CONFIGURE_PREFILL"):
+            self.assertIn(name, env, name)
+        for name in ("NOKTURNO_ST_EMAIL", "NOKTURNO_DAV1_URL", "NOKTURNO_STATS"):
+            self.assertIn(name, compose, name)
+        self.assertNotIn("NOKTURNO_TMDB_API_KEY", compose, "Stremio TMDB nečte")

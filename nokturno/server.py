@@ -127,6 +127,8 @@ class Handler(BaseHTTPRequestHandler):
         for jmeno in ("Range", "If-Range"):
             if self.headers.get(jmeno):
                 pozadavek[jmeno] = self.headers[jmeno]
+        # bez komprese: tělo se přeposílá po kouscích tak, jak přijde, a Content-Encoding se nepředával
+        pozadavek.setdefault("Accept-Encoding", "identity")
         req = urllib.request.Request(url, headers=pozadavek, method="HEAD" if self.command == "HEAD" else "GET")
         # z internetu jen hlídaným openerem: úložiště může přesměrovat dovnitř sítě
         otevri = sit.OPENER.open if self._verejny else urllib.request.urlopen
@@ -145,7 +147,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self.send_response(status)
             for jmeno in ("Content-Type", "Content-Length", "Content-Range", "Accept-Ranges",
-                          "Last-Modified", "ETag"):
+                          "Last-Modified", "ETag", "Content-Encoding"):
                 if upstream.headers.get(jmeno):
                     self.send_header(jmeno, upstream.headers[jmeno])
             if not upstream.headers.get("Content-Length"):
@@ -207,7 +209,15 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:  # noqa: BLE001 – klient už mohl spojení zavřít
                 pass
 
-    do_HEAD = do_GET
+    def do_HEAD(self):
+        # HEAD na streamy/ověření dřív spustilo celé hledání ve zdrojích jen kvůli hlavičkám
+        if "/stream/" in self.path or self.path.rstrip("/").endswith("/check"):
+            self.send_response(204)
+            self.send_header("Content-Length", "0")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            return
+        self.do_GET()
 
     def do_OPTIONS(self):
         self.send_response(204)

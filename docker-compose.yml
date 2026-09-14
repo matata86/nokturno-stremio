@@ -1,8 +1,10 @@
-# Nokturno pro Stremio — jen v domácí síti.
+# Nokturno pro Stremio.
 #
-# Nastavení doplňku se ve Stremiu nosí v URL, takže účty k WebShare a Streamuj
-# jdou v každém požadavku v otevřené podobě. Službu proto nevystavuj na veřejnou
-# adresu ani přes Cloudflare tunel. Tailscale je v pořádku.
+# Nastavení doplňku se ve Stremiu nosí v URL, takže účty jdou v každém požadavku
+# v otevřené podobě (base64). Veřejně jen přes Tailscale Funnel: podle jeho hlaviček
+# služba pozná požadavek z internetu a nedá mu účty z prostředí ani přístup do sítě
+# (viz server.je_verejny, nokturno/sit.py). Za jinou proxy (Cloudflare, nginx) by
+# každý požadavek vypadal jako domácí — tam službu nevystavuj.
 services:
   nokturno-stremio:
     build: .
@@ -19,9 +21,19 @@ services:
       NOKTURNO_WS_PASSWORD: "${NOKTURNO_WS_PASSWORD:-}"
       NOKTURNO_STREAMUJ_USERNAME: "${NOKTURNO_STREAMUJ_USERNAME:-}"
       NOKTURNO_STREAMUJ_PASSWORD: "${NOKTURNO_STREAMUJ_PASSWORD:-}"
-      NOKTURNO_TMDB_API_KEY: "${NOKTURNO_TMDB_API_KEY:-}"
+      NOKTURNO_ST_EMAIL: "${NOKTURNO_ST_EMAIL:-}"
+      NOKTURNO_ST_PASSWORD: "${NOKTURNO_ST_PASSWORD:-}"
+      # vlastní úložiště (WebDAV), slot 1 — další sloty stejně s DAV2/DAV3
+      NOKTURNO_DAV1_URL: "${NOKTURNO_DAV1_URL:-}"
+      NOKTURNO_DAV1_USERNAME: "${NOKTURNO_DAV1_USERNAME:-}"
+      NOKTURNO_DAV1_PASSWORD: "${NOKTURNO_DAV1_PASSWORD:-}"
+      NOKTURNO_DAV1_NAME: "${NOKTURNO_DAV1_NAME:-}"
       # předvolby streamů
       NOKTURNO_HS_ENABLED: "${NOKTURNO_HS_ENABLED:-1}"
       NOKTURNO_PREF_LANG: "${NOKTURNO_PREF_LANG:-CZ}"
       NOKTURNO_SORT: "${NOKTURNO_SORT:-quality}"
       NOKTURNO_HIDE_SD: "${NOKTURNO_HIDE_SD:-0}"
+      # provoz
+      NOKTURNO_DATA: "/data"
+      NOKTURNO_STATS: "${NOKTURNO_STATS:-1}"
+      NOKTURNO_CONFIGURE_PREFILL: "${NOKTURNO_CONFIGURE_PREFILL:-0}"
