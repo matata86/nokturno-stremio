@@ -75,8 +75,9 @@ class FalesneEnginy:
         self.pozadovana_nastaveni = []
         self.vychozi_options = {"ws_username": "z-prostredi"}
 
-    def pro(self, options=None):
+    def pro(self, options=None, verejny=False):
         self.pozadovana_nastaveni.append(options)
+        self.verejny = verejny
         return self.engine
 
     def __len__(self):
@@ -207,10 +208,20 @@ class TestPrehrani(unittest.TestCase):
         self.assertEqual(odpoved.location, "https://cdn.example/film.mkv")
 
     def test_odmitne_cizi_schema(self):
-        """Bez kontroly by `resolve()` neznámou hodnotu vrátil a šlo by přesměrovat kamkoli."""
-        for nebezpecne in ("file:///etc/passwd", "gopher://x", "/etc/passwd"):
-            odpoved = router().route("/play/" + mapping.zakoduj(nebezpecne), ZAKLAD)
+        """Bez kontroly by `resolve()` neznámou hodnotu vrátil a šlo by přesměrovat kamkoli —
+        včetně hotových http(s) odkazů, které jádro vrací beze změny (2026-09-14)."""
+        for nebezpecne in ("file:///etc/passwd", "gopher://x", "/etc/passwd",
+                           "https://evil.example/x", "http://evil.example/", "HTTP://evil.example/"):
+            odpoved = router(odkaz=nebezpecne).route("/play/" + mapping.zakoduj(nebezpecne), ZAKLAD)
             self.assertEqual(odpoved.status, 400, nebezpecne)
+
+    def test_hotovy_odkaz_se_vydava_rovnou_ne_pres_play(self):
+        """Titulky Sledujteto přicházejí jako hotové https odkazy — do `/play/` nepatří."""
+        popis = {**POPIS, "url": "https://cdn.sledujteto.cz/film.mp4", "subtitles": ["ws:s1", "https://cdn/t.srt", "x:y"]}
+        objekt = mapping.stream_object(popis, lambda u: f"{ZAKLAD}/play/{mapping.zakoduj(u)}")
+        self.assertEqual(objekt["url"], "https://cdn.sledujteto.cz/film.mp4")
+        self.assertEqual([t["url"] for t in objekt["subtitles"]],
+                         [f"{ZAKLAD}/play/{mapping.zakoduj('ws:s1')}", "https://cdn/t.srt"])
 
     def test_odmitne_neplatny_payload(self):
         self.assertEqual(router().route("/play/nesmysl!!", ZAKLAD).status, 400)
@@ -552,16 +563,21 @@ class TestVlastniUloziste(unittest.TestCase):
         prostredi = config.from_environ({"NOKTURNO_DAV1_URL": "http://nas/", "NOKTURNO_DAV1_PASSWORD": "p"})
         self.assertEqual((prostredi["dav1_url"], prostredi["dav1_password"]), ("http://nas/", "p"))
 
-    def test_z_internetu_ne_na_tenhle_stroj(self):
+    def test_z_internetu_ne_na_tenhle_stroj_ani_do_site(self):
+        """Z internetu jen veřejné adresy: localhost, metadata cloudu, domácí síť i tailnet
+        (100.64/10) ven. Uživatel zvenku na naši LAN stejně nedosáhne — přes doplněk by
+        sahal jen na CoreELEC, Home Assistant a dashboard (2026-09-14)."""
         adresy = {"localhost": ["127.0.0.1"], "meta": ["169.254.169.254"], "nas.lan": ["192.168.1.241"],
-                  "nokturno.ts.net": ["100.125.137.18"], "v6": ["::1"]}
-        options = {f"dav{i}_url": f"http://{h}:8090/" for i, h in enumerate(("localhost", "nas.lan", "meta"), 1)}
+                  "nokturno.ts.net": ["100.125.137.18"], "v6": ["::1"], "cloud.example": ["93.184.216.34"],
+                  "mapped": ["::ffff:10.0.0.5"]}
+        options = {f"dav{i}_url": f"http://{h}:8090/"
+                   for i, h in enumerate(("localhost", "cloud.example", "nas.lan"), 1)}
         options["dav1_password"] = "tajne"
         cista = config.bez_lokalnich_uloziste(options, resolve=lambda h: adresy[h])
         self.assertEqual(sorted(k for k in cista if k.startswith("dav")), ["dav2_url"])
-        self.assertEqual(config.bez_lokalnich_uloziste({"dav1_url": "https://nokturno.ts.net:10000/"},
-                                                       resolve=lambda h: adresy[h])["dav1_url"],
-                         "https://nokturno.ts.net:10000/")
+        for host in ("nokturno.ts.net", "meta", "v6", "mapped"):
+            self.assertNotIn("dav1_url", config.bez_lokalnich_uloziste({"dav1_url": f"https://{host}:10000/"},
+                                                                       resolve=lambda h: adresy[h]), host)
         self.assertNotIn("dav1_url", config.bez_lokalnich_uloziste({"dav1_url": "http://neexistuje/"},
                                                                    resolve=lambda h: []))
 
@@ -635,18 +651,30 @@ class TestVlastniUloziste(unittest.TestCase):
         doplnek.router = Smerovac()
         for s in (zdroj, doplnek):
             threading.Thread(target=s.serve_forever, daemon=True).start()
+        adresa = f"http://127.0.0.1:{doplnek.server_address[1]}/play/x"
+        # domácí požadavek = z tailnetu přes `tailscale serve`; bez té hlavičky je
+        # požadavek z 127.0.0.1 při pochybnosti veřejný (viz je_verejny)
+        doma = {"Tailscale-User-Login": "ja@tailnet"}
         try:
-            req = urllib.request.Request(f"http://127.0.0.1:{doplnek.server_address[1]}/play/x",
-                                         headers={"Range": "bytes=2-5"})
+            req = urllib.request.Request(adresa, headers={"Range": "bytes=2-5", **doma})
             with urllib.request.urlopen(req, timeout=5) as resp:
                 self.assertEqual((resp.status, resp.read(), resp.headers["Content-Range"]),
                                  (206, b"2345", "bytes 2-5/10"))
             self.assertEqual(videno, {"auth": "Basic ok", "range": "bytes=2-5"})
             Smerovac.heslo = "Basic spatne"
             with self.assertRaises(urllib.error.HTTPError) as ctx:
-                urllib.request.urlopen(f"http://127.0.0.1:{doplnek.server_address[1]}/play/x", timeout=5)
+                urllib.request.urlopen(urllib.request.Request(adresa, headers=doma), timeout=5)
             self.assertEqual(ctx.exception.code, 502)
             ctx.exception.close()
+            # z internetu na zdroj v naší síti proxy nesmí — ani se správným heslem
+            Smerovac.heslo = "Basic ok"
+            videno.clear()
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(urllib.request.Request(adresa, headers={"Tailscale-Funnel-Request": "?1"}),
+                                       timeout=5)
+            self.assertEqual(ctx.exception.code, 502)
+            ctx.exception.close()
+            self.assertEqual(videno, {}, "zdroj se z internetu nesmí ani oslovit")
         finally:
             for s in (zdroj, doplnek):
                 s.shutdown()
@@ -734,3 +762,137 @@ class TestSlovencina(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestVerejnaSit(unittest.TestCase):
+    """Požadavek z internetu se smí připojit jen na veřejné adresy — hlídá se až
+    při navázání spojení, ne podle jména v nastavení (přesměrování, DNS rebinding)."""
+
+    def test_zakazane_adresy(self):
+        from nokturno import sit
+        for a in ("127.0.0.1", "::1", "0.0.0.0", "169.254.169.254", "10.1.2.3", "172.16.0.1", "192.168.1.21",
+                  "100.100.100.100", "224.0.0.1", "fe80::1", "fd00::1", "::ffff:192.168.1.5", "nesmysl"):
+            self.assertTrue(sit.zakazana(a), a)
+        for a in ("93.184.216.34", "1.1.1.1", "2606:4700:4700::1111", "100.63.255.255", "100.128.0.1"):
+            self.assertFalse(sit.zakazana(a), a)
+
+    def test_opener_odmitne_spojeni_dovnitr(self):
+        """Server na 127.0.0.1 je z internetu zakázaný, i když ho DNS nebo přesměrování podstrčí."""
+        import threading
+        import urllib.request
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        from nokturno import sit
+
+        class Zdroj(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_GET(self):
+                self.send_response(200)
+                self.send_header("Content-Length", "2")
+                self.end_headers()
+                self.wfile.write(b"ok")
+
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), Zdroj)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        url = f"http://127.0.0.1:{srv.server_address[1]}/a.mkv"
+        try:
+            with self.assertRaises(urllib.error.URLError) as ctx:
+                sit.OPENER.open(url, timeout=5)
+            self.assertIsInstance(ctx.exception.reason, sit.ChybaCile)
+            with urllib.request.urlopen(url, timeout=5) as resp:
+                self.assertEqual(resp.read(), b"ok", "domácí požadavek jde výchozím openerem dál")
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+    def test_presmerovani_mimo_http_se_nesleduje(self):
+        from nokturno import sit
+        handler = sit._JenHttp()
+        self.assertIsNone(handler.redirect_request(None, None, 302, "Found", {}, "ftp://192.168.1.1/x"))
+        self.assertIsNone(handler.redirect_request(None, None, 302, "Found", {}, "file:///etc/passwd"))
+
+    def test_verejne_jadro_ma_hlidany_opener_domaci_ne(self):
+        from nokturno import sit
+        from nokturno.enginy import Enginy
+        enginy = Enginy(tempfile.mkdtemp(), {"hs_enabled": True})
+        options = config.from_mapping({"ws_username": "u", "ws_password": "p"})
+        verejne = enginy.pro(options, verejny=True)
+        domaci = enginy.pro(options)
+        self.assertIsNot(verejne, domaci)
+        self.assertIs(verejne.opener, sit.OPENER)
+        self.assertIsNone(domaci.opener)
+        self.assertIs(enginy.pro(options, verejny=True), verejne)
+        self.assertEqual(len(enginy), 2)
+
+    def test_router_zaklada_verejne_jadro_pro_pozadavek_z_internetu(self):
+        r = router()
+        r.route(f"/c/{KOUSEK}/stream/movie/tt1.json", ZAKLAD, verejny=True)
+        self.assertTrue(r.enginy_test.verejny)
+        r.route(f"/c/{KOUSEK}/stream/movie/tt1.json", ZAKLAD)
+        self.assertFalse(r.enginy_test.verejny)
+
+    def test_overeni_uloziste_zvenku_nehlasi_detail(self):
+        """„connection refused" vs. „timed out" u adres v naší síti by z tlačítka udělalo skener portů."""
+        class Falesne:
+            def __init__(self, url, user, password, name="", slot=1, opener=None):
+                self.opener = opener
+
+            def check(self):
+                raise Exception("[Errno 111] Connection refused")
+        r = router()
+        r.dav_api = Falesne
+        zvenku = r.check({"dav1_url": "http://cokoli/"}, verejny=True).data["uloziste"][0]
+        self.assertEqual(zvenku, {"slot": 1, "ok": False, "chyba": "nedostupné"})
+        doma = r.check({"dav1_url": "http://cokoli/"}).data["uloziste"][0]
+        self.assertIn("Connection refused", doma["chyba"])
+
+
+class TestFormularBezCizihoSkriptu(unittest.TestCase):
+    """Hodnoty z adresy jdou do `<script>` formuláře — `</script>` ve jménu účtu by
+    ukončilo skript a zbytek by prohlížeč spustil (stránka sbírá hesla)."""
+
+    def test_nastaveni_do_scriptu_je_escapovane(self):
+        zly = "</script><script>alert(document.domain)</script>"
+        kousek = config.encode(config.from_mapping({"ws_username": zly, "ws_password": "p"}))
+        html = router().route(f"/c/{kousek}/configure", ZAKLAD).html
+        self.assertNotIn("</script><script>alert", html)
+        self.assertIn("\\u003c/script\\u003e", html)
+        # a JSON zůstává čitelný — JavaScript escapované znaky přečte jako tentýž řetězec
+        import json
+        zacatek = html.index("const soucasne = ") + len("const soucasne = ")
+        self.assertEqual(json.loads(html[zacatek:html.index(";", zacatek)])["ws_username"], zly)
+
+    def test_zaklad_je_escapovany(self):
+        html = router().route("/configure", 'http://x"><script>').html
+        self.assertNotIn('"><script>', html)
+        self.assertIn("http://x&quot;&gt;&lt;script&gt;", html)
+
+    def test_stranky_maji_ochranne_hlavicky(self):
+        import threading
+        import urllib.request
+        from http.server import ThreadingHTTPServer
+        from nokturno.routes import Odpoved
+        from nokturno.server import Handler
+
+        class Smerovac:
+            def route(self, cesta, zaklad, verejny=False, jazyk=None):
+                return Odpoved(html="<p>x</p>") if cesta.endswith("/configure") else Odpoved(data={"ok": True})
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        srv.router = Smerovac()
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        zaklad = f"http://127.0.0.1:{srv.server_address[1]}"
+        try:
+            with urllib.request.urlopen(f"{zaklad}/c/abc/configure", timeout=5) as resp:
+                h = resp.headers
+                self.assertIn("default-src 'none'", h["Content-Security-Policy"])
+                self.assertEqual(h["X-Frame-Options"], "DENY")
+                self.assertEqual(h["Referrer-Policy"], "no-referrer")
+                self.assertEqual(h["Cache-Control"], "no-store")
+                self.assertNotIn("Python", h["Server"])
+            with urllib.request.urlopen(f"{zaklad}/health", timeout=5) as resp:
+                self.assertIsNone(resp.headers["Content-Security-Policy"], "JSON hlavičky stránek nepotřebuje")
+                self.assertIsNone(resp.headers["Cache-Control"])
+        finally:
+            srv.shutdown()
+            srv.server_close()

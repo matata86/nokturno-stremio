@@ -40,8 +40,16 @@ ZVUK = (
 )
 # kontejnery, které webový přehrávač Stremia nepřehraje — ať to rovnou ví
 NE_PRO_WEB = (".mkv", ".avi", ".ts", ".m2ts", ".wmv", ".flv")
-# schémata, která umí rozklíčovat `Engine.resolve()`; jiné se k přehrání nepustí
-SCHEMATA = ("ws:", "hs:", "st:", "dav:", "streamuj:", "http://", "https://")
+# schémata, která umí rozklíčovat `Engine.resolve()`; jiné se k přehrání nepustí.
+# Hotové http(s) odkazy (titulky Sledujteto) tu záměrně nejsou: `resolve()` je vrací
+# beze změny, takže by `/play/` byl veřejný přesměrovávač kamkoli — vydávají se rovnou.
+SCHEMATA = ("ws:", "hs:", "st:", "dav:", "streamuj:")
+PRIME = ("http://", "https://")
+
+
+def odkaz_streamu(vnitrni, odkaz):
+    """Adresa pro přehrávač: vnitřní odkaz přes `/play/`, hotový http(s) odkaz beze změny."""
+    return vnitrni if vnitrni.startswith(PRIME) else odkaz(vnitrni)
 
 
 def zakoduj(vnitrni_url):
@@ -126,9 +134,9 @@ def titulky(popis, odkaz):
     """
     out = []
     for index, vnitrni in enumerate(popis.get("subtitles") or []):
-        if not isinstance(vnitrni, str) or not vnitrni.startswith(SCHEMATA):
+        if not isinstance(vnitrni, str) or not vnitrni.startswith(SCHEMATA + PRIME):
             continue
-        out.append({"id": f"ws-{index}", "url": odkaz(vnitrni), "lang": "ces"})
+        out.append({"id": f"ws-{index}", "url": odkaz_streamu(vnitrni, odkaz), "lang": "ces"})
     return out
 
 
@@ -177,7 +185,7 @@ def stream_object(popis, odkaz, jmeno_doplnku="Nokturno"):
     # protože rozhoduje o tom, jestli má smysl sahat po velkém souboru
     vlevo = kvalita + (" " + " ".join(obraz[:1]) if obraz else "")
     objekt = {
-        "url": odkaz(vnitrni),
+        "url": odkaz_streamu(vnitrni, odkaz),
         "name": jmeno_doplnku + (f"\n{vlevo}" if vlevo else ""),
         "description": "\n".join(r for r in radky if r),
         "behaviorHints": {},
@@ -240,3 +248,15 @@ def manifest(verze, zdroje=(), nastaveno=True):
 
 def json_bytes(data):
     return json.dumps(data, ensure_ascii=False).encode("utf-8")
+
+
+def json_do_scriptu(data):
+    """JSON pro vložení do `<script>` v HTML.
+
+    `json.dumps` neescapuje `</script>` — jméno účtu z adresy by tak ukončilo
+    skript a zbytek by prohlížeč spustil jako cizí kód (stránka sbírá hesla).
+    Escapované znaky jsou v JSON i JavaScriptu pořád tentýž řetězec.
+    """
+    return (json_bytes(data).decode("utf-8")
+            .replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+            .replace("\u2028", "\\u2028").replace("\u2029", "\\u2029"))

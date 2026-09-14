@@ -19,6 +19,7 @@ from .config import from_environ, sources_summary
 from .enginy import Enginy
 from .routes import VERZE, Odpoved, Router, jazyk_z_hlavicky
 from .statistiky import Statistiky
+from . import sit
 
 _LOGGER = logging.getLogger("nokturno")
 
@@ -49,7 +50,21 @@ def je_verejny(headers, client_ip):
 
 class Handler(BaseHTTPRequestHandler):
     server_version = f"nokturno/{VERZE}"
+    sys_version = ""                 # verze Pythonu do hlavičky Server nepatří
     protocol_version = "HTTP/1.1"    # Stremio drží spojení otevřené
+    timeout = 60                     # nečinné spojení nesmí držet vlákno navždy
+    _verejny = True                  # do_GET přepíše; při pochybnosti veřejný
+
+    # hlavičky pro stránky (úvod, formulář): žádné cizí skripty, žádné vkládání do
+    # rámu, žádný Referer — formulář sbírá hesla a jeho adresa nese účty
+    HLAVICKY_STRANEK = (
+        ("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
+                                    "img-src https://raw.githubusercontent.com data:; connect-src 'self'; "
+                                    "base-uri 'none'; frame-ancestors 'none'"),
+        ("X-Content-Type-Options", "nosniff"),
+        ("X-Frame-Options", "DENY"),
+        ("Referrer-Policy", "no-referrer"),
+    )
 
     # --- pomůcky ----------------------------------------------------------
     def _zaklad(self):
@@ -76,11 +91,13 @@ class Handler(BaseHTTPRequestHandler):
             if self.headers.get(jmeno):
                 pozadavek[jmeno] = self.headers[jmeno]
         req = urllib.request.Request(url, headers=pozadavek, method="HEAD" if self.command == "HEAD" else "GET")
+        # z internetu jen hlídaným openerem: úložiště může přesměrovat dovnitř sítě
+        otevri = sit.OPENER.open if self._verejny else urllib.request.urlopen
         try:
-            upstream = urllib.request.urlopen(req, timeout=30)
+            upstream = otevri(req, timeout=30)
         except urllib.error.HTTPError as err:
             upstream = err     # 416 a spol. patří klientovi, jen 401/403 se přeloží
-        except Exception as err:  # noqa: BLE001 – síť, DNS
+        except Exception as err:  # noqa: BLE001 – síť, DNS, zakázaná adresa
             _LOGGER.info("úložiště neodpovídá: %s", err)
             self._posli(Odpoved(status=502, text="Úložiště neodpovídá."))
             return
@@ -121,6 +138,11 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "*")
         if odpoved.html is not None:
             self.send_header("Vary", "Accept-Language")   # stránky jsou česky nebo slovensky
+            for jmeno, hodnota in self.HLAVICKY_STRANEK:
+                self.send_header(jmeno, hodnota)
+        if self.path.startswith("/c/"):
+            # adresa nese účty — nic z ní nemá zůstat v cache prohlížeče ani proxy
+            self.send_header("Cache-Control", "no-store")
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(telo)
@@ -129,6 +151,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
             verejny = je_verejny(self.headers, self.client_address[0])
+            self._verejny = verejny
             jazyk = jazyk_z_hlavicky(self.headers.get("Accept-Language"))
             self._posli(self.server.router.route(self.path, self._zaklad(), verejny=verejny, jazyk=jazyk))
         except (BrokenPipeError, ConnectionResetError):

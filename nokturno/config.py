@@ -125,19 +125,24 @@ def decode(kousek):
 
 
 def bez_lokalnich_uloziste(options, resolve=None):
-    """Nastavení bez úložišť, která míří na tenhle stroj nebo link-local adresy.
+    """Nastavení bez úložišť, na která se z internetu nesmí (viz `sit.zakazana`).
 
     Požadavek z internetu nese adresu úložiště od kohokoli. Doplněk pak tu adresu
     prochází a soubory z ní přes sebe streamuje, takže bez téhle pojistky by šlo
     přes Funnel sahat na služby, které poslouchají jen na localhostu (dashboard,
-    Apache na :8080) nebo na metadata cloudu (169.254.x). Domácí síť a tailnet
-    projdou — kvůli nim úložiště existuje.
+    Apache na :8080), na metadata cloudu (169.254.x), do domácí sítě (CoreELEC,
+    Home Assistant) i do tailnetu. Uživatel zvenku na naši LAN stejně nedosáhne,
+    takže o nic nepřijde; domácí požadavek se tudy nevede vůbec.
+
+    Tohle je rychlé odmítnutí podle DNS v nastavení. Skutečnou pojistkou je
+    `sit.verejny_opener()`, který hlídá adresu až při navázání spojení — DNS
+    může podruhé vrátit něco jiného a cizí server může přesměrovat.
     """
-    import ipaddress
-    import socket
     import urllib.parse
 
-    resolve = resolve or (lambda host: [ai[4][0] for ai in socket.getaddrinfo(host, None)])
+    from . import sit
+
+    resolve = resolve or sit.resolvuj
     out = dict(options or {})
     for n in (1, 2, 3):
         url = str(out.get(f"dav{n}_url") or "").strip()
@@ -145,11 +150,10 @@ def bez_lokalnich_uloziste(options, resolve=None):
             continue
         host = urllib.parse.urlsplit(url if "://" in url else "http://" + url).hostname or ""
         try:
-            adresy = [ipaddress.ip_address(a.split("%")[0]) for a in resolve(host)]
-        except (OSError, ValueError):
+            adresy = list(resolve(host))
+        except OSError:
             adresy = []
-        if not adresy or any(a.is_loopback or a.is_link_local or a.is_unspecified or a.is_multicast
-                             for a in adresy):
+        if not adresy or any(sit.zakazana(a) for a in adresy):
             for pole in ("url", "username", "password", "name"):
                 out.pop(f"dav{n}_{pole}", None)
     return out

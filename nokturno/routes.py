@@ -23,6 +23,7 @@ rovnou do odpovědi. Stremio dostane adresu na `/play/`, která soubor rozklíč
 až ve chvíli, kdy se na ni přehrávač skutečně obrátí — a protože nese tentýž
 prefix, rozklíčuje ho pod správným účtem.
 """
+import html as html_lib
 import logging
 import pathlib
 import urllib.parse
@@ -31,11 +32,11 @@ from .core.engine import NokturnoError, is_sosac_id, split_episode_id
 from .core.lib.webshare_api import WebshareApi, WebshareError
 from .core.lib.sledujteto_api import SledujtetoApi
 from .core.lib.storage_api import SLOTS, StorageApi
-from . import config, mapping
+from . import config, mapping, sit
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "3.1.6"
+VERZE = "3.1.11"
 TYPY = ("movie", "series")
 STATIKA = pathlib.Path(__file__).resolve().parent / "static"
 JAZYKY = ("cs", "sk")   # stránky úvodu a formuláře; manifest a streamy zůstávají česky
@@ -158,12 +159,13 @@ class Router:
         soucasne = config.decode(kousek) if kousek else None
         if soucasne is None and self.predvyplnit and not verejny:
             soucasne = self.enginy.vychozi_options
-        html = html.replace("__NASTAVENI__", mapping.json_bytes(soucasne or {}).decode("utf-8"))
-        html = html.replace("__ZAKLAD__", zaklad)
+        # hodnoty z adresy jsou od kohokoli — do <script> jen escapované (viz json_do_scriptu)
+        html = html.replace("__NASTAVENI__", mapping.json_do_scriptu(soucasne or {}))
+        html = html.replace("__ZAKLAD__", html_lib.escape(zaklad, quote=True))
         html = html.replace("__VERZE__", self.verze)
         return Odpoved(html=html)
 
-    def check(self, options):
+    def check(self, options, verejny=False):
         """Ověření účtů pro tlačítko ve formuláři.
 
         WebShare se opravdu přihlásí a řekne, kolik zbývá VIP — bez VIP je rychlost
@@ -171,6 +173,10 @@ class Router:
         Streamuj přihlašovací endpoint nemá, špatné heslo se pozná až při přehrání,
         takže se jen ohlásí, co je vyplněné. Jádro se kvůli tomu nezakládá — jen
         jedno přihlášení, žádná cache.
+
+        Z internetu (`verejny`) se úložiště prochází hlídaným openerem a chyba se
+        nehlásí doslova: „connection refused" vs. „timed out" z adres v naší síti
+        by z tlačítka udělalo skener portů.
         """
         out = {"webshare": None, "streamuj": None, "sledujteto": None, "hellspy": bool(options.get("hs_enabled"))}
         user = (options.get("ws_username") or "").strip()
@@ -203,12 +209,14 @@ class Router:
                 continue
             # jen kořen složky, celý strom se prochází až při hledání
             try:
+                navic = {"opener": sit.OPENER} if verejny else {}
                 api = self.dav_api(url, options.get(f"dav{n}_username") or "", options.get(f"dav{n}_password") or "",
-                                   options.get(f"dav{n}_name") or "", slot=n)
+                                   options.get(f"dav{n}_name") or "", slot=n, **navic)
                 out["uloziste"].append({"slot": n, "ok": True, "polozek": api.check()})
             except Exception as err:  # noqa: BLE001 – pro uživatele je každé selhání totéž
                 _LOGGER.info("ověření úložiště %d: %s", n, err)
-                out["uloziste"].append({"slot": n, "ok": False, "chyba": str(err) or "nedostupné"})
+                out["uloziste"].append({"slot": n, "ok": False,
+                                        "chyba": "nedostupné" if verejny else (str(err) or "nedostupné")})
         return Odpoved(data=out)
 
     def uvod(self, zaklad, jazyk="cs"):
@@ -217,7 +225,8 @@ class Router:
             html = self._stranka("index", jazyk)
         except OSError:
             return Odpoved(text=f"Nokturno pro Stremio {self.verze}\nNastavení: {zaklad}/configure\n")
-        return Odpoved(html=html.replace("__ZAKLAD__", zaklad).replace("__VERZE__", self.verze))
+        return Odpoved(html=html.replace("__ZAKLAD__", html_lib.escape(zaklad, quote=True))
+                       .replace("__VERZE__", self.verze))
 
     def streams(self, engine, ctype, item_id, zaklad, kousek):
         if ctype not in TYPY:
@@ -311,9 +320,9 @@ class Router:
                               f"Vyrob si adresu na {zaklad}/configure")
 
         if zbytek == "/check":
-            return self.check(options if kousek else self.enginy.vychozi_options)
+            return self.check(options if kousek else self.enginy.vychozi_options, verejny=verejny)
 
-        engine = self.enginy.pro(options)
+        engine = self.enginy.pro(options, verejny=verejny)
         if zbytek == "/manifest.json":
             return self.manifest(engine, nastaveno=bool(kousek))
 
