@@ -41,6 +41,8 @@ _LOGGER = logging.getLogger(__name__)
 VERZE = "3.1.11"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
+PROXY_LIMIT = (600, 10 * 60)  # proxy souborů z úložiště na jedno nastavení za 10 min: přetáčení je pár dotazů
+                              # za sekundu, tisíce jsou už někdo, kdo přes doplněk tahá cizí úložiště
 
 
 class Okno:
@@ -131,6 +133,7 @@ class Router:
         self.st_api = SledujtetoApi
         self.dav_api = StorageApi
         self.check_okno = Okno(*CHECK_LIMIT)
+        self.proxy_okno = Okno(*PROXY_LIMIT)
 
     # --- adresy -----------------------------------------------------------
     @staticmethod
@@ -285,13 +288,15 @@ class Router:
             self.statistiky.zaznamenej(engine, ctype, item_id)
         return Odpoved(data=mapping.streams_response(popisy, self._odkaz(zaklad, kousek)))
 
-    def play(self, engine, payload):
+    def play(self, engine, payload, klic="vychozi"):
         vnitrni = mapping.dekoduj(payload)
         if not vnitrni:
             return chyba(400, "Neplatný odkaz.")
         if vnitrni.startswith("dav:"):
             # vlastní úložiště chce heslo a přehrávače Stremia hlavičku nepošlou —
             # soubor proto jde přes doplněk (viz server.Handler._proxy)
+            if not self.proxy_okno.povolit(klic):
+                return chyba(429, "Příliš mnoho požadavků na úložiště, zkus to za chvíli.")
             try:
                 return Odpoved(proxy=engine.storage_request(vnitrni))
             except NokturnoError as err:
@@ -358,7 +363,7 @@ class Router:
 
         casti = [c for c in zbytek.split("/") if c]
         if casti and casti[0] == "play" and len(casti) == 2:
-            return self.play(engine, casti[1])
+            return self.play(engine, casti[1], klic=config.fingerprint(options) if kousek else "vychozi")
         if casti and casti[0] == "stream" and len(casti) == 3 and casti[2].endswith(".json"):
             return self.streams(engine, casti[1], casti[2][:-len(".json")], zaklad, kousek)
         return chyba(404, "Tady nic není. Doplněk se nastavuje na /configure")

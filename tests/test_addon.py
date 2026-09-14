@@ -1035,3 +1035,19 @@ class TestHeadAProxyKodovani(unittest.TestCase):
         for name in ("NOKTURNO_ST_EMAIL", "NOKTURNO_DAV1_URL", "NOKTURNO_STATS"):
             self.assertIn(name, compose, name)
         self.assertNotIn("NOKTURNO_TMDB_API_KEY", compose, "Stremio TMDB nečte")
+
+
+class TestLimitProxy(unittest.TestCase):
+    def test_proxy_uloziste_ma_limit_na_nastaveni(self):
+        from nokturno.routes import Okno
+        r = router()
+        r.engine.storage_request = lambda url: ("http://nas.lan/dav/a.mkv", {"Authorization": "Basic x"})
+        r.proxy_okno = Okno(3, 600)
+        cesta = f"/c/{KOUSEK}/play/" + mapping.zakoduj("dav:1:Filmy/a.mkv")
+        for _ in range(3):
+            self.assertIsNotNone(r.route(cesta, ZAKLAD).proxy)
+        self.assertEqual(r.route(cesta, ZAKLAD).status, 429)
+        jine = config.encode(config.from_mapping({"ws_username": "x", "ws_password": "y"}))
+        self.assertIsNotNone(r.route(f"/c/{jine}/play/" + mapping.zakoduj("dav:1:Filmy/a.mkv"), ZAKLAD).proxy,
+                             "jiné nastavení má vlastní počítadlo")
+        self.assertEqual(r.route("/play/" + mapping.zakoduj("ws:abc"), ZAKLAD).status, 302, "limit jen na proxy")
