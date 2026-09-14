@@ -83,6 +83,10 @@ def from_mapping(raw):
         else:
             options[key] = str(value).strip()
 
+    # „nezáleží" nese formulář jako ANY: prázdnou hodnotu by z adresy zahodil a server
+    # dosadil výchozí CZ (2026-09-14)
+    if options.get("pref_lang") == "ANY":
+        options["pref_lang"] = ""
     # nepovolená hodnota by v jádru propadla na výchozí, ale tiše — lepší ji srovnat tady
     if options.get("pref_lang") not in LANGS:
         options["pref_lang"] = ""
@@ -168,14 +172,29 @@ def fingerprint(options):
     return hashlib.sha256(encode(options).encode("ascii")).hexdigest()[:16]
 
 
-def sources_summary(engine):
-    """Které zdroje jsou nastavené — do logu při startu a do manifestu.
+NAZVY_ZDROJU = {"luna": "Luna", "sosac": "Sosáč", "webshare": "WebShare",
+                "hellspy": "HellSpy", "sledujteto": "Sledujteto", "storage": "vlastní úložiště",
+                "torrent": "torrenty"}
 
-    WebShare se hlásí podle vyplněných údajů, ne podle přihlášení; to je síťové
-    volání a tohle se čte při startu i při každém dotazu na manifest.
+
+def sources_summary(engine):
+    """Které zdroje jsou nastavené — do logu při startu.
+
+    WebShare se hlásí podle vyplněných údajů, ne podle přihlášení; to je síťové volání.
     """
-    zdroje = engine.sources()
-    nazvy = {"luna": "Luna", "sosac": "Sosáč", "webshare": "WebShare",
-             "hellspy": "HellSpy", "sledujteto": "Sledujteto", "storage": "vlastní úložiště",
-             "torrent": "torrenty"}
-    return [nazvy[k] for k, zapnuto in zdroje.items() if zapnuto and k in nazvy]
+    return [NAZVY_ZDROJU[k] for k, zapnuto in engine.sources().items() if zapnuto and k in NAZVY_ZDROJU]
+
+
+def sources_from_options(options):
+    """Totéž jen z nastavení, bez jádra — pro manifest. Manifest se dřív ptal jádra,
+    a to znamenalo založit ho i se složkou na disku pro každou adresu, kterou kdo
+    poslal (jeden GET na náhodný base64 = nová složka navždy; audit 2026-09-14)."""
+    o = options or {}
+    zapnuto = {
+        "sosac": bool(str(o.get("streamuj_username") or "").strip()),
+        "webshare": bool(str(o.get("ws_username") or "").strip()),
+        "hellspy": bool(o.get("hs_enabled")),
+        "sledujteto": bool(str(o.get("st_email") or "").strip()),
+        "storage": any(str(o.get(f"dav{n}_url") or "").strip() for n in (1, 2, 3)),
+    }
+    return [NAZVY_ZDROJU[k] for k, v in zapnuto.items() if v]

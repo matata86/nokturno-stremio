@@ -10,12 +10,15 @@ stejný vzor, jakým dnes integrace pro Home Assistant pouští jádro v executo
 import argparse
 import logging
 import os
+import re
+import shutil
 import sys
+import time
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from .config import from_environ, sources_summary
+from .config import decode, fingerprint, from_environ, sources_summary
 from .enginy import Enginy
 from .routes import VERZE, Odpoved, Router, jazyk_z_hlavicky
 from .statistiky import Statistiky
@@ -48,6 +51,31 @@ def je_verejny(headers, client_ip):
     return client_ip in ("127.0.0.1", "::1", "::ffff:127.0.0.1")
 
 
+def bezpecna_cesta(path):
+    """Cesta do logu: `/c/<účty>/…` → `/c/<otisk>/…`. Adresa doplňku je fakticky heslo
+    (viz CLAUDE.md), do journalu nepatří ani při chybě."""
+    def otisk(m):
+        options = decode(m.group(1))
+        return "/c/" + (fingerprint(options) if options else "?")
+    return re.sub(r"^/c/([^/?]+)", otisk, path or "")
+
+
+def uklid_dat(data_dir, max_age_s=30 * 86400):
+    """Složky jader, na které se 30 dní nesáhlo — každá adresa doplňku má vlastní,
+    a ty s překlepem nebo od zkoušejících by jinak zůstaly navždy."""
+    hranice = time.time() - max_age_s
+    smazano = 0
+    try:
+        for name in os.listdir(data_dir):
+            path = os.path.join(data_dir, name)
+            if os.path.isdir(path) and re.fullmatch(r"[0-9a-f]{16}", name) and os.path.getmtime(path) < hranice:
+                shutil.rmtree(path, ignore_errors=True)
+                smazano += 1
+    except OSError:
+        pass
+    return smazano
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = f"nokturno/{VERZE}"
     sys_version = ""                 # verze Pythonu do hlavičky Server nepatří
@@ -67,6 +95,15 @@ class Handler(BaseHTTPRequestHandler):
     )
 
     # --- pomůcky ----------------------------------------------------------
+    def _klient(self):
+        """Adresa klienta — přes Tailscale proxy z X-Forwarded-For, jinak peer."""
+        peer = self.client_address[0]
+        if peer in ("127.0.0.1", "::1", "::ffff:127.0.0.1"):
+            xff = self.headers.get("X-Forwarded-For", "")
+            if xff:
+                return xff.split(",")[0].strip()
+        return peer
+
     def _zaklad(self):
         """Absolutní adresa, na kterou se klient ptá.
 
@@ -115,6 +152,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.close_connection = True   # bez délky jde konec poznat jen zavřením
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
+            self._odeslano = True   # chyba odteď nesmí poslat druhou odpověď do téhož spojení
             if self.command == "HEAD":
                 return
             while True:
@@ -149,16 +187,21 @@ class Handler(BaseHTTPRequestHandler):
 
     # --- metody -----------------------------------------------------------
     def do_GET(self):
+        self._odeslano = False
         try:
             verejny = je_verejny(self.headers, self.client_address[0])
             self._verejny = verejny
             jazyk = jazyk_z_hlavicky(self.headers.get("Accept-Language"))
-            self._posli(self.server.router.route(self.path, self._zaklad(), verejny=verejny, jazyk=jazyk))
+            self._posli(self.server.router.route(self.path, self._zaklad(), verejny=verejny, jazyk=jazyk,
+                                                 klient=self._klient()))
         except (BrokenPipeError, ConnectionResetError):
             # přehrávač si to rozmyslel a zavřel spojení — běžné, ne chyba
-            _LOGGER.debug("klient zavřel spojení při %s", self.path)
+            _LOGGER.debug("klient zavřel spojení při %s", bezpecna_cesta(self.path))
         except Exception:  # noqa: BLE001 – žádná chyba nesmí ukončit službu
-            _LOGGER.exception("neočekávaná chyba při %s", self.path)
+            _LOGGER.exception("neočekávaná chyba při %s", bezpecna_cesta(self.path))
+            if self._odeslano:
+                self.close_connection = True   # hlavičky už odešly — druhá odpověď by rozbila keep-alive
+                return
             try:
                 self.send_error(500, "Chyba doplňku")
             except Exception:  # noqa: BLE001 – klient už mohl spojení zavřít
@@ -175,7 +218,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def log_message(self, format, *args):  # noqa: A002 – podpis dává BaseHTTPRequestHandler
-        _LOGGER.debug("%s %s", self.address_string(), format % args)
+        _LOGGER.debug("%s %s", self.address_string(), bezpecna_cesta(format % args))
 
 
 def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, options=None,
@@ -186,6 +229,9 @@ def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, opti
     s vlastní adresou mají svoje a server o nich dopředu neví.
     """
     os.makedirs(data_dir, exist_ok=True)
+    smazano = uklid_dat(data_dir)
+    if smazano:
+        _LOGGER.info("úklid: %d složek jader bez použití přes 30 dní", smazano)
     vychozi = options if options is not None else from_environ()
     enginy = Enginy(data_dir, vychozi)
     zdroje = sources_summary(enginy.pro())

@@ -385,7 +385,7 @@
           <label class="pole"><span>Preferovaný jazyk zvuku</span>
             <select name="pref_lang">
               <option value="CZ">čeština</option><option value="SK">slovenčina</option>
-              <option value="EN">angličtina</option><option value="">na tom nezáleží</option>
+              <option value="EN">angličtina</option><option value="ANY">na tom nezáleží</option>
             </select></label>
           <label class="pole"><span>Radenie streamov</span>
             <select name="sort_streams">
@@ -574,6 +574,7 @@ for (const [klic, hodnota] of Object.entries(soucasne)) {
   const pole = form.elements[klic];
   if (!pole) continue;
   if (pole.type === "checkbox") pole.checked = !!hodnota;
+  else if (klic === "pref_lang" && hodnota === "") pole.value = "ANY";   // server drží „nezáleží“ jako prázdné
   else pole.value = hodnota;
 }
 if (Object.keys(soucasne).length === 0) {
@@ -584,7 +585,9 @@ function nastaveni() {
   const out = {};
   for (const pole of form.elements) {
     if (!pole.name) continue;
-    if (pole.type === "checkbox") { if (pole.checked) out[pole.name] = true; }
+    // checkbox jde do adresy vždy — odškrtnutý dřív chyběl a server dosadil výchozí „zapnuto“,
+    // takže HellSpy šel zapnout, ale ne vypnout (2026-09-14)
+    if (pole.type === "checkbox") out[pole.name] = pole.checked;
     else if (String(pole.value).trim()) out[pole.name] = String(pole.value).trim();
   }
   return out;

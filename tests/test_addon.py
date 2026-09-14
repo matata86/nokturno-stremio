@@ -110,9 +110,21 @@ class TestManifest(unittest.TestCase):
         self.assertNotIn("idPrefixes", m)
 
     def test_bez_zdroju_si_rekne_o_nastaveni(self):
-        prazdny = router(zdroje={})
+        prazdny = router()
+        prazdny.enginy_test.vychozi_options = {}
         self.assertTrue(prazdny.route("/manifest.json", ZAKLAD).data["behaviorHints"]["configurationRequired"])
         self.assertFalse(router().route("/manifest.json", ZAKLAD).data["behaviorHints"]["configurationRequired"])
+
+    def test_manifest_nezaklada_jadro(self):
+        """Jeden GET na náhodnou adresu dřív založil jádro i složku na disku navždy."""
+        r = router()
+        data = r.route(f"/c/{KOUSEK}/manifest.json", ZAKLAD).data
+        self.assertEqual(r.enginy_test.pozadovana_nastaveni, [])
+        self.assertIn("WebShare", data["description"], "zdroje se poznají z nastavení bez jádra")
+        from nokturno.enginy import Enginy
+        tmp = tempfile.mkdtemp()
+        Router(Enginy(tmp, {})).route(f"/c/{KOUSEK}/manifest.json", ZAKLAD)
+        self.assertEqual(sorted(pathlib.Path(tmp).iterdir()), [], "žádná složka jádra")
 
 
 class TestNastaveniVAdrese(unittest.TestCase):
@@ -120,13 +132,13 @@ class TestNastaveniVAdrese(unittest.TestCase):
 
     def test_nastaveni_z_adresy_dojde_k_jadru(self):
         r = router()
-        r.route(f"/c/{KOUSEK}/manifest.json", ZAKLAD)
+        r.route(f"/c/{KOUSEK}/stream/movie/tt1.json", ZAKLAD)
         self.assertEqual(r.enginy_test.pozadovana_nastaveni[-1], NASTAVENI)
 
     def test_bez_prefixu_se_bere_vychozi(self):
         """Adresy nasazené před fází 4 musí fungovat dál."""
         r = router()
-        r.route("/manifest.json", ZAKLAD)
+        r.route("/stream/movie/tt1.json", ZAKLAD)
         self.assertIsNone(r.enginy_test.pozadovana_nastaveni[-1])
 
     def test_nectitelne_nastaveni_je_404(self):
@@ -585,9 +597,9 @@ class TestVlastniUloziste(unittest.TestCase):
         kousek = config.encode(config.from_mapping({"ws_username": "u", "ws_password": "p",
                                                     "dav1_url": "http://127.0.0.1:8080/"}))
         r = router()
-        r.route(f"/c/{kousek}/manifest.json", ZAKLAD, verejny=True)
+        r.route(f"/c/{kousek}/stream/movie/tt1.json", ZAKLAD, verejny=True)
         self.assertNotIn("dav1_url", r.enginy_test.pozadovana_nastaveni[-1])
-        r.route(f"/c/{kousek}/manifest.json", ZAKLAD, verejny=False)
+        r.route(f"/c/{kousek}/stream/movie/tt1.json", ZAKLAD, verejny=False)
         self.assertEqual(r.enginy_test.pozadovana_nastaveni[-1]["dav1_url"], "http://127.0.0.1:8080/")
 
     def test_overeni_uloziste(self):
@@ -646,7 +658,7 @@ class TestVlastniUloziste(unittest.TestCase):
         class Smerovac:
             heslo = "Basic ok"
 
-            def route(self, cesta, zaklad, verejny=False, jazyk=None):
+            def route(self, cesta, zaklad, verejny=False, jazyk=None, klient=""):
                 return Odpoved(proxy=(url, {"Authorization": self.heslo}))
         doplnek.router = Smerovac()
         for s in (zdroj, doplnek):
@@ -876,7 +888,7 @@ class TestFormularBezCizihoSkriptu(unittest.TestCase):
         from nokturno.server import Handler
 
         class Smerovac:
-            def route(self, cesta, zaklad, verejny=False, jazyk=None):
+            def route(self, cesta, zaklad, verejny=False, jazyk=None, klient=""):
                 return Odpoved(html="<p>x</p>") if cesta.endswith("/configure") else Odpoved(data={"ok": True})
         srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         srv.router = Smerovac()
@@ -896,3 +908,77 @@ class TestFormularBezCizihoSkriptu(unittest.TestCase):
         finally:
             srv.shutdown()
             srv.server_close()
+
+
+class TestFormularHellSpyAJazyk(unittest.TestCase):
+    """Odškrtnutý checkbox dřív do adresy nešel a server dosadil výchozí „zapnuto" —
+    HellSpy šlo zapnout, ale ne vypnout; „nezáleží" u jazyka končilo jako čeština."""
+
+    def test_server_bere_false_a_any(self):
+        self.assertIs(config.from_mapping({"hs_enabled": False})["hs_enabled"], False)
+        self.assertIs(config.from_mapping({})["hs_enabled"], True, "bez klíče zůstává výchozí")
+        self.assertEqual(config.from_mapping({"pref_lang": "ANY"})["pref_lang"], "")
+        self.assertEqual(config.from_mapping({})["pref_lang"], "CZ")
+        # jak to pošle formulář: False přežije encode, ANY se rozklíčuje na prázdné
+        odesle = {"ws_username": "u", "ws_password": "p", "hs_enabled": False, "pref_lang": "ANY"}
+        options = config.decode(config.encode(odesle))
+        self.assertIs(options["hs_enabled"], False)
+        self.assertEqual(options["pref_lang"], "")
+
+    def test_formular_posila_checkbox_vzdy_a_nezalezi_jako_any(self):
+        for jmeno in ("configure.html", "configure.sk.html"):
+            html = (pathlib.Path(__file__).resolve().parent.parent / "nokturno" / "static" / jmeno).read_text(encoding="utf-8")
+            self.assertIn("out[pole.name] = pole.checked", html, jmeno)
+            self.assertNotIn('if (pole.checked) out[pole.name] = true', html, jmeno)
+            self.assertIn('<option value="ANY">', html, jmeno)
+            self.assertNotIn('<option value="">', html, jmeno)
+            self.assertIn('hodnota === "") pole.value = "ANY"', html, jmeno)
+
+
+class TestLimityAUklid(unittest.TestCase):
+    def test_check_ma_limit_na_adresu(self):
+        from nokturno.routes import Okno
+        r = router()
+        r.ws_api = FalesnyWebshare
+        r.check_okno = Okno(2, 300)
+        kousek = config.encode(config.from_mapping({"ws_username": "u", "ws_password": "spravne"}))
+        for _ in range(2):
+            self.assertEqual(r.route(f"/c/{kousek}/check", ZAKLAD, klient="1.2.3.4").status, 200)
+        self.assertEqual(r.route(f"/c/{kousek}/check", ZAKLAD, klient="1.2.3.4").status, 429)
+        self.assertEqual(r.route(f"/c/{kousek}/check", ZAKLAD, klient="5.6.7.8").status, 200, "jiná adresa jede")
+        self.assertEqual(r.route(f"/c/{kousek}/manifest.json", ZAKLAD, klient="1.2.3.4").status, 200,
+                         "limit platí jen na /check")
+
+    def test_ucty_z_adresy_nejdou_do_logu(self):
+        from nokturno.server import bezpecna_cesta
+        cesta = bezpecna_cesta(f"/c/{KOUSEK}/stream/movie/tt1.json")
+        self.assertNotIn(KOUSEK, cesta)
+        self.assertNotIn("uzivatel", cesta)
+        self.assertEqual(cesta, f"/c/{config.fingerprint(NASTAVENI)}/stream/movie/tt1.json")
+        self.assertEqual(bezpecna_cesta("/c/nesmysl!!/x"), "/c/?/x")
+        self.assertEqual(bezpecna_cesta("/health"), "/health")
+        self.assertEqual(bezpecna_cesta(f"/c/{KOUSEK}/configure?lang=sk"), f"/c/{config.fingerprint(NASTAVENI)}/configure?lang=sk")
+
+    def test_uklid_starych_slozek_jader(self):
+        import os
+        import time
+        from nokturno.server import uklid_dat
+        tmp = pathlib.Path(tempfile.mkdtemp())
+        stara, nova, cizi = tmp / ("a" * 16), tmp / ("b" * 16), tmp / "neco-jineho"
+        for d in (stara, nova, cizi):
+            d.mkdir()
+        os.utime(stara, (time.time() - 40 * 86400,) * 2)
+        os.utime(cizi, (time.time() - 40 * 86400,) * 2)
+        self.assertEqual(uklid_dat(str(tmp)), 1)
+        self.assertEqual(sorted(p.name for p in tmp.iterdir()), sorted([nova.name, cizi.name]))
+
+    def test_statistiky_nedrzi_neomezene(self):
+        from nokturno.statistiky import Statistiky
+        st = Statistiky("v")
+        st.limit = 5
+        for i in range(12):
+            class E:
+                class store:
+                    dir = tempfile.mkdtemp()
+            st._pro(E())
+        self.assertEqual(len(st._stats), 5)

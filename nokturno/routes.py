@@ -26,6 +26,8 @@ prefix, rozklíčuje ho pod správným účtem.
 import html as html_lib
 import logging
 import pathlib
+import threading
+import time
 import urllib.parse
 
 from .core.engine import NokturnoError, is_sosac_id, split_episode_id
@@ -38,6 +40,29 @@ _LOGGER = logging.getLogger(__name__)
 
 VERZE = "3.1.11"
 TYPY = ("movie", "series")
+CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
+
+
+class Okno:
+    """Počítadlo v klouzavém okně per klíč (adresa klienta)."""
+
+    def __init__(self, limit, window_s, max_keys=5000):
+        self.limit, self.window_s, self.max_keys = limit, window_s, max_keys
+        self._data = {}
+        self._zamek = threading.Lock()
+
+    def povolit(self, key):
+        now = time.time()
+        with self._zamek:
+            if len(self._data) > self.max_keys:
+                self._data.clear()
+            count, start = self._data.get(key, (0, now))
+            if now - start > self.window_s:
+                count, start = 0, now
+            if count >= self.limit:
+                return False
+            self._data[key] = (count + 1, start)
+            return True
 STATIKA = pathlib.Path(__file__).resolve().parent / "static"
 JAZYKY = ("cs", "sk")   # stránky úvodu a formuláře; manifest a streamy zůstávají česky
 
@@ -105,6 +130,7 @@ class Router:
         self.ws_api = WebshareApi   # testy podstrčí falešné, aby nešly na síť
         self.st_api = SledujtetoApi
         self.dav_api = StorageApi
+        self.check_okno = Okno(*CHECK_LIMIT)
 
     # --- adresy -----------------------------------------------------------
     @staticmethod
@@ -129,8 +155,9 @@ class Router:
         return odkaz
 
     # --- endpointy --------------------------------------------------------
-    def manifest(self, engine, nastaveno):
-        zdroje = config.sources_summary(engine)
+    def manifest(self, options, nastaveno):
+        """Jen z nastavení — jádro se kvůli manifestu nezakládá (viz `sources_from_options`)."""
+        zdroje = config.sources_from_options(options)
         data = mapping.manifest(self.verze, zdroje, nastaveno=bool(zdroje))
         data["behaviorHints"]["configurable"] = True
         # bez vlastního nastavení ať Stremio rovnou nabídne formulář
@@ -283,10 +310,11 @@ class Router:
         return Odpoved(status=302, location=skutecna, text="")
 
     # --- rozcestník -------------------------------------------------------
-    def route(self, cesta, zaklad, verejny=False, jazyk=None):
+    def route(self, cesta, zaklad, verejny=False, jazyk=None, klient=""):
         """Cesta požadavku na odpověď. `zaklad` je absolutní adresa služby,
         `verejny` říká, že přišel z internetu (viz docstring modulu), `jazyk`
-        je jazyk stránek z `Accept-Language` (viz `jazyk_z_hlavicky`).
+        je jazyk stránek z `Accept-Language` (viz `jazyk_z_hlavicky`), `klient`
+        adresa klienta pro limit na `/check`.
         Parametr `?lang=cs|sk` v adrese má přednost, bez obojího čeština."""
         cesta, _, dotaz = cesta.partition("?")
         lang = (urllib.parse.parse_qs(dotaz).get("lang") or [""])[0].strip().lower().split("-")[0]
@@ -320,11 +348,13 @@ class Router:
                               f"Vyrob si adresu na {zaklad}/configure")
 
         if zbytek == "/check":
+            if not self.check_okno.povolit(klient or "?"):
+                return chyba(429, "Příliš mnoho ověření za sebou, zkus to za pár minut.")
             return self.check(options if kousek else self.enginy.vychozi_options, verejny=verejny)
+        if zbytek == "/manifest.json":
+            return self.manifest(options if kousek else self.enginy.vychozi_options, nastaveno=bool(kousek))
 
         engine = self.enginy.pro(options, verejny=verejny)
-        if zbytek == "/manifest.json":
-            return self.manifest(engine, nastaveno=bool(kousek))
 
         casti = [c for c in zbytek.split("/") if c]
         if casti and casti[0] == "play" and len(casti) == 2:

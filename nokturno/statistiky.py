@@ -13,6 +13,7 @@ aby bylo vidět, že nastavení žije. Tituly ani zdroje ne.
 import logging
 import os
 import threading
+from collections import OrderedDict
 
 from .core.engine import split_episode_id
 from .core.lib.stats import COLLECT_URL, Stats
@@ -27,7 +28,8 @@ class Statistiky:
         self.zapnuto = zapnuto
         self.url = url
         self._zamek = threading.Lock()
-        self._stats = {}
+        self._stats = OrderedDict()   # jádra vypadávají z LRU, tohle by jinak rostlo navždy
+        self.limit = 50
 
     @classmethod
     def z_prostredi(cls, verze, environ=None):
@@ -46,6 +48,10 @@ class Statistiky:
             stats = self._stats.get(slozka)
             if stats is None:
                 stats = self._stats[slozka] = Stats(slozka)
+                while len(self._stats) > self.limit:
+                    self._stats.popitem(last=False)
+            else:
+                self._stats.move_to_end(slozka)
         return stats
 
     def ping(self, engine):
