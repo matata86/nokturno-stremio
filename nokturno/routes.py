@@ -123,8 +123,9 @@ def chyba(status, zprava):
 class Router:
     """Obsluha požadavků. Jádro si bere podle nastavení v adrese."""
 
-    def __init__(self, enginy, verze=VERZE, predvyplnit=False, statistiky=None):
+    def __init__(self, enginy, verze=VERZE, predvyplnit=False, statistiky=None, katalogy=None):
         self.enginy = enginy
+        self.katalogy = katalogy   # nokturno.katalogy.Katalogy, None = katalogy se nenabízejí
         self.verze = verze
         # nabídnout ve formuláři účty z prostředí? Na sdílené instanci NE — ukázalo
         # by je komukoli, kdo formulář otevře. Na vlastní ušetří opisování hashů.
@@ -163,7 +164,8 @@ class Router:
     def manifest(self, options, nastaveno):
         """Jen z nastavení — jádro se kvůli manifestu nezakládá (viz `sources_from_options`)."""
         zdroje = config.sources_from_options(options)
-        data = mapping.manifest(self.verze, zdroje, nastaveno=bool(zdroje))
+        katalogy = self.katalogy.manifest(options) if self.katalogy else []
+        data = mapping.manifest(self.verze, zdroje, nastaveno=bool(zdroje), katalogy=katalogy)
         data["behaviorHints"]["configurable"] = True
         # bez vlastního nastavení ať Stremio rovnou nabídne formulář
         data["behaviorHints"]["configurationRequired"] = not (nastaveno or zdroje)
@@ -193,6 +195,7 @@ class Router:
             soucasne = self.enginy.vychozi_options
         # hodnoty z adresy jsou od kohokoli — do <script> jen escapované (viz json_do_scriptu)
         html = html.replace("__NASTAVENI__", mapping.json_do_scriptu(soucasne or {}))
+        html = html.replace("__KATALOGY__", mapping.json_do_scriptu(self.katalogy.formular(jazyk) if self.katalogy else []))
         html = html.replace("__ZAKLAD__", html_lib.escape(zaklad, quote=True))
         html = html.replace("__VERZE__", self.verze)
         return Odpoved(html=html)
@@ -301,6 +304,21 @@ class Router:
             self.statistiky.zaznamenej(engine, ctype, item_id)
         return Odpoved(data=mapping.streams_response(popisy, self._odkaz(zaklad, kousek)))
 
+    def katalog(self, casti):
+        """`/catalog/<typ>/<id>.json` nebo `/catalog/<typ>/<id>/skip=<n>.json` → `{"metas": [...]}`."""
+        if self.katalogy is None or len(casti) not in (3, 4) or not casti[-1].endswith(".json"):
+            return chyba(404, "Takový katalog tu není.")
+        typ = casti[1]
+        if len(casti) == 3:
+            katalog_id, extra = casti[2][:-len(".json")], ""
+        else:
+            katalog_id, extra = casti[2], casti[3][:-len(".json")]
+        skip = (urllib.parse.parse_qs(extra).get("skip") or ["0"])[0]
+        metas = self.katalogy.polozky(typ, katalog_id, skip)
+        if metas is None:
+            return chyba(404, "Takový katalog tu není.")
+        return Odpoved(data={"metas": metas})
+
     def play(self, engine, payload, klic="vychozi"):
         vnitrni = mapping.dekoduj(payload)
         if not vnitrni:
@@ -373,9 +391,13 @@ class Router:
         if zbytek == "/manifest.json":
             return self.manifest(options if kousek else self.enginy.vychozi_options, nastaveno=bool(kousek))
 
+        casti = [c for c in zbytek.split("/") if c]
+        if casti and casti[0] == "catalog":
+            # katalog na účtech nezávisí — jádro se nezakládá, cache je jedna pro všechny
+            return self.katalog(casti)
+
         engine = self.enginy.pro(options, verejny=verejny)
 
-        casti = [c for c in zbytek.split("/") if c]
         if casti and casti[0] == "play" and len(casti) == 2:
             return self.play(engine, casti[1], klic=config.fingerprint(options) if kousek else "vychozi")
         if casti and casti[0] == "stream" and len(casti) == 3 and casti[2].endswith(".json"):

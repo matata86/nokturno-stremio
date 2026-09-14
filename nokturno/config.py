@@ -41,6 +41,8 @@ PROSTREDI = {
     "NOKTURNO_ST_PASSWORD": "st_password",
     "NOKTURNO_FS_USERNAME": "fs_username",
     "NOKTURNO_FS_PASSWORD": "fs_password",
+    # zapnuté katalogy, klíče oddělené čárkou — viz nokturno/katalogy.py
+    "NOKTURNO_KATALOGY": "katalogy",
     "NOKTURNO_PREF_LANG": "pref_lang",
     "NOKTURNO_PREF_SURROUND": "pref_surround",
     "NOKTURNO_HIDE_SD": "hide_sd",
@@ -82,6 +84,9 @@ def from_mapping(raw):
             options[key] = str(value).strip().lower() in PRAVDA if isinstance(value, str) else bool(value)
         elif key == "max_bitrate_mbps":
             options[key] = _cislo(value)
+        elif key == "katalogy":
+            kusy = value if isinstance(value, (list, tuple)) else str(value).split(",")
+            options[key] = ",".join(sorted({str(k).strip() for k in kusy if str(k).strip()}))
         else:
             options[key] = str(value).strip()
 

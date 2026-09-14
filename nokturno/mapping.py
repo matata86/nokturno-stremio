@@ -218,11 +218,12 @@ def streams_response(popisy, odkaz):
     return {"streams": out}
 
 
-def manifest(verze, zdroje=(), nastaveno=True):
+def manifest(verze, zdroje=(), nastaveno=True, katalogy=()):
     """Manifest doplňku.
 
-    Zatím jen `stream`: katalogy z Cinemety a TMDB má Stremio samo, přidaná
-    hodnota Nokturna jsou zdroje streamů.
+    Vždy `stream`; `catalog` jen když si uživatel ve formuláři zapnul některý
+    z katalogů (`katalogy.Katalogy.manifest`). Bez nich zůstává manifest stejný
+    jako dřív, takže stávajícím uživatelům se ve Stremiu nic nezmění.
 
     **`idPrefixes` se záměrně neuvádí.** S `["tt"]` se Stremio neptalo na tituly
     otevřené z cizích katalogů, které mají vlastní tvar id — třeba SosacTV2 —
@@ -239,9 +240,9 @@ def manifest(verze, zdroje=(), nastaveno=True):
         "name": "Nokturno",
         "description": popis,
         "logo": "https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/resources/media/icon2.png",
-        "resources": ["stream"],
+        "resources": ["stream", "catalog"] if katalogy else ["stream"],
         "types": ["movie", "series"],
-        "catalogs": [],
+        "catalogs": list(katalogy),
         "behaviorHints": {"configurable": False, "configurationRequired": not nastaveno},
     }
 

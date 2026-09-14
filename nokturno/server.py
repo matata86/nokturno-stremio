@@ -19,6 +19,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .config import decode, fingerprint, from_environ, sources_summary
+from .katalogy import Katalogy
 from .enginy import Enginy
 from .routes import VERZE, Odpoved, Router, jazyk_z_hlavicky
 from .statistiky import Statistiky
@@ -249,7 +250,10 @@ def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, opti
         predvyplnit = os.environ.get("NOKTURNO_CONFIGURE_PREFILL", "").strip().lower() in ("1", "true", "ano", "yes")
     server = ThreadingHTTPServer((host, port), Handler)
     server.daemon_threads = True
-    server.router = Router(enginy, predvyplnit=predvyplnit, statistiky=Statistiky.z_prostredi(VERZE))
+    # katalogy sdílí jednu cache pro všechny adresy; TMDB jen s klíčem instance (viz katalogy.py)
+    katalogy = Katalogy(data_dir, os.environ.get("NOKTURNO_TMDB_KEY", ""))
+    server.router = Router(enginy, predvyplnit=predvyplnit, statistiky=Statistiky.z_prostredi(VERZE),
+                           katalogy=katalogy)
     return server, zdroje
 
 

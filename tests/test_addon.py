@@ -331,7 +331,8 @@ class TestNastaveni(unittest.TestCase):
     def test_klice_sedi_na_to_co_cte_engine(self):
         """Překlep v klíči by se neprojevil chybou, jen tichým ignorováním nastavení."""
         zdroj = (ROOT / "nokturno" / "core" / "engine.py").read_text(encoding="utf-8")
-        chybi = [k for k in config.PROSTREDI.values() if f'"{k}"' not in zdroj and k != "hs_enabled"]
+        # `katalogy` nečte jádro, ale doplněk sám (nokturno/katalogy.py)
+        chybi = [k for k in config.PROSTREDI.values() if f'"{k}"' not in zdroj and k not in ("hs_enabled", "katalogy")]
         self.assertEqual(chybi, [], f"engine tyhle klíče nezná: {chybi}")
 
 
@@ -453,6 +454,63 @@ class TestBezLuny(unittest.TestCase):
         logo = mapping.manifest("0").get("logo", "")
         self.assertTrue(logo.endswith("/resources/media/icon2.png"), logo)
 
+
+
+class TestKatalogy(unittest.TestCase):
+    """Volitelné katalogy: jen zvolené v manifestu, jedna sdílená cache, bez jádra."""
+
+    def setUp(self):
+        import tempfile
+        from nokturno.katalogy import Katalogy
+        self.k = Katalogy(tempfile.mkdtemp())
+        volani = self.volani = []
+
+        class Sosac:
+            def catalog(self, ctype, cid, skip=0, page=100):
+                volani.append((ctype, cid, skip))
+                return [{"id": "sosacd_m_x", "imdb_id": "tt0133093", "name": "Matrix", "year": "1999",
+                         "poster": "https://img/x.jpg", "description": "popis", "genres": ["Sci-Fi"], "imdbRating": 8.66},
+                        {"id": "sosacd_m_y", "name": "Bez IMDb", "year": "2026"}]
+        self.k.sosac = Sosac()
+        self.r = router()
+        self.r.katalogy = self.k
+
+    def test_bez_klice_tmdb_jen_sosac(self):
+        self.assertTrue(self.k.dostupne())
+        self.assertEqual({r[2] for r in self.k.dostupne()}, {"sosac"})
+
+    def test_manifest_jen_zvolene_katalogy(self):
+        m = self.r.route(f"/c/{KOUSEK}/manifest.json", ZAKLAD).data
+        self.assertEqual((m["resources"], m["catalogs"]), (["stream"], []), "bez volby se manifest nemění")
+        kousek = config.encode(config.from_mapping({"ws_username": "u", "katalogy": "sosac.nove.dabing,neexistuje,tmdb.trendy.filmy"}))
+        m = self.r.route(f"/c/{kousek}/manifest.json", ZAKLAD).data
+        self.assertEqual(m["resources"], ["stream", "catalog"])
+        self.assertEqual([(c["type"], c["id"]) for c in m["catalogs"]], [("movie", "nokturno.sosac.nove.dabing")])
+
+    def test_katalog_sdileny_cachovany_a_strankovany(self):
+        cesta = "/catalog/movie/nokturno.sosac.nove.dabing.json"
+        data = self.r.route(f"/c/{KOUSEK}{cesta}", ZAKLAD).data
+        self.assertEqual(data["metas"], [{"id": "tt0133093", "type": "movie", "name": "Matrix", "posterShape": "poster",
+                                          "poster": "https://img/x.jpg", "description": "popis", "releaseInfo": "1999",
+                                          "genres": ["Sci-Fi"], "imdbRating": "8.7"}])
+        jina = config.encode(config.from_mapping({"ws_username": "nekdo-jiny"}))
+        self.r.route(f"/c/{jina}{cesta}", ZAKLAD)
+        self.assertEqual(len(self.volani), 1, "jiná adresa bere tutéž cache")
+        self.r.route(f"/c/{KOUSEK}/catalog/movie/nokturno.sosac.nove.dabing/skip=100.json", ZAKLAD)
+        self.assertEqual(self.volani[-1], ("movie", "moviesrecentlyadded_dub", 100))
+        self.assertEqual(self.r.enginy_test.pozadovana_nastaveni, [], "katalog nezakládá jádro")
+
+    def test_neznamy_katalog_a_verejny_bez_nastaveni(self):
+        self.assertEqual(self.r.route(f"/c/{KOUSEK}/catalog/series/nokturno.sosac.nove.dabing.json", ZAKLAD).status, 404)
+        self.assertEqual(self.r.route(f"/c/{KOUSEK}/catalog/movie/nokturno.tmdb.trendy.filmy.json", ZAKLAD).status, 404)
+        self.assertEqual(self.r.route("/catalog/movie/nokturno.sosac.nove.dabing.json", ZAKLAD, verejny=True).status, 403)
+
+    def test_formular_nabizi_katalogy_instance(self):
+        html = self.r.route("/configure", ZAKLAD).html
+        self.assertNotIn("__KATALOGY__", html)
+        self.assertIn('"sosac.nove.dabing"', html)
+        self.assertNotIn("tmdb.trendy.filmy", html, "bez klíče TMDB se jeho katalogy nenabízejí")
+        self.assertEqual(config.from_mapping({"katalogy": " b ,a,,a"})["katalogy"], "a,b")
 
 
 class FalesnyFastshare:
@@ -1029,7 +1087,8 @@ class TestStylFormulare(unittest.TestCase):
         import re
         for jmeno in ("configure.html", "configure.sk.html"):
             html = (ROOT / "nokturno" / "static" / jmeno).read_text(encoding="utf-8")
-            typy = set(re.findall(r'<input type="([a-z]+)"', html)) - {"button", "checkbox", "submit"}
+            # hidden (volba katalogů) se nezobrazuje, styl nepotřebuje
+            typy = set(re.findall(r'<input type="([a-z]+)"', html)) - {"button", "checkbox", "submit", "hidden"}
             selektor = re.search(r"^\s*(input\[type=[^{]+)\{", html, re.M).group(1)
             stylovane = set(re.findall(r"input\[type=([a-z]+)\]", selektor))
             self.assertEqual(typy - stylovane, set(), f"{jmeno}: input bez stylu")

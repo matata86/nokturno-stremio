@@ -442,6 +442,17 @@
         <p class="drobne" style="margin:.35rem 0 0">Pre pomalší internet: súbory, ktoré by sa nestihli načítavať, sa neponúknu.
           Orientačne Full HD potrebuje 8–15 Mb/s, 4K 25–60 Mb/s.</p>
       </div>
+
+      <!-- Katalogy -->
+      <div class="karta" id="karta-katalogy">
+        <div class="karta-hlava">
+          <h3>Katalogy</h3>
+          <span class="stitek">Voliteľné · na domovskej stránke Stremia</span>
+        </div>
+        <p>Zoznamy filmov a seriálov zo Sosáča a TMDB priamo v Stremiu. Zapni len tie, ktoré chceš vidieť — detail titulu aj epizódy seriálov potom dodá Stremio samo a streamy Nokturno ako zvyčajne. Zoznamy sa na serveri obnovujú raz za 6 hodín.</p>
+        <div id="katalogy"></div>
+        <input type="hidden" name="katalogy">
+      </div>
     </section>
   </form>
 
@@ -611,6 +622,32 @@ for (const [klic, hodnota] of Object.entries(soucasne)) {
 if (Object.keys(soucasne).length === 0) {
   form.elements["hs_enabled"].checked = true;   // HellSpy nic nestojí
 }
+
+// --- katalogy: zaškrtávátka bez jména, do adresy jde jen skryté pole „katalogy“ ---
+const KATALOGY = __KATALOGY__;
+(function () {
+  const obal = $("katalogy"), skryte = form.elements["katalogy"];
+  if (!KATALOGY.length) { $("karta-katalogy").hidden = true; return; }
+  const zvolene = new Set(String(skryte.value || "").split(",").filter(Boolean));
+  for (const k of KATALOGY) {
+    const label = document.createElement("label");
+    label.className = "prepinac";
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.value = k.klic;
+    box.checked = zvolene.has(k.klic);
+    const span = document.createElement("span");
+    const nazev = document.createElement("strong");
+    nazev.textContent = k.nazev;
+    span.appendChild(nazev);
+    label.append(box, span);
+    obal.appendChild(label);
+    box.addEventListener("change", () => {
+      skryte.value = [...obal.querySelectorAll("input:checked")].map((b) => b.value).join(",");
+      prekresli();
+    });
+  }
+})();
 
 function nastaveni() {
   const out = {};

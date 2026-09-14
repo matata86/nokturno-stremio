@@ -14,9 +14,9 @@ vyplň účty a klikni na *Přidat do Stremia* nebo *Přidat do Nuvia*.
 ## Co umí
 
 - **Vlastní úložiště** (od 3.1.0) — až tři WebDAV složky s vlastními soubory ve formuláři (s ověřením). Soubory jsou mezi streamy první a přehrávají se **přes doplněk** (proxy s `Range`), protože přehrávače Stremia heslo neumí poslat — heslo ani adresa úložiště do nich neodejdou. Veřejná instance ignoruje úložiště s adresou na server samotný nebo link-local. Podrobně ve [wiki](https://github.com/matata86/nokturno-stremio/wiki/Zdroje-a-nastaveni#vlastní-úložiště).
-Zatím jen streamy, a to je záměr. Katalogy a metadata ve Stremiu už máš z Cinemety,
-takže přidaná hodnota Nokturna jsou zdroje. Doplněk se proto chytá na všem, co má
-identifikátor IMDb, a k tomu přihodí své streamy.
+Hlavně streamy: doplněk se chytá na všem, co má identifikátor IMDb, a k tomu přihodí
+své streamy. Od 5.1.0 k tomu umí **volitelné katalogy** — seznamy ze Sosáče a TMDB, každý
+se zapíná zvlášť ve formuláři. Detail titulu a díly seriálů dodá Stremio z Cinemety.
 
 | | |
 |---|---|
@@ -24,9 +24,9 @@ identifikátor IMDb, a k tomu přihodí své streamy.
 | Seriály | ano, včetně jednotlivých dílů |
 | Titulky | ano, z WebShare a Sledujteto |
 | Zvuk | jazyk, kanály a kodek — z hlavičky souboru, u Sledujteto přímo z API; u FastShare jen s neomezeným stahováním (na kredit by čtení hlaviček ubíralo kredit) |
-| Katalogy | ne, a nechystají se — Stremio je má samo |
+| Katalogy | volitelně (od 5.1.0): Sosáč — nejpopulárnější filmy a seriály, nově přidané (i s CZ dabingem / titulky); TMDB — trendy, populární, nejlépe hodnocené (jen s klíčem instance `NOKTURNO_TMDB_KEY`). Jedna cache pro všechny, obnova po 6 h |
 | Torrenty | ne, zatím jen v integraci pro Home Assistant |
-| Popisy a katalogy | ne, a nechystají se — ve Stremiu je dodává katalogový doplněk |
+| Popisy titulů | ne — detail k položkám katalogů i k ostatním titulům dodává Cinemeta |
 
 Streamy se řadí podle kvality a preferovaného jazyka, protože ve Stremiu je vidět
 jen několik prvních řádků. Kvalitu, velikost, bitrate, jazyky zvuku i titulky
@@ -77,6 +77,7 @@ Hodnoty jsou stejné jako v doplňku pro Kodi, takže se dají opsat z jeho
 | ~~`NOKTURNO_LUNA_URL`, `NOKTURNO_LUNA_TOKEN`~~ | od 0.2.5 se nečtou — Luna má vlastní doplněk do Stremia |
 | `NOKTURNO_ST_EMAIL`, `NOKTURNO_ST_PASSWORD` | Sledujteto — hledání chce účet, přehrávání Premium |
 | `NOKTURNO_FS_USERNAME`, `NOKTURNO_FS_PASSWORD` | FastShare (od 5.0.0) — hledá se i bez účtu, přehrání jde z kreditu nebo neomezeného tarifu a soubor teče přes doplněk (přehrávač cookie z přihlášení neumí poslat) |
+| `NOKTURNO_TMDB_KEY` | klíč TMDB instance pro katalogy TMDB (od 5.1.0); bez něj se nabízejí jen katalogy Sosáče. Ve formuláři se nezadává |
 | `NOKTURNO_HS_ENABLED` | HellSpy je veřejný, stačí přepínač; zapnutý ve výchozím stavu |
 | `NOKTURNO_PREF_LANG`, `NOKTURNO_SORT`, `NOKTURNO_HIDE_SD` | předvolby řazení a filtrování |
 | `NOKTURNO_STATS` | `0` vypne anonymní statistiky, viz níže |
@@ -148,7 +149,6 @@ se nezapisují do logu. Server za proxy má poslouchat jen na `127.0.0.1` (`NOKT
 
 Chystá se:
 
-- **Katalog Sosáče** jako volitelný zdroj metadat, zvážit.
 - **Méně falešných shod.** Fulltext HellSpy občas vrátí titul, který název jen
   obsahuje, například gameplay videa místo filmu.
 
