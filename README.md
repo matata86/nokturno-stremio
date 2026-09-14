@@ -129,7 +129,7 @@ Doplněk posílá anonymní statistiky na stejný sběrný bod jako Nokturno pro
 a Home Assistant: náhodný identifikátor nastavení, verzi, které zdroje jsou
 zapnuté a u kterých titulů se otevřely streamy — nejvýš jednou za 6 hodin.
 Jedna „instalace" je jedno nastavení doplňku (vlastní adresa), ne celý server.
-Účty ani adresa doplňku se neposílají. Vypnutí: `NOKTURNO_STATS=0`.
+Účty ani adresa doplňku se neposílají. Vypnutí: `NOKTURNO_STATS=0`. I po vypnutí se nejvýš jednou za 6 hodin pošle jen náhodný identifikátor a verze, aby bylo vidět, že nastavení žije — žádné tituly ani zdroje.
 
 ## Testy
 

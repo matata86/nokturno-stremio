@@ -6,7 +6,9 @@ vlastní `stats.json` s náhodným id. Z adresy se nic neposílá — ani účty
 otisk. Jde jen verze, které zdroje má to nastavení zapnuté a u kterých titulů se
 otevřely streamy (`core/lib/stats.py`), nejvýš jednou za 6 hodin.
 
-Vypnout jde proměnnou prostředí `NOKTURNO_STATS=0`.
+Vypnout jde proměnnou prostředí `NOKTURNO_STATS=0`. I pak se ale při otevření
+streamů nejvýš jednou za 6 hodin pošle ping — jen náhodné id, produkt a verze,
+aby bylo vidět, že nastavení žije. Tituly ani zdroje ne.
 """
 import logging
 import os
@@ -34,19 +36,36 @@ class Statistiky:
 
     def zaznamenej(self, engine, ctype, item_id):
         """Po zobrazení streamů — na pozadí, odpověď Stremiu kvůli tomu nečeká."""
-        if not self.zapnuto:
-            return
-        threading.Thread(target=self.zpracuj, args=(engine, ctype, item_id),
+        cil = self.zpracuj if self.zapnuto else self.ping
+        threading.Thread(target=cil, args=(engine,) if cil == self.ping else (engine, ctype, item_id),
                          daemon=True, name="nokturno-statistiky").start()
+
+    def _pro(self, engine):
+        slozka = engine.store.dir
+        with self._zamek:
+            stats = self._stats.get(slozka)
+            if stats is None:
+                stats = self._stats[slozka] = Stats(slozka)
+        return stats
+
+    def ping(self, engine):
+        """Vypnuté statistiky: jen „nastavení žije" (id, produkt, verze). Nikdy nevyhodí výjimku."""
+        try:
+            stats = self._pro(engine)
+            with self._zamek:
+                if not stats.due():
+                    return
+                ok, why = stats.send(self.url, version=self.verze, agent="Stremio nokturno",
+                                     product="stremio", ping=True)
+            if not ok:
+                _LOGGER.info("ping neodeslán: %s", why)
+        except Exception as err:  # noqa: BLE001 – statistiky nesmí nic shodit
+            _LOGGER.debug("ping: %s", err)
 
     def zpracuj(self, engine, ctype, item_id):
         """Synchronní část (vlákno výš, testy přímo). Nikdy nevyhodí výjimku."""
         try:
-            slozka = engine.store.dir
-            with self._zamek:
-                stats = self._stats.get(slozka)
-                if stats is None:
-                    stats = self._stats[slozka] = Stats(slozka)
+            stats = self._pro(engine)
             title, year, kind = self._titul(engine, ctype, item_id)
             with self._zamek:
                 stats.note_play(item_id, title, year, kind)
