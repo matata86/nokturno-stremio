@@ -43,7 +43,7 @@ NE_PRO_WEB = (".mkv", ".avi", ".ts", ".m2ts", ".wmv", ".flv")
 # schémata, která umí rozklíčovat `Engine.resolve()`; jiné se k přehrání nepustí.
 # Hotové http(s) odkazy (titulky Sledujteto) tu záměrně nejsou: `resolve()` je vrací
 # beze změny, takže by `/play/` byl veřejný přesměrovávač kamkoli — vydávají se rovnou.
-SCHEMATA = ("ws:", "hs:", "st:", "dav:", "streamuj:")
+SCHEMATA = ("ws:", "hs:", "st:", "fs:", "dav:", "streamuj:")
 PRIME = ("http://", "https://")
 
 
@@ -230,7 +230,7 @@ def manifest(verze, zdroje=(), nastaveno=True):
     a co neumíme, vrátí prázdno; jeden dotaz navíc je levnější než chybějící
     streamy u poloviny knihovny.
     """
-    popis = "Streamy z WebShare, Sosáče, Sledujteto a HellSpy k filmům a seriálům, které už ve Stremiu vidíš."
+    popis = "Streamy z WebShare, Sosáče, Sledujteto, FastShare a HellSpy k filmům a seriálům, které už ve Stremiu vidíš."
     if zdroje:
         popis += " Nastavené zdroje: " + ", ".join(zdroje) + "."
     return {

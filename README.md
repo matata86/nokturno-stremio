@@ -3,8 +3,8 @@
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-podpo%C5%99%20autora-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/matata86) [![PayPal](https://img.shields.io/badge/PayPal-paypal.me%2Fmatata86-00457C?logo=paypal&logoColor=white)](https://paypal.me/matata86) [![Bitcoin](https://img.shields.io/badge/Bitcoin-BTC-f7931a?logo=bitcoin&logoColor=white)](#podpora)
 
 Doplněk, který k filmům a seriálům ve Stremiu (i v Nuviu a dalších klientech
-s doplňky Stremia) dohledá streamy z **WebShare**, **Sosáče**, **Sledujteto**
-a **HellSpy**. Podrobný návod je ve [wiki](https://github.com/matata86/nokturno-stremio/wiki).
+s doplňky Stremia) dohledá streamy z **WebShare**, **Sosáče**, **Sledujteto**,
+**FastShare** a **HellSpy**. Podrobný návod je ve [wiki](https://github.com/matata86/nokturno-stremio/wiki).
 
 > **Patří k sobě:** stejné zdroje nabízí i [**Nokturno pro Kodi**](https://github.com/matata86/plugin.video.nokturno) a [**Nokturno pro Home Assistant**](https://github.com/matata86/nokturno-ha) (HACS integrace, přehrává přes Kodi doplněk). Všechny tři stojí na společném jádru [nokturno-core](https://github.com/matata86/nokturno-core).
 
@@ -23,7 +23,7 @@ identifikátor IMDb, a k tomu přihodí své streamy.
 | Filmy | ano |
 | Seriály | ano, včetně jednotlivých dílů |
 | Titulky | ano, z WebShare a Sledujteto |
-| Zvuk | jazyk, kanály a kodek — z hlavičky souboru, u Sledujteto přímo z API |
+| Zvuk | jazyk, kanály a kodek — z hlavičky souboru, u Sledujteto přímo z API; u FastShare jen s neomezeným stahováním (na kredit by čtení hlaviček ubíralo kredit) |
 | Katalogy | ne, a nechystají se — Stremio je má samo |
 | Torrenty | ne, zatím jen v integraci pro Home Assistant |
 | Popisy a katalogy | ne, a nechystají se — ve Stremiu je dodává katalogový doplněk |
@@ -76,6 +76,7 @@ Hodnoty jsou stejné jako v doplňku pro Kodi, takže se dají opsat z jeho
 | `NOKTURNO_STREAMUJ_USERNAME`, `NOKTURNO_STREAMUJ_PASSWORD` | Streamuj, kvůli Sosáči; místo hesla i hotový `md5(md5(heslo))` |
 | ~~`NOKTURNO_LUNA_URL`, `NOKTURNO_LUNA_TOKEN`~~ | od 0.2.5 se nečtou — Luna má vlastní doplněk do Stremia |
 | `NOKTURNO_ST_EMAIL`, `NOKTURNO_ST_PASSWORD` | Sledujteto — hledání chce účet, přehrávání Premium |
+| `NOKTURNO_FS_USERNAME`, `NOKTURNO_FS_PASSWORD` | FastShare (od 4.0.2) — hledá se i bez účtu, přehrání jde z kreditu nebo neomezeného tarifu a soubor teče přes doplněk (přehrávač cookie z přihlášení neumí poslat) |
 | `NOKTURNO_HS_ENABLED` | HellSpy je veřejný, stačí přepínač; zapnutý ve výchozím stavu |
 | `NOKTURNO_PREF_LANG`, `NOKTURNO_SORT`, `NOKTURNO_HIDE_SD` | předvolby řazení a filtrování |
 | `NOKTURNO_STATS` | `0` vypne anonymní statistiky, viz níže |
@@ -87,7 +88,7 @@ Hodnoty jsou stejné jako v doplňku pro Kodi, takže se dají opsat z jeho
 ## Jak to funguje
 
 ```
-Stremio ──▶ /stream/movie/tt0133093.json ──▶ Engine.streams() ──▶ WebShare, Sosáč, HellSpy, Sledujteto
+Stremio ──▶ /stream/movie/tt0133093.json ──▶ Engine.streams() ──▶ WebShare, Sosáč, HellSpy, Sledujteto, FastShare
                         ▼
             streamy s odkazem na /play/<payload>
                         ▼
@@ -138,7 +139,7 @@ Nesahají na síť a nepotřebují účty. Jádro má vlastní testy ve svém re
 
 Stabilní 4.0, v provozu na vlastní instanci, veřejně přes Tailscale Funnel na
 [nokturno.tailf0014.ts.net](https://nokturno.tailf0014.ts.net/). Nastavení s návody je na
-`/configure`, včetně ověření účtů WebShare a Sledujteto i vlastních úložišť.
+`/configure`, včetně ověření účtů WebShare, Sledujteto a FastShare i vlastních úložišť.
 
 Veřejná instance je chráněná: ověřování účtů i proxy vlastního úložiště mají limit
 požadavků na jedno nastavení, úložiště s adresou na server samotný nebo link-local se

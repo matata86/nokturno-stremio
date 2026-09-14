@@ -177,7 +177,7 @@
   </header>
 
   <p class="uvod">
-    Nokturno pridá k filmom a seriálom v Stremiu <strong>streamy z WebShare, Sosáča, Sledujteto a HellSpy</strong> —
+    Nokturno pridá k filmom a seriálom v Stremiu <strong>streamy z WebShare, Sosáča, Sledujteto, FastShare a HellSpy</strong> —
     často s českým dabingom alebo titulkami. Tituly hľadáš v Stremiu ako zvyčajne, streamy
     Nokturna sa zobrazia v detaile filmu alebo epizódy medzi ostatnými.
   </p>
@@ -287,6 +287,36 @@
               <li>Sem vyplň e-mail a heslo, akým sa prihlasuješ na web, a klikni na <strong>Overiť účet</strong>.</li>
             </ol>
             <p>Podľa podmienok Sledujteto nesmú jeden účet používať ľudia z rôznych domácností — adresu doplnku s účtom preto nikomu nedávaj.</p>
+          </div>
+        </details>
+      </div>
+
+      <!-- FastShare -->
+      <div class="karta">
+        <div class="karta-hlava">
+          <h3>FastShare</h3>
+          <span class="stitek">Voliteľné · kredit alebo paušál</span>
+        </div>
+        <p>České úložisko súborov s veľkým výberom filmov a seriálov. Hľadá sa aj bez účtu, prehratie sa odpočíta z kreditu, ak nemáš neobmedzené sťahovanie. Súbor ide cez tento doplnok — prehrávač Stremia prihlásenie k FastShare nevie poslať.</p>
+        <div class="dvojice">
+          <label class="pole"><span>Používateľ</span>
+            <input type="text" name="fs_username" autocapitalize="off" spellcheck="false"></label>
+          <label class="pole"><span>Heslo</span>
+            <span class="heslo"><input type="password" name="fs_password" spellcheck="false">
+              <button type="button" class="ukazat" aria-label="Ukázať heslo">ukázať</button></span></label>
+        </div>
+        <div class="overeni">
+          <button type="button" class="male" id="overit-fs">Overiť účet</button>
+          <span class="vysledek" id="vysledek-fs"></span>
+        </div>
+        <details class="navod">
+          <summary>Ako na to — účet FastShare</summary>
+          <div class="obsah">
+            <ol>
+              <li>Zaregistruj sa na <a href="https://fastshare.cz/" target="_blank" rel="noopener">fastshare.cz</a>.</li>
+              <li>Dobi si kredit alebo si kúp neobmedzené sťahovanie. Každé prehratie sa odpočíta z kreditu podľa veľkosti súboru.</li>
+              <li>Sem vyplň meno a heslo, akým sa prihlasuješ na web, a klikni na <strong>Overiť účet</strong>.</li>
+            </ol>
           </div>
         </details>
       </div>
@@ -536,12 +566,13 @@
     </details>
 
     <details>
-      <summary>Aký je rozdiel medzi WebShare, Sosáčom a HellSpy?</summary>
+      <summary>Aký je rozdiel medzi zdrojmi?</summary>
       <div class="obsah">
         <ul>
           <li><strong>WebShare</strong> — najviac súborov, všetky kvality, potrebuje platené VIP.</li>
           <li><strong>Sosáč</strong> — ručne poskladaný katalóg českých filmov a seriálov s dabingom a titulkami, prehráva cez Streamuj.tv.</li>
           <li><strong>Sledujteto</strong> — české úložisko s veľkým výberom, hľadá cez tvoj účet a prehráva s Premium.</li>
+          <li><strong>FastShare</strong> — české úložisko s veľkým výberom, hľadá aj bez účtu, prehráva z kreditu alebo s neobmedzeným sťahovaním. Súbor ide cez doplnok.</li>
           <li><strong>HellSpy</strong> — verejné súbory zadarmo, bez účtu. Menší výber, ale nič nestojí.</li>
         </ul>
       </div>
@@ -611,6 +642,7 @@ function zdroje(n = nastaveni()) {
   if (n.ws_username) out.push("WebShare");
   if (n.streamuj_username) out.push("Sosáč");
   if (n.st_email) out.push("Sledujteto");
+  if (n.fs_username) out.push("FastShare");
   if (n.hs_enabled) out.push("HellSpy");
   const uloziste = [1, 2, 3].filter((i) => n["dav" + i + "_url"]);
   if (uloziste.length) out.push(uloziste.length === 1 ? "vlastné úložisko" : uloziste.length + " vlastné úložiská");
@@ -625,6 +657,8 @@ function problem(n = nastaveni()) {
   if (!n.streamuj_username && n.streamuj_password) return "U Streamuj.tv chýba používateľské meno.";
   if (n.st_email && !n.st_password) return "U Sledujteto chýba heslo.";
   if (!n.st_email && n.st_password) return "U Sledujteto chýba e-mail.";
+  if (n.fs_username && !n.fs_password) return "U FastShare chýba heslo.";
+  if (!n.fs_username && n.fs_password) return "U FastShare chýba používateľské meno.";
   for (const i of [1, 2, 3]) {
     const url = n["dav" + i + "_url"];
     if (!url && (n["dav" + i + "_username"] || n["dav" + i + "_password"])) return "Pri úložisku " + i + " chýba adresa.";
@@ -651,6 +685,7 @@ form.addEventListener("input", (e) => {
   if (["ws_username", "ws_password"].includes(e.target.name)) vysledek("ws", "", "");
   if (["streamuj_username", "streamuj_password"].includes(e.target.name)) vysledek("su", "", "");
   if (["st_email", "st_password"].includes(e.target.name)) vysledek("st", "", "");
+  if (["fs_username", "fs_password"].includes(e.target.name)) vysledek("fs", "", "");
   if (/^dav\d_/.test(e.target.name || "")) vysledek("dav", "", "");
 });
 prekresli();
@@ -720,6 +755,29 @@ $("overit-st").addEventListener("click", async () => {
     else vysledek("st", "pozor", "Prihlásené, ale bez Premium — streamy sa zobrazia, prehrať nepôjdu.");
   } catch (err) {
     vysledek("st", "chyba", "Overenie sa nepodarilo (" + err.message + "). Skús to o chvíľu.");
+  } finally {
+    tl.disabled = false;
+  }
+});
+
+$("overit-fs").addEventListener("click", async () => {
+  const n = nastaveni();
+  if (!n.fs_username || !n.fs_password) {
+    vysledek("fs", "pozor", "Vyplň meno aj heslo.");
+    return;
+  }
+  const tl = $("overit-fs");
+  tl.disabled = true;
+  vysledek("fs", "info", "Prihlasujem sa na FastShare…");
+  try {
+    const fs = (await overit()).fastshare;
+    if (!fs) vysledek("fs", "pozor", "Účet nie je vyplnený.");
+    else if (!fs.ok) vysledek("fs", "chyba", "Prihlásenie neprešlo — skontroluj meno a heslo.");
+    else if (fs.neomezene) vysledek("fs", "ok", "✓ Prihlásené · neobmedzené sťahovanie");
+    else if (fs.kredit_mb > 0) vysledek("fs", "ok", "✓ Prihlásené · kredit " + (fs.kredit_mb / 1024).toFixed(1) + " GB");
+    else vysledek("fs", "pozor", "Prihlásené, ale bez kreditu — streamy sa zobrazia, prehrať nepôjdu.");
+  } catch (err) {
+    vysledek("fs", "chyba", "Overenie sa nepodarilo (" + err.message + "). Skús to o chvíľu.");
   } finally {
     tl.disabled = false;
   }

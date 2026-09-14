@@ -455,6 +455,43 @@ class TestBezLuny(unittest.TestCase):
 
 
 
+class FalesnyFastshare:
+    def __init__(self, login, password):
+        self.password = password
+
+    def login(self):
+        if self.password != "spravne":
+            raise NokturnoError("přihlášení se nepovedlo — zkontroluj jméno a heslo")
+        return {"hash": "H", "unlimited": False, "credit_mb": 20480}
+
+
+class TestFastshareVeStremiu(unittest.TestCase):
+    def _check(self, nastaveni):
+        r = router()
+        r.fs_api = FalesnyFastshare
+        kousek = config.encode(config.from_mapping(nastaveni))
+        return r.route(f"/c/{kousek}/check", ZAKLAD).data["fastshare"]
+
+    def test_overeni_hlasi_kredit(self):
+        self.assertEqual(self._check({"fs_username": "u", "fs_password": "spravne"}),
+                         {"ok": True, "neomezene": False, "kredit_mb": 20480})
+        self.assertFalse(self._check({"fs_username": "u", "fs_password": "spatne"})["ok"])
+
+    def test_prehrani_jde_pres_proxy_s_cookie(self):
+        class Engine:
+            def fastshare_request(self, url):
+                return "https://data4.fastshare.cloud/download.php?id=1", {"Cookie": "FASTSHARE=H"}
+
+        self.assertIn("fs:", mapping.SCHEMATA)
+        odpoved = router().play(Engine(), mapping.zakoduj("fs:1:data4:10"))
+        self.assertEqual(odpoved.proxy[1], {"Cookie": "FASTSHARE=H"}, "přehrávač Stremia cookie neumí poslat")
+        self.assertIsNone(odpoved.location)
+
+    def test_zdroj_z_nastaveni_a_prostredi(self):
+        self.assertEqual(config.PROSTREDI["NOKTURNO_FS_USERNAME"], "fs_username")
+        self.assertIn("FastShare", config.sources_from_options({"fs_username": "u"}))
+
+
 class FalesneSledujteto:
     def __init__(self, email, password):
         self.password = password

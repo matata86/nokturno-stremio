@@ -39,6 +39,8 @@ PROSTREDI = {
     "NOKTURNO_HS_ENABLED": "hs_enabled",
     "NOKTURNO_ST_EMAIL": "st_email",
     "NOKTURNO_ST_PASSWORD": "st_password",
+    "NOKTURNO_FS_USERNAME": "fs_username",
+    "NOKTURNO_FS_PASSWORD": "fs_password",
     "NOKTURNO_PREF_LANG": "pref_lang",
     "NOKTURNO_PREF_SURROUND": "pref_surround",
     "NOKTURNO_HIDE_SD": "hide_sd",
@@ -173,7 +175,8 @@ def fingerprint(options):
 
 
 NAZVY_ZDROJU = {"luna": "Luna", "sosac": "Sosáč", "webshare": "WebShare",
-                "hellspy": "HellSpy", "sledujteto": "Sledujteto", "storage": "vlastní úložiště",
+                "hellspy": "HellSpy", "sledujteto": "Sledujteto", "fastshare": "FastShare",
+                "storage": "vlastní úložiště",
                 "torrent": "torrenty"}
 
 
@@ -195,6 +198,7 @@ def sources_from_options(options):
         "webshare": bool(str(o.get("ws_username") or "").strip()),
         "hellspy": bool(o.get("hs_enabled")),
         "sledujteto": bool(str(o.get("st_email") or "").strip()),
+        "fastshare": bool(str(o.get("fs_username") or "").strip()),
         "storage": any(str(o.get(f"dav{n}_url") or "").strip() for n in (1, 2, 3)),
     }
     return [NAZVY_ZDROJU[k] for k, v in zapnuto.items() if v]

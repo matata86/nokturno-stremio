@@ -4,7 +4,7 @@
     GET /configure                       formulář, který vyrobí adresu s účty
     GET /c/<nastavení>/manifest.json     co doplněk umí
     GET /c/<nastavení>/stream/:t/:id.json   streamy k titulu
-    GET /c/<nastavení>/play/:payload     302 na skutečný soubor (vlastní úložiště: proxy)
+    GET /c/<nastavení>/play/:payload     302 na skutečný soubor (vlastní úložiště a FastShare: proxy)
     GET /c/<nastavení>/check             ověření účtů pro formulář (WebShare + VIP)
     GET /health                          pro kontejner
 
@@ -33,12 +33,13 @@ import urllib.parse
 from .core.engine import NokturnoError, is_sosac_id, split_episode_id
 from .core.lib.webshare_api import WebshareApi, WebshareError
 from .core.lib.sledujteto_api import SledujtetoApi
+from .core.lib.fastshare_api import FastshareApi
 from .core.lib.storage_api import SLOTS, StorageApi
 from . import config, mapping, sit
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "4.0.0"
+VERZE = "4.0.2b1"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 PROXY_LIMIT = (600, 10 * 60)  # proxy souborů z úložiště na jedno nastavení za 10 min: přetáčení je pár dotazů
@@ -131,6 +132,7 @@ class Router:
         self.statistiky = statistiky   # nokturno.statistiky.Statistiky, None = vypnuto
         self.ws_api = WebshareApi   # testy podstrčí falešné, aby nešly na síť
         self.st_api = SledujtetoApi
+        self.fs_api = FastshareApi
         self.dav_api = StorageApi
         self.check_okno = Okno(*CHECK_LIMIT)
         self.proxy_okno = Okno(*PROXY_LIMIT)
@@ -208,7 +210,8 @@ class Router:
         nehlásí doslova: „connection refused" vs. „timed out" z adres v naší síti
         by z tlačítka udělalo skener portů.
         """
-        out = {"webshare": None, "streamuj": None, "sledujteto": None, "hellspy": bool(options.get("hs_enabled"))}
+        out = {"webshare": None, "streamuj": None, "sledujteto": None, "fastshare": None,
+               "hellspy": bool(options.get("hs_enabled"))}
         user = (options.get("ws_username") or "").strip()
         if user:
             try:
@@ -232,6 +235,16 @@ class Router:
             except Exception as err:  # noqa: BLE001 – pro uživatele je každé selhání totéž
                 _LOGGER.info("ověření Sledujteto %s: %s", email[:3] + "…", err)
                 out["sledujteto"] = {"ok": False, "chyba": str(err) or "přihlášení selhalo"}
+        fs_user = (options.get("fs_username") or "").strip()
+        if fs_user:
+            # FastShare: přihlášení a kolik zbývá — přehrání se odečítá z kreditu, pokud účet nemá neomezený tarif
+            try:
+                ucet = self.fs_api(fs_user, options.get("fs_password") or "").login()
+                out["fastshare"] = {"ok": True, "neomezene": bool(ucet.get("unlimited")),
+                                    "kredit_mb": int(ucet.get("credit_mb") or 0)}
+            except Exception as err:  # noqa: BLE001 – pro uživatele je každé selhání totéž
+                _LOGGER.info("ověření FastShare %s: %s", fs_user[:3] + "…", err)
+                out["fastshare"] = {"ok": False, "chyba": str(err) or "přihlášení selhalo"}
         out["uloziste"] = []
         for n in range(1, SLOTS + 1):
             url = (options.get(f"dav{n}_url") or "").strip()
@@ -292,13 +305,14 @@ class Router:
         vnitrni = mapping.dekoduj(payload)
         if not vnitrni:
             return chyba(400, "Neplatný odkaz.")
-        if vnitrni.startswith("dav:"):
-            # vlastní úložiště chce heslo a přehrávače Stremia hlavičku nepošlou —
-            # soubor proto jde přes doplněk (viz server.Handler._proxy)
+        if vnitrni.startswith(("dav:", "fs:")):
+            # vlastní úložiště chce heslo, FastShare cookie z přihlášení a přehrávače Stremia
+            # hlavičku nepošlou — soubor proto jde přes doplněk (viz server.Handler._proxy)
             if not self.proxy_okno.povolit(klic):
                 return chyba(429, "Příliš mnoho požadavků na úložiště, zkus to za chvíli.")
             try:
-                return Odpoved(proxy=engine.storage_request(vnitrni))
+                return Odpoved(proxy=engine.fastshare_request(vnitrni) if vnitrni.startswith("fs:")
+                               else engine.storage_request(vnitrni))
             except NokturnoError as err:
                 return chyba(404, str(err))
         try:
