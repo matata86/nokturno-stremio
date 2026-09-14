@@ -38,7 +38,7 @@ from . import config, mapping, sit
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "4.0.0b1"
+VERZE = "4.0.0b2"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 PROXY_LIMIT = (600, 10 * 60)  # proxy souborů z úložiště na jedno nastavení za 10 min: přetáčení je pár dotazů
