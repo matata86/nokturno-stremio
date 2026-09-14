@@ -982,3 +982,16 @@ class TestLimityAUklid(unittest.TestCase):
                     dir = tempfile.mkdtemp()
             st._pro(E())
         self.assertEqual(len(st._stats), 5)
+
+
+class TestStylFormulare(unittest.TestCase):
+    def test_kazdy_typ_inputu_ma_styl(self):
+        """Pole adresy úložiště (`type=url`) bylo bez stylu — selektor vyjmenovával jen text,
+        password a number (2026-09-14)."""
+        import re
+        for jmeno in ("configure.html", "configure.sk.html"):
+            html = (ROOT / "nokturno" / "static" / jmeno).read_text(encoding="utf-8")
+            typy = set(re.findall(r'<input type="([a-z]+)"', html)) - {"button", "checkbox", "submit"}
+            selektor = re.search(r"^\s*(input\[type=[^{]+)\{", html, re.M).group(1)
+            stylovane = set(re.findall(r"input\[type=([a-z]+)\]", selektor))
+            self.assertEqual(typy - stylovane, set(), f"{jmeno}: input bez stylu")
