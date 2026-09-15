@@ -12,6 +12,7 @@ aby bylo vidět, že nastavení žije. Tituly ani zdroje ne.
 """
 import logging
 import os
+import re
 import threading
 from collections import OrderedDict
 
@@ -20,6 +21,11 @@ from .core.lib.stats import COLLECT_URL, Stats
 
 _LOGGER = logging.getLogger(__name__)
 VYPNUTO = ("0", "false", "ne", "no", "off")
+
+# Cinemeta/TMDB u epizod bez vlastního (přeloženého) názvu vrací místo prázdné
+# hodnoty doslovný placeholder "Episode 3" – jako `or` fallback ho nic nechytí,
+# je to neprázdný řetězec. Do statistik tak šlo "Episode 3" místo názvu seriálu.
+_EPISODE_PLACEHOLDER_RE = re.compile(r"^episode\s+\d+$", re.IGNORECASE)
 
 
 class Statistiky:
@@ -93,6 +99,9 @@ class Statistiky:
             meta, video = engine.meta(ctype, item_id)
         except Exception:  # noqa: BLE001 – název je jen pro čitelnost přehledu
             return "", None, kind
-        title = (video or {}).get("title") or meta.get("_title") or meta.get("name") or ""
+        video_title = (video or {}).get("title")
+        if video_title and _EPISODE_PLACEHOLDER_RE.match(video_title):
+            video_title = None
+        title = video_title or meta.get("_title") or meta.get("name") or ""
         year = str(meta.get("year") or meta.get("releaseInfo") or "")[:4]
         return title, (int(year) if year.isdigit() else None), kind
