@@ -32,9 +32,9 @@ METAHUB_POSTER = "https://images.metahub.space/poster/medium/{}/img"
 # klíč, typ, zdroj, id katalogu ve zdroji, název česky, název slovensky
 SEZNAM = (
     ("trend.nejsledovanejsi.filmy", "movie", "trend", TREND_CATALOG_ID,
-     "Nejsledovanější tento týden", "Najsledovanejšie tento týždeň"),
+     "Nejsledovanější filmy tento týden", "Najsledovanejšie filmy tento týždeň"),
     ("trend.nejsledovanejsi.serialy", "series", "trend", TREND_CATALOG_ID,
-     "Nejsledovanější tento týden", "Najsledovanejšie tento týždeň"),
+     "Nejsledovanější seriály tento týden", "Najsledovanejšie seriály tento týždeň"),
     ("sosac.popularni.filmy", "movie", "sosac", "moviesmostpopular",
      "Nejpopulárnější filmy", "Najpopulárnejšie filmy"),
     ("sosac.nove.filmy", "movie", "sosac", "moviesrecentlyadded",
