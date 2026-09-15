@@ -475,9 +475,9 @@ class TestKatalogy(unittest.TestCase):
         self.r = router()
         self.r.katalogy = self.k
 
-    def test_bez_klice_tmdb_jen_sosac(self):
+    def test_bez_klice_tmdb_jen_sosac_a_trend(self):
         self.assertTrue(self.k.dostupne())
-        self.assertEqual({r[2] for r in self.k.dostupne()}, {"sosac"})
+        self.assertEqual({r[2] for r in self.k.dostupne()}, {"sosac", "trend"})
 
     def test_manifest_jen_zvolene_katalogy(self):
         m = self.r.route(f"/c/{KOUSEK}/manifest.json", ZAKLAD).data
@@ -507,6 +507,27 @@ class TestKatalogy(unittest.TestCase):
         self.assertEqual(self.volani[-1], ("movie", "moviesrecentlyadded_dub", 100))
         self.assertEqual(self.r.enginy_test.pozadovana_nastaveni, [], "katalog nezakládá jádro")
 
+    def test_nejsledovanejsi_tento_tyden_z_dashboardu(self):
+        """`trend.nejsledovanejsi.*` — stejný žebříček jako v Kodi menu, sdílená
+        cache jako ostatní katalogy (2026-09-15)."""
+        volani_trend = []
+
+        class Trend:
+            def catalog(self, ctype, cid, skip=0):
+                volani_trend.append((ctype, cid, skip))
+                return [{"id": "tt0133093", "type": ctype, "name": "Matrix", "year": "1999",
+                         "poster": "https://img/x.jpg", "description": "popis",
+                         "genres": ["Sci-Fi"], "imdbRating": 8.66}]
+        self.k.trend = Trend()
+        kousek = config.encode(config.from_mapping({"ws_username": "u", "katalogy": "trend.nejsledovanejsi.filmy"}))
+        m = self.r.route(f"/c/{kousek}/manifest.json", ZAKLAD).data
+        self.assertEqual([(c["type"], c["id"]) for c in m["catalogs"]],
+                         [("movie", "nokturno.trend.nejsledovanejsi.filmy")])
+        data = self.r.route(f"/c/{kousek}/catalog/movie/nokturno.trend.nejsledovanejsi.filmy.json", ZAKLAD).data
+        self.assertEqual(data["metas"][0]["id"], "tt0133093")
+        from nokturno.core.lib.trend_api import CATALOG_ID
+        self.assertEqual(volani_trend, [("movie", CATALOG_ID, 0)])
+
     def test_neznamy_katalog_a_verejny_bez_nastaveni(self):
         self.assertEqual(self.r.route(f"/c/{KOUSEK}/catalog/series/nokturno.sosac.nove.dabing.json", ZAKLAD).status, 404)
         self.assertEqual(self.r.route(f"/c/{KOUSEK}/catalog/movie/nokturno.tmdb.trendy.filmy.json", ZAKLAD).status, 404)
@@ -517,6 +538,21 @@ class TestKatalogy(unittest.TestCase):
         self.assertNotIn("__KATALOGY__", html)
         self.assertIn('"sosac.nove.dabing"', html)
         self.assertNotIn("tmdb.trendy.filmy", html, "bez klíče TMDB se jeho katalogy nenabízejí")
+
+    def test_formular_nabizi_jen_doporucene_ale_stare_dal_funguji(self):
+        """2026-09-15: nabídka sjednocená s Kodi menu (`DOPORUCENE`) — starší
+        katalogy z `SEZNAM` (např. „Nejpopulárnější filmy“) se novým uživatelům
+        ve formuláři nenabízejí, ale kdo je má uložené v adrese z dřívějška, dál
+        mu fungují (manifest i výpis), nic se mu nerozbije."""
+        html = self.r.route("/configure", ZAKLAD).html
+        self.assertNotIn("sosac.popularni.filmy", html)
+        self.assertIn("sosac.popularni.filmy", {r[0] for r in self.k.dostupne()})
+        kousek = config.encode(config.from_mapping({"ws_username": "u", "katalogy": "sosac.popularni.filmy"}))
+        m = self.r.route(f"/c/{kousek}/manifest.json", ZAKLAD).data
+        self.assertEqual([(c["type"], c["id"]) for c in m["catalogs"]], [("movie", "nokturno.sosac.popularni.filmy")])
+        data = self.r.route(f"/c/{kousek}/catalog/movie/nokturno.sosac.popularni.filmy.json", ZAKLAD).data
+        self.assertEqual(self.volani, [("movie", "moviesmostpopular", 0)])
+        self.assertTrue(data["metas"])
         self.assertEqual(config.from_mapping({"katalogy": " b ,a,,a"})["katalogy"], "a,b")
 
 

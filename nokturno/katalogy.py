@@ -19,6 +19,7 @@ import os
 from .core.lib.sosac_direct import SosacDirect
 from .core.lib.store import Store
 from .core.lib.tmdb_api import TmdbApi
+from .core.lib.trend_api import CATALOG_ID as TREND_CATALOG_ID, TrendApi
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,6 +31,10 @@ METAHUB_POSTER = "https://images.metahub.space/poster/medium/{}/img"
 
 # klíč, typ, zdroj, id katalogu ve zdroji, název česky, název slovensky
 SEZNAM = (
+    ("trend.nejsledovanejsi.filmy", "movie", "trend", TREND_CATALOG_ID,
+     "Nejsledovanější tento týden", "Najsledovanejšie tento týždeň"),
+    ("trend.nejsledovanejsi.serialy", "series", "trend", TREND_CATALOG_ID,
+     "Nejsledovanější tento týden", "Najsledovanejšie tento týždeň"),
     ("sosac.popularni.filmy", "movie", "sosac", "moviesmostpopular",
      "Nejpopulárnější filmy", "Najpopulárnejšie filmy"),
     ("sosac.nove.filmy", "movie", "sosac", "moviesrecentlyadded",
@@ -47,6 +52,19 @@ SEZNAM = (
     ("tmdb.popularni.serialy", "series", "tmdb", "popular", "Populární seriály", "Populárne seriály"),
     ("tmdb.nejlepsi.serialy", "series", "tmdb", "top_rated", "Nejlépe hodnocené seriály", "Najlepšie hodnotené seriály"),
 )
+
+# Nabídka ve formuláři (2026-09-15) sjednocená s menu Filmy/Seriály v Kodi — „Populární na
+# TMDB“, „Nejsledovanější tento týden“, „Nejlépe hodnocené“, „Nově přidané s CZ dabingem/titulky“
+# (ty poslední dvě fakt jen ze Sosáčova vlastního značení „d“/„s“, žádné živé ověřování napříč
+# zdroji jako v Kodi — to by tady muselo běžet pro každého uživatele katalogu zvlášť, ne jednou
+# za 6 h sdíleně). `SEZNAM` výš zůstává beze změny (i staré řádky níž) — kdo je má už zapnuté
+# v uloženém nastavení, dál mu fungují, jen se nový uživatel k nim ve formuláři nedostane.
+DOPORUCENE = {
+    "trend.nejsledovanejsi.filmy", "trend.nejsledovanejsi.serialy",
+    "tmdb.popularni.filmy", "tmdb.popularni.serialy",
+    "tmdb.nejlepsi.filmy", "tmdb.nejlepsi.serialy",
+    "sosac.nove.dabing", "sosac.nove.titulky",
+}
 
 
 def nahled(typ, meta):
@@ -82,14 +100,18 @@ class Katalogy:
         self.ttl = ttl
         self.sosac = SosacDirect(cache=self.store, index_store=self.store.index())
         self.tmdb = TmdbApi(tmdb_key, cache=self.store) if str(tmdb_key or "").strip() else None
+        self.trend = TrendApi(cache=self.store)
 
     def dostupne(self):
         return [radek for radek in SEZNAM if radek[2] != "tmdb" or self.tmdb is not None]
 
     def formular(self, jazyk="cs"):
-        """Nabídka pro formulář — jen katalogy, které tahle instance umí."""
+        """Nabídka pro formulář — jen doporučené katalogy (`DOPORUCENE`), které tahle
+        instance umí. Starší katalogy z `SEZNAM` (mimo `DOPORUCENE`) se ve formuláři
+        novým uživatelům nenabízejí, ale `dostupne()`/`vybrane()`/`manifest()` je
+        pořád umí vyřešit — kdo je má uložené v adrese, nic mu nepřestane fungovat."""
         return [{"klic": klic, "typ": typ, "nazev": sk if jazyk == "sk" else cs}
-                for klic, typ, _zdroj, _cid, cs, sk in self.dostupne()]
+                for klic, typ, _zdroj, _cid, cs, sk in self.dostupne() if klic in DOPORUCENE]
 
     def vybrane(self, options):
         chtene = {x.strip() for x in str((options or {}).get("katalogy") or "").split(",") if x.strip()}
@@ -114,6 +136,10 @@ class Katalogy:
         def load():
             if zdroj == "sosac":
                 raw = self.sosac.catalog(typ, cid, skip=skip, page=STRANKA_SOSAC)
+            elif zdroj == "trend":
+                # vlastní žebříček dashboardu — nejvýš 50 položek, `TrendApi.catalog()`
+                # sám vrátí prázdno pro skip > 0 (stránkování nemá co nabídnout)
+                raw = self.trend.catalog(typ, cid, skip=skip)
             else:
                 raw = self.tmdb.catalog(typ, cid, skip=skip)
             return [p for p in (nahled(typ, m) for m in raw or []) if p]
