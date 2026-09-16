@@ -660,6 +660,35 @@ class TestStatistiky(unittest.TestCase):
         self.assertEqual(set(odeslano[0]["sources"]), {"webshare", "sledujteto"})
         self.assertEqual(odeslano[0]["platform"], "Stremio")
 
+    def test_zaznam_serialu_posila_nazev_serialu_ne_epizody(self):
+        """2026-09-16: server slučuje statistiky podle normalizovaného názvu
+        (`db.canonical_key`), takže skutečný (ne jen generický placeholder) název
+        konkrétní epizody by rozštěpil sledovanost jednoho seriálu na tolik
+        „titulů", kolik různých epizod se sledovalo. `_titul` proto musí vždy
+        vrátit název seriálu, i když má epizoda vlastní netriviální název."""
+        from nokturno import statistiky as modul
+        from nokturno.core.lib.stats import Stats
+        odeslano = []
+        puvodni = Stats.send
+        Stats.send = lambda self, url, **kw: (odeslano.append(kw), (True, ""))[1]
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                class Jadro:
+                    store = type("Uloziste", (), {"dir": tmp})()
+
+                    def sources(self):
+                        return {"webshare": True}
+
+                    def meta(self, ctype, item_id):
+                        return ({"name": "Lupin", "_title": "Lupin", "year": 2021},
+                                {"title": "Skutečný název epizody, ne placeholder"})
+
+                modul.Statistiky("9.9").zpracuj(Jadro(), "series", "tt123:1:2")
+                hotovo = Stats(tmp).data
+        finally:
+            Stats.send = puvodni
+        self.assertEqual(hotovo["plays"]["tt123:1:2"]["t"], "Lupin")
+
     def test_vypnuti_promennou(self):
         from nokturno.statistiky import Statistiky
         self.assertFalse(Statistiky.z_prostredi("1", {"NOKTURNO_STATS": "0"}).zapnuto)
