@@ -8,5 +8,6 @@ tuhle knihovnu. Needituje se u nich, edituje se tady a rozešle se skriptem
 z `xbmc*` ani z `homeassistant`.
 """
 from .engine import Engine, NokturnoError, is_sosac_id, split_episode_id
+from .lib.abort import Aborted
 
-__all__ = ["Engine", "NokturnoError", "is_sosac_id", "split_episode_id"]
+__all__ = ["Aborted", "Engine", "NokturnoError", "is_sosac_id", "split_episode_id"]

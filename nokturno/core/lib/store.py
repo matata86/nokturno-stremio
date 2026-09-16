@@ -232,6 +232,18 @@ class Store:
         w = self.watched(item_id) or {}
         return float(w.get("resume") or 0), float(w.get("total") or 0)
 
+    def resume_stream(self, item_id):
+        """Vnitřní reference streamu (`ws:…`/`hs:…:…`/…) a titulky, se kterými se titul
+        naposledy hrál — na rozdíl od podepsaného odkazu zdroje nevyprší, jde ji tedy
+        použít znovu při pokračování ve sledování a přeskočit tím nové hledání (`stream_url`
+        z `set_resume`). `None`, když u záznamu není (starší záznam, nebo se nikdy nezapsal
+        — např. položka z jiného zařízení přes sync)."""
+        w = self.watched(item_id) or {}
+        url = w.get("stream_url")
+        if not url:
+            return None
+        return url, w.get("stream_subs") or ""
+
     def set_watched(self, item_id, watched=True):
         with self._lock:
             data = self.load("watched", {})
@@ -243,13 +255,19 @@ class Store:
             self._trim(data, WATCHED_MAX)
             self.save("watched", data)
 
-    def set_resume(self, item_id, position, total):
+    def set_resume(self, item_id, position, total, stream_url=None, stream_subs=None):
+        """`stream_url`/`stream_subs`: jen když se pozice zapisuje za běhu přehrávání
+        (`Player.save_resume`) — cross-device sync a ruční nastavení pozice žádný stream
+        nezná, tam se předchozí zapamatovaná reference (pokud existuje) ponechá beze změny."""
         with self._lock:
             data = self.load("watched", {})
             entry = data.get(str(item_id)) or {}
             entry["resume"] = round(float(position), 1)
             entry["total"] = round(float(total), 1)
             entry["ts"] = int(time.time())
+            if stream_url is not None:
+                entry["stream_url"] = stream_url
+                entry["stream_subs"] = stream_subs or ""
             data[str(item_id)] = entry
             self._trim(data, WATCHED_MAX)
             self.save("watched", data)
@@ -429,6 +447,20 @@ class Store:
             except OSError:
                 pass
         return data
+
+    def peek_cached(self, key, ttl):
+        """Vrátí, co pro `key` uložil `cached()`/`cached_if()`, jen když je to ještě
+        v `ttl` — beze spuštění loaderu. Pro rozhodnutí předem (bez placení ceny
+        výpočtu), jestli je něco vůbec připravené, např. než se nabídne drahý
+        přepočet uživateli ke schválení místo automatického spuštění."""
+        path = os.path.join(self.dir, "cache", hashlib.md5(key.encode("utf-8")).hexdigest() + ".json")
+        try:
+            if time.time() - os.path.getmtime(path) < ttl:
+                with open(path, encoding="utf-8") as f:
+                    return json.load(f)
+        except (OSError, ValueError):
+            pass
+        return None
 
     def clear_cache(self):
         cdir = os.path.join(self.dir, "cache")
