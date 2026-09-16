@@ -109,6 +109,13 @@ class TestManifest(unittest.TestCase):
         m = router().route(f"/c/{KOUSEK}/manifest.json", ZAKLAD).data
         self.assertNotIn("idPrefixes", m)
 
+    def test_verze_v_manifestu_je_ciste_semver(self):
+        """Betasufix (5.2.1b1) v poli 'version' rozbíjí parser oficiálního Stremio
+        klienta — musí zůstat jen 'major.minor.patch'."""
+        self.assertEqual(mapping.manifest_version("5.2.1b1"), "5.2.1")
+        self.assertEqual(mapping.manifest_version("5.2.1~beta1"), "5.2.1")
+        self.assertEqual(mapping.manifest_version("5.2.1"), "5.2.1")
+
     def test_bez_zdroju_si_rekne_o_nastaveni(self):
         prazdny = router()
         prazdny.enginy_test.vychozi_options = {}

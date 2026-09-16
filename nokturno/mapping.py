@@ -218,6 +218,18 @@ def streams_response(popisy, odkaz):
     return {"streams": out}
 
 
+def manifest_version(verze):
+    """Ořízne betasufix (např. '5.2.1b1' -> '5.2.1') pro pole 'version' manifestu.
+
+    Oficiální Stremio klient parsuje `version` jako čistý semver `x.y.z` a na
+    písmeno za patch verzí (beta sufix `b1`, `~beta1`) spadne s chybou
+    "unexpected character after patch version number" — Nuvio je benevolentnější,
+    proto tam instalace procházela, ale v samotném Stremiu ne.
+    """
+    shoda = re.match(r"\d+\.\d+\.\d+", verze)
+    return shoda.group(0) if shoda else verze
+
+
 def manifest(verze, zdroje=(), nastaveno=True, katalogy=()):
     """Manifest doplňku.
 
@@ -236,7 +248,7 @@ def manifest(verze, zdroje=(), nastaveno=True, katalogy=()):
         popis += " Nastavené zdroje: " + ", ".join(zdroje) + "."
     return {
         "id": "community.nokturno",
-        "version": verze,
+        "version": manifest_version(verze),
         "name": "Nokturno",
         "description": popis,
         "logo": "https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/resources/media/icon2.png",
