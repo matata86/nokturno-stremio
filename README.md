@@ -81,6 +81,7 @@ Hodnoty jsou stejné jako v doplňku pro Kodi, takže se dají opsat z jeho
 | `NOKTURNO_HS_ENABLED` | HellSpy je veřejný, stačí přepínač; zapnutý ve výchozím stavu |
 | `NOKTURNO_PREF_LANG`, `NOKTURNO_SORT`, `NOKTURNO_HIDE_SD` | předvolby řazení a filtrování |
 | `NOKTURNO_STATS` | `0` vypne anonymní statistiky, viz níže |
+| `NOKTURNO_CRASH_REPORTS` | `0` vypne hlášení o pádech služby, viz níže |
 | `NOKTURNO_HOST`, `NOKTURNO_PORT`, `NOKTURNO_DATA` | na čem poslouchat (v Dockeru `0.0.0.0`, za Tailscale Funnel nebo jinou proxy `127.0.0.1`), port a složka s cache |
 | `NOKTURNO_CONFIGURE_PREFILL` | `1` předvyplní formulář účty z prostředí — jen na vlastní instanci, nikdy na veřejné |
 
@@ -127,6 +128,14 @@ a Home Assistant: náhodný identifikátor nastavení, verzi, které zdroje jsou
 zapnuté a u kterých titulů se otevřely streamy — nejvýš jednou za 6 hodin.
 Jedna „instalace" je jedno nastavení doplňku (vlastní adresa), ne celý server.
 Účty ani adresa doplňku se neposílají. Vypnutí: `NOKTURNO_STATS=0`. I po vypnutí se nejvýš jednou za 6 hodin pošle jen náhodný identifikátor a verze, aby bylo vidět, že nastavení žije — žádné tituly ani zdroje.
+
+## Hlášení o pádech
+
+Když při obsluze požadavku nastane neošetřená chyba v kódu (ne výpadek zdroje),
+služba pošle na stejný server krátké hlášení: typ chyby, místo v kódu, verzi
+a posledních pár řádků vlastního logu. Adresy, účty, IP a nastavení z adresy
+doplňku se předem vymažou. Stejná chyba odejde nejvýš jednou za verzi. Id je
+náhodné, jedno na server (`<data>/pady/id`). Vypnutí: `NOKTURNO_CRASH_REPORTS=0`.
 
 ## Testy
 

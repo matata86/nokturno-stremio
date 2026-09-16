@@ -23,6 +23,7 @@ from .katalogy import Katalogy
 from .enginy import Enginy
 from .routes import VERZE, Odpoved, Router, jazyk_z_hlavicky
 from .statistiky import Statistiky
+from .pady import Pady
 from . import sit
 
 _LOGGER = logging.getLogger("nokturno")
@@ -202,13 +203,18 @@ class Handler(BaseHTTPRequestHandler):
             _LOGGER.debug("klient zavřel spojení při %s", bezpecna_cesta(self.path))
         except Exception:  # noqa: BLE001 – žádná chyba nesmí ukončit službu
             _LOGGER.exception("neočekávaná chyba při %s", bezpecna_cesta(self.path))
+            pady = getattr(self.server, "pady", None)
+            if pady is not None:
+                pady.zaznamenej(sys.exc_info()[1], self.path)
             if self._odeslano:
                 self.close_connection = True   # hlavičky už odešly — druhá odpověď by rozbila keep-alive
                 return
             try:
-                self.send_error(500, "Chyba doplňku")
+                # text stavového řádku musí být latin-1 — „Chyba doplňku" tam dřív shodilo
+                # odeslání a klient čekal na timeout; česky jde jen do těla odpovědi
+                self.send_error(500, "Internal Server Error", "Chyba doplňku")
             except Exception:  # noqa: BLE001 – klient už mohl spojení zavřít
-                pass
+                self.close_connection = True
 
     def do_HEAD(self):
         # HEAD na streamy/ověření dřív spustilo celé hledání ve zdrojích jen kvůli hlavičkám
@@ -254,6 +260,8 @@ def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, opti
     katalogy = Katalogy(data_dir, os.environ.get("NOKTURNO_TMDB_KEY", ""))
     server.router = Router(enginy, predvyplnit=predvyplnit, statistiky=Statistiky.z_prostredi(VERZE),
                            katalogy=katalogy)
+    server.pady = Pady.z_prostredi(data_dir, VERZE)
+    server.pady.odesli()   # co zůstalo ve frontě z minula (server nebo síť tehdy neběžely)
     return server, zdroje
 
 

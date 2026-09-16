@@ -1226,3 +1226,50 @@ class TestLimitProxy(unittest.TestCase):
         self.assertIsNotNone(r.route(f"/c/{jine}/play/" + mapping.zakoduj("dav:1:Filmy/a.mkv"), ZAKLAD).proxy,
                              "jiné nastavení má vlastní počítadlo")
         self.assertEqual(r.route("/play/" + mapping.zakoduj("ws:abc"), ZAKLAD).status, 302, "limit jen na proxy")
+
+
+class TestHlaseniOPadech(unittest.TestCase):
+    """Neošetřená výjimka v `Handler.do_GET` → 500 klientovi a hlášení ve frontě `<data>/pady/`."""
+
+    def test_akce_z_cesty_bez_nastaveni_a_id(self):
+        from nokturno.pady import akce_z_cesty
+        self.assertEqual(akce_z_cesty("/c/eyJ3cyI6MX0/stream/movie/tt1.json"), "stream/movie")
+        self.assertEqual(akce_z_cesty("/manifest.json?x=1"), "manifest.json")
+        self.assertEqual(akce_z_cesty("/"), "/")
+
+    def test_pad_pri_pozadavku(self):
+        import http.client
+        import json
+        import threading
+        from unittest import mock
+        from nokturno import server as srv
+
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(srv.Pady, "odesli") as odesli, \
+                mock.patch.dict("os.environ", {"NOKTURNO_CRASH_REPORTS": "1"}):
+            httpd, _ = srv.vytvor_server("127.0.0.1", 0, tmp, options={})
+            httpd.router.route = mock.Mock(side_effect=ZeroDivisionError("token=tajne"))
+            vlakno = threading.Thread(target=httpd.serve_forever, daemon=True)
+            vlakno.start()
+            try:
+                spojeni = http.client.HTTPConnection("127.0.0.1", httpd.server_address[1], timeout=10)
+                spojeni.request("GET", "/c/eyJ3cyI6InVzZXIifQ/stream/movie/tt1.json")
+                self.assertEqual(spojeni.getresponse().status, 500)
+            finally:
+                httpd.shutdown()
+                httpd.server_close()
+            [soubor] = httpd.pady.reporter.pending()
+            with open(soubor, encoding="utf-8") as f:
+                hlaseni = json.load(f)
+            self.assertEqual((hlaseni["product"], hlaseni["action"], hlaseni["type"]),
+                             ("stremio", "stream/movie", "ZeroDivisionError"))
+            self.assertNotIn("tajne", hlaseni["message"] + hlaseni["traceback"])
+            self.assertRegex(hlaseni["id"], r"^[0-9a-f]{32}$")
+            self.assertGreaterEqual(odesli.call_count, 2)   # po startu + po pádu
+
+    def test_vypnuto_promennou(self):
+        from nokturno.pady import Pady
+        with tempfile.TemporaryDirectory() as tmp:
+            pady = Pady.z_prostredi(tmp, "5.2.11", environ={"NOKTURNO_CRASH_REPORTS": "0"})
+            self.assertFalse(pady.zaznamenej(RuntimeError("x"), "/"))
+            self.assertEqual(pady.reporter.pending(), [])
