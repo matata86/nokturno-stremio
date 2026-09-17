@@ -209,6 +209,9 @@ class Handler(BaseHTTPRequestHandler):
         try:
             verejny = je_verejny(self.headers, self.client_address[0])
             self._verejny = verejny
+            if "/manifest.json" in self.path or "/stream/" in self.path:
+                # DOČASNÉ (rozlišení Stremio/Nuvio/Streamlet ve statistikách) — smazat po vyhodnocení
+                _LOGGER.info("UA klienta: %s | %s", bezpecna_cesta(self.path), self.headers.get("User-Agent", ""))
             jazyk = jazyk_z_hlavicky(self.headers.get("Accept-Language"))
             self._posli(self.server.router.route(self.path, self._zaklad(), verejny=verejny, jazyk=jazyk,
                                                  klient=self._klient()))
