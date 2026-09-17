@@ -96,6 +96,23 @@ def jazyk_z_hlavicky(accept_language):
     return "sk" if min(kandidati)[2].split("-")[0] == "sk" else "cs"
 
 
+def klient_z_useragent(user_agent):
+    """Která appka se ptá na streamy — jen pro statistiky (Dashboard, sloupec „Kodi / HA").
+
+    Nuvio a Streamlet posílají vlastní jednoznačný `User-Agent` (`Nuvio/x.y.z-beta`,
+    `Streamlet/x.y.z (…)`) — ověřeno z provozu 2026-09-17 (dočasné logování v `server.py`,
+    121 požadavků, žádná kolize s ničím jiným). Oficiální Stremio appka UA občas neposílá
+    vůbec, jindy jde jen UA prohlížeče (web verze na PC/smart TV) nebo generický klient
+    (`okhttp`, komunitní agregátor `AIOStreams`) — ty všechny od sebe spolehlivě nejdou
+    odlišit, spadají tedy pod „stremio"."""
+    ua = user_agent or ""
+    if ua.startswith("Nuvio/"):
+        return "nuvio"
+    if ua.startswith("Streamlet/"):
+        return "streamlet"
+    return "stremio"
+
+
 class Odpoved:
     """Co server pošle klientovi."""
 
@@ -274,7 +291,7 @@ class Router:
         return Odpoved(html=html.replace("__ZAKLAD__", html_lib.escape(zaklad, quote=True))
                        .replace("__VERZE__", self.verze))
 
-    def streams(self, engine, ctype, item_id, zaklad, kousek):
+    def streams(self, engine, ctype, item_id, zaklad, kousek, aplikace="stremio"):
         if ctype not in TYPY:
             return chyba(404, f"Neznámý typ obsahu: {ctype}")
         base_id, season, _episode = split_episode_id(item_id)
@@ -301,7 +318,7 @@ class Router:
 
         _LOGGER.info("streamy %s %s: %d", ctype, item_id, len(popisy))
         if self.statistiky is not None:
-            self.statistiky.zaznamenej(engine, ctype, item_id)
+            self.statistiky.zaznamenej(engine, ctype, item_id, aplikace)
         return Odpoved(data=mapping.streams_response(popisy, self._odkaz(zaklad, kousek)))
 
     def katalog(self, casti):
@@ -347,11 +364,12 @@ class Router:
         return Odpoved(status=302, location=skutecna, text="")
 
     # --- rozcestník -------------------------------------------------------
-    def route(self, cesta, zaklad, verejny=False, jazyk=None, klient=""):
+    def route(self, cesta, zaklad, verejny=False, jazyk=None, klient="", aplikace="stremio"):
         """Cesta požadavku na odpověď. `zaklad` je absolutní adresa služby,
         `verejny` říká, že přišel z internetu (viz docstring modulu), `jazyk`
         je jazyk stránek z `Accept-Language` (viz `jazyk_z_hlavicky`), `klient`
-        adresa klienta pro limit na `/check`.
+        adresa klienta pro limit na `/check`, `aplikace` appka podle User-Agentu
+        (viz `klient_z_useragent`) pro statistiky u `/stream/`.
         Parametr `?lang=cs|sk` v adrese má přednost, bez obojího čeština."""
         cesta, _, dotaz = cesta.partition("?")
         lang = (urllib.parse.parse_qs(dotaz).get("lang") or [""])[0].strip().lower().split("-")[0]
@@ -401,5 +419,5 @@ class Router:
         if casti and casti[0] == "play" and len(casti) == 2:
             return self.play(engine, casti[1], klic=config.fingerprint(options) if kousek else "vychozi")
         if casti and casti[0] == "stream" and len(casti) == 3 and casti[2].endswith(".json"):
-            return self.streams(engine, casti[1], casti[2][:-len(".json")], zaklad, kousek)
+            return self.streams(engine, casti[1], casti[2][:-len(".json")], zaklad, kousek, aplikace)
         return chyba(404, "Tady nic není. Doplněk se nastavuje na /configure")

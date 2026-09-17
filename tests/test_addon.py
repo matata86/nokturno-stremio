@@ -736,7 +736,46 @@ class TestStatistiky(unittest.TestCase):
         volani = []
         r.statistiky = type("S", (), {"zaznamenej": lambda self, *a: volani.append(a)})()
         r.route(f"/c/{KOUSEK}/stream/movie/tt1.json", ZAKLAD)
-        self.assertEqual(volani[0][1:], ("movie", "tt1"))
+        self.assertEqual(volani[0][1:], ("movie", "tt1", "stremio"))
+
+    def test_router_predava_aplikaci_ze_user_agentu(self):
+        r = router()
+        volani = []
+        r.statistiky = type("S", (), {"zaznamenej": lambda self, *a: volani.append(a)})()
+        r.route(f"/c/{KOUSEK}/stream/movie/tt1.json", ZAKLAD, aplikace="nuvio")
+        self.assertEqual(volani[0][1:], ("movie", "tt1", "nuvio"))
+
+    def test_zaznam_posle_appku_dal_do_stats_send(self):
+        from nokturno import statistiky as modul
+        from nokturno.core.lib.stats import Stats
+        odeslano = []
+        puvodni = Stats.send
+        Stats.send = lambda self, url, **kw: (odeslano.append(kw), (True, ""))[1]
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                class Jadro:
+                    store = type("Uloziste", (), {"dir": tmp})()
+
+                    def sources(self):
+                        return {}
+
+                    def meta(self, ctype, item_id):
+                        return {"name": "Matrix", "year": 1999}, None
+
+                modul.Statistiky("9.9").zpracuj(Jadro(), "movie", "tt0133093", "streamlet")
+        finally:
+            Stats.send = puvodni
+        self.assertEqual(odeslano[0]["client"], "streamlet")
+
+    def test_klient_z_useragentu(self):
+        from nokturno.routes import klient_z_useragent
+        self.assertEqual(klient_z_useragent("Nuvio/0.8.9-beta"), "nuvio")
+        self.assertEqual(klient_z_useragent("Streamlet/1.1.0 (android; …)"), "streamlet")
+        self.assertEqual(klient_z_useragent("Stremio-Apple/0.5.1 (iPhone15,4; iOS 27.0)"), "stremio")
+        self.assertEqual(klient_z_useragent(""), "stremio")
+        self.assertEqual(klient_z_useragent(None), "stremio")
+        self.assertEqual(klient_z_useragent("okhttp/5.3.2"), "stremio")
+        self.assertEqual(klient_z_useragent("AIOStreams/2.34.1"), "stremio")
 
 
 
@@ -870,7 +909,7 @@ class TestVlastniUloziste(unittest.TestCase):
         class Smerovac:
             heslo = "Basic ok"
 
-            def route(self, cesta, zaklad, verejny=False, jazyk=None, klient=""):
+            def route(self, cesta, zaklad, verejny=False, jazyk=None, klient="", aplikace="stremio"):
                 return Odpoved(proxy=(url, {"Authorization": self.heslo}))
         doplnek.router = Smerovac()
         for s in (zdroj, doplnek):
@@ -1100,7 +1139,7 @@ class TestFormularBezCizihoSkriptu(unittest.TestCase):
         from nokturno.server import Handler
 
         class Smerovac:
-            def route(self, cesta, zaklad, verejny=False, jazyk=None, klient=""):
+            def route(self, cesta, zaklad, verejny=False, jazyk=None, klient="", aplikace="stremio"):
                 return Odpoved(html="<p>x</p>") if cesta.endswith("/configure") else Odpoved(data={"ok": True})
         srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         srv.router = Smerovac()
@@ -1220,7 +1259,7 @@ class TestHeadAProxyKodovani(unittest.TestCase):
         volani = []
 
         class Smerovac:
-            def route(self, cesta, zaklad, verejny=False, jazyk=None, klient=""):
+            def route(self, cesta, zaklad, verejny=False, jazyk=None, klient="", aplikace="stremio"):
                 volani.append(cesta)
                 return Odpoved(data={"ok": True})
         srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
