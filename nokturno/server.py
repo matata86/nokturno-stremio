@@ -24,6 +24,7 @@ from .enginy import Enginy
 from .routes import VERZE, Odpoved, Router, jazyk_z_hlavicky, klient_z_useragent
 from .statistiky import Statistiky
 from .pady import Pady
+from .provoz import Provoz
 from . import sit
 
 _LOGGER = logging.getLogger("nokturno")
@@ -84,6 +85,12 @@ class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"    # Stremio drží spojení otevřené
     timeout = 60                     # nečinné spojení nesmí držet vlákno navždy
     _verejny = True                  # do_GET přepíše; při pochybnosti veřejný
+    # měření provozu; instance handleru žije přes celé keep-alive spojení, takže
+    # `_zacni()` je na začátku každé obsluhy, ne v konstruktoru
+    _zacatek = 0.0
+    _stav = 0
+    _zapsano = 0
+    _nahlaseno = True
 
     # hlavičky pro stránky (úvod, formulář): žádné cizí skripty, žádné vkládání do
     # rámu, žádný Referer — formulář sbírá hesla a jeho adresa nese účty
@@ -95,6 +102,31 @@ class Handler(BaseHTTPRequestHandler):
         ("X-Frame-Options", "DENY"),
         ("Referrer-Policy", "no-referrer"),
     )
+
+    # --- měření provozu (provoz.py) ---------------------------------------
+    def _zacni(self):
+        self._zacatek = time.monotonic()
+        self._stav = 0
+        self._zapsano = 0
+        self._nahlaseno = False
+
+    def send_response(self, code, message=None):
+        self._stav = code
+        super().send_response(code, message)
+
+    def _nahlas(self):
+        """Jeden řádek do fronty provozu. Volá se z každé obsluhy v `finally`, ať
+        se dostane i na spojení, které klient uprostřed zavřel."""
+        provoz = getattr(self.server, "provoz", None)
+        if provoz is None or getattr(self, "_nahlaseno", True):
+            return
+        self._nahlaseno = True
+        try:
+            provoz.zaznamenej(self.path, self.command or "GET", self._stav or 499, self._zapsano,
+                              int((time.monotonic() - self._zacatek) * 1000),
+                              klient_z_useragent(self.headers.get("User-Agent")))
+        except Exception:  # noqa: BLE001 – statistika provozu nesmí nic shodit
+            _LOGGER.debug("provoz se nezaznamenal", exc_info=True)
 
     # --- pomůcky ----------------------------------------------------------
     def _klient(self):
@@ -172,6 +204,7 @@ class Handler(BaseHTTPRequestHandler):
                     break
                 try:
                     self.wfile.write(kus)
+                    self._zapsano += len(kus)
                 except TimeoutError:
                     # přehrávač přestal číst déle než `timeout` (pauza, plný buffer, ztracená síť) —
                     # stejné jako zavřené spojení, ne pád (dashboard Pády, 2026-09-17, 5.2.11)
@@ -202,10 +235,12 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(telo)
+            self._zapsano += len(telo)
 
     # --- metody -----------------------------------------------------------
     def do_GET(self):
         self._odeslano = False
+        self._zacni()
         try:
             verejny = je_verejny(self.headers, self.client_address[0])
             self._verejny = verejny
@@ -230,24 +265,34 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_error(500, "Internal Server Error", "Chyba doplňku")
             except Exception:  # noqa: BLE001 – klient už mohl spojení zavřít
                 self.close_connection = True
+        finally:
+            self._nahlas()
 
     def do_HEAD(self):
         # HEAD na streamy/ověření dřív spustilo celé hledání ve zdrojích jen kvůli hlavičkám
         if "/stream/" in self.path or self.path.rstrip("/").endswith("/check"):
-            self.send_response(204)
-            self.send_header("Content-Length", "0")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
+            self._zacni()
+            try:
+                self.send_response(204)
+                self.send_header("Content-Length", "0")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+            finally:
+                self._nahlas()
             return
         self.do_GET()
 
     def do_OPTIONS(self):
-        self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Headers", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
-        self.send_header("Content-Length", "0")
-        self.end_headers()
+        self._zacni()
+        try:
+            self.send_response(204)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Headers", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+        finally:
+            self._nahlas()
 
     def log_message(self, format, *args):  # noqa: A002 – podpis dává BaseHTTPRequestHandler
         _LOGGER.debug("%s %s", self.address_string(), bezpecna_cesta(format % args))
@@ -281,6 +326,8 @@ def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, opti
                            katalogy=katalogy)
     server.pady = Pady.z_prostredi(data_dir, VERZE)
     server.pady.odesli()   # co zůstalo ve frontě z minula (server nebo síť tehdy neběžely)
+    server.provoz = Provoz.z_prostredi()
+    server.provoz.start()  # bez NOKTURNO_TRAFFIC_TOKEN se vlákno nespustí a nic se neměří
     return server, zdroje
 
 
@@ -304,6 +351,8 @@ def main(argv=None):
     except KeyboardInterrupt:
         _LOGGER.info("končím")
     finally:
+        server.provoz.stop()
+        server.provoz.odesli()   # co se nastřádalo od poslední dávky
         server.server_close()
     return 0
 

@@ -1416,3 +1416,78 @@ class TestHlaseniOPadech(unittest.TestCase):
             pady = Pady.z_prostredi(tmp, "5.2.11", environ={"NOKTURNO_CRASH_REPORTS": "0"})
             self.assertFalse(pady.zaznamenej(RuntimeError("x"), "/"))
             self.assertEqual(pady.reporter.pending(), [])
+
+
+class TestProvoz(unittest.TestCase):
+    """Hlášení provozu do dashboardu (`nokturno/provoz.py`, obrazovka Provoz)."""
+
+    def test_klasifikace_cest(self):
+        from nokturno.provoz import klasifikuj
+        self.assertEqual(klasifikuj("/c/eyJ3cyI6MX0/manifest.json"),
+                         ("stremio", "/c/{nastaveni}/manifest.json"))
+        self.assertEqual(klasifikuj("/c/eyJ3cyI6MX0/stream/movie/tt1.json"),
+                         ("stremio", "/c/{nastaveni}/stream/movie"))
+        self.assertEqual(klasifikuj("/c/eyJ3cyI6MX0/play/dlouhy-podpis?x=1"),
+                         ("prehravani", "/c/{nastaveni}/play"))
+        self.assertEqual(klasifikuj("/catalog/series/sosac.nove.serialy.dabing.json"),
+                         ("stremio", "/catalog/series"))
+        self.assertEqual(klasifikuj("/"), ("stremio", "/"))
+        self.assertEqual(klasifikuj("/health"), ("stremio", "/health"))
+
+    def test_ucty_z_adresy_se_nikam_neposlou(self):
+        from nokturno.provoz import Provoz
+        p = Provoz(token="t")
+        p.zaznamenej("/c/eyJ3cyI6InVzZXIiLCJwYXNzIjoidGFqbmUifQ/play/x", "GET", 206, 10 ** 7, 50)
+        [radek] = p._fronta
+        self.assertNotIn("eyJ3cyI6", radek["route"])
+        self.assertEqual(radek["service"], "prehravani")
+        self.assertEqual(radek["bytes_out"], 10 ** 7)
+
+    def test_bez_tokenu_je_vypnuto(self):
+        from nokturno.provoz import Provoz
+        p = Provoz.z_prostredi(environ={})
+        self.assertFalse(p.zapnuto)
+        p.zaznamenej("/manifest.json", "GET", 200, 10)
+        self.assertEqual(p._fronta, [])
+        vypnuto = Provoz.z_prostredi(environ={"NOKTURNO_TRAFFIC_TOKEN": "t", "NOKTURNO_TRAFFIC": "0"})
+        self.assertFalse(vypnuto.zapnuto)
+
+    def test_fronta_ma_strop_a_odeslani_zahodi_pri_chybe(self):
+        from unittest import mock
+        from nokturno.provoz import Provoz
+        p = Provoz(token="t", strop=2)
+        for _ in range(5):
+            p.zaznamenej("/manifest.json", "GET", 200, 1)
+        self.assertEqual(len(p._fronta), 2)
+        self.assertEqual(p.zahozeno, 3)
+        with mock.patch.object(Provoz, "_posli_davku", return_value=False):
+            self.assertEqual(p.odesli(), 0)
+        self.assertEqual(p._fronta, [])          # fronta neroste, když dashboard neodpovídá
+
+    def test_pozadavek_se_zmeri_vcetne_bajtu(self):
+        import http.client
+        import threading
+        from unittest import mock
+        from nokturno import server as srv
+
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.dict("os.environ", {"NOKTURNO_TRAFFIC_TOKEN": "t"}), \
+                mock.patch.object(srv.Provoz, "start"):        # bez odesílacího vlákna
+            httpd, _ = srv.vytvor_server("127.0.0.1", 0, tmp, options={})
+            vlakno = threading.Thread(target=httpd.serve_forever, daemon=True)
+            vlakno.start()
+            try:
+                spojeni = http.client.HTTPConnection("127.0.0.1", httpd.server_address[1], timeout=10)
+                spojeni.request("GET", "/health")
+                self.assertEqual(spojeni.getresponse().read() and 200, 200)
+                spojeni.request("GET", "/health")              # druhý na témž spojení (keep-alive)
+                spojeni.getresponse().read()
+            finally:
+                httpd.shutdown()
+                httpd.server_close()
+            radky = httpd.provoz._fronta
+            self.assertEqual(len(radky), 2, "měření se resetuje u každého požadavku, ne u spojení")
+            for radek in radky:
+                self.assertEqual((radek["service"], radek["route"], radek["status"]),
+                                 ("stremio", "/health", 200))
+                self.assertGreater(radek["bytes_out"], 0)
