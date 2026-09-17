@@ -36,11 +36,14 @@ class Statistiky:
         env = os.environ if environ is None else environ
         return cls(verze, zapnuto=str(env.get("NOKTURNO_STATS", "1")).strip().lower() not in VYPNUTO)
 
-    def zaznamenej(self, engine, ctype, item_id):
-        """Po zobrazení streamů — na pozadí, odpověď Stremiu kvůli tomu nečeká."""
+    def zaznamenej(self, engine, ctype, item_id, aplikace="stremio"):
+        """Po zobrazení streamů — na pozadí, odpověď Stremiu kvůli tomu nečeká.
+
+        `aplikace` je appka podle User-Agentu (`routes.klient_z_useragent`) —
+        „nuvio" / „streamlet" / „stremio"."""
         cil = self.zpracuj if self.zapnuto else self.ping
-        threading.Thread(target=cil, args=(engine,) if cil == self.ping else (engine, ctype, item_id),
-                         daemon=True, name="nokturno-statistiky").start()
+        args = (engine, aplikace) if cil == self.ping else (engine, ctype, item_id, aplikace)
+        threading.Thread(target=cil, args=args, daemon=True, name="nokturno-statistiky").start()
 
     def _pro(self, engine):
         slozka = engine.store.dir
@@ -54,7 +57,7 @@ class Statistiky:
                 self._stats.move_to_end(slozka)
         return stats
 
-    def ping(self, engine):
+    def ping(self, engine, aplikace="stremio"):
         """Vypnuté statistiky: jen „nastavení žije" (id, produkt, verze). Nikdy nevyhodí výjimku."""
         try:
             stats = self._pro(engine)
@@ -62,13 +65,13 @@ class Statistiky:
                 if not stats.due():
                     return
                 ok, why = stats.send(self.url, version=self.verze, agent="Stremio nokturno",
-                                     product="stremio", ping=True)
+                                     product="stremio", client=aplikace, ping=True)
             if not ok:
                 _LOGGER.info("ping neodeslán: %s", why)
         except Exception as err:  # noqa: BLE001 – statistiky nesmí nic shodit
             _LOGGER.debug("ping: %s", err)
 
-    def zpracuj(self, engine, ctype, item_id):
+    def zpracuj(self, engine, ctype, item_id, aplikace="stremio"):
         """Synchronní část (vlákno výš, testy přímo). Nikdy nevyhodí výjimku."""
         try:
             stats = self._pro(engine)
@@ -79,7 +82,8 @@ class Statistiky:
                     return
                 zdroje = [k for k, v in engine.sources().items() if v]
                 ok, why = stats.send(self.url, version=self.verze, platform="Stremio", lang="cs",
-                                     agent="Stremio nokturno", sources=zdroje, product="stremio")
+                                     agent="Stremio nokturno", sources=zdroje, product="stremio",
+                                     client=aplikace)
             if not ok:
                 _LOGGER.info("statistiky neodeslány: %s", why)
         except Exception as err:  # noqa: BLE001 – statistiky nesmí nic shodit

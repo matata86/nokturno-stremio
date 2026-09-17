@@ -21,7 +21,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from .config import decode, fingerprint, from_environ, sources_summary
 from .katalogy import Katalogy
 from .enginy import Enginy
-from .routes import VERZE, Odpoved, Router, jazyk_z_hlavicky
+from .routes import VERZE, Odpoved, Router, jazyk_z_hlavicky, klient_z_useragent
 from .statistiky import Statistiky
 from .pady import Pady
 from . import sit
@@ -209,12 +209,10 @@ class Handler(BaseHTTPRequestHandler):
         try:
             verejny = je_verejny(self.headers, self.client_address[0])
             self._verejny = verejny
-            if "/manifest.json" in self.path or "/stream/" in self.path:
-                # DOČASNÉ (rozlišení Stremio/Nuvio/Streamlet ve statistikách) — smazat po vyhodnocení
-                _LOGGER.info("UA klienta: %s | %s", bezpecna_cesta(self.path), self.headers.get("User-Agent", ""))
             jazyk = jazyk_z_hlavicky(self.headers.get("Accept-Language"))
+            aplikace = klient_z_useragent(self.headers.get("User-Agent"))
             self._posli(self.server.router.route(self.path, self._zaklad(), verejny=verejny, jazyk=jazyk,
-                                                 klient=self._klient()))
+                                                 klient=self._klient(), aplikace=aplikace))
         except (BrokenPipeError, ConnectionResetError):
             # přehrávač si to rozmyslel a zavřel spojení — běžné, ne chyba
             _LOGGER.debug("klient zavřel spojení při %s", bezpecna_cesta(self.path))
