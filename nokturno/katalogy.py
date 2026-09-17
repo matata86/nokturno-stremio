@@ -12,9 +12,17 @@ dodávat metadata. Titul bez IMDb id se vynechá (u Sosáče výjimečně čerst
 
 TMDB potřebuje API klíč. Ve formuláři ho záměrně nemáme, bere se klíč instance
 z prostředí (`NOKTURNO_TMDB_KEY`); bez něj se katalogy TMDB nenabídnou.
+
+Nově přidané seriály s CZ dabingem / titulky (od 5.2.15): Sosáč u seriálů jazyk neuvádí,
+takže server jednou za 6 h projde seriály s nově přidanými díly (`SosacDirect.recent_series`)
+a u nejnovějšího dílu se podívá na streamy výchozího jádra (účty instance z `.env`, jako klíč
+TMDB) — jazyk jen z popisků a názvů souborů, bez čtení hlaviček. Běží na pozadí jedním vláknem;
+dotaz na katalog vrátí poslední hotový výsledek (i starší, do `JAZYK_STALE`) a přepočet jen spustí.
 """
 import logging
 import os
+import threading
+import time
 
 from .core.lib.sosac_direct import SosacDirect
 from .core.lib.store import Store
@@ -24,6 +32,10 @@ from .core.lib.trend_api import CATALOG_ID as TREND_CATALOG_ID, TrendApi
 _LOGGER = logging.getLogger(__name__)
 
 TTL = 6 * 3600
+JAZYK_STALE = 7 * 86400   # jak starý výsledek seriálů podle jazyka ještě ukázat, než doběhne nový
+JAZYK_CIL = 30            # kolik seriálů v každém ze dvou seznamů stačí
+JAZYK_KANDIDATU = 60
+CZECH = {"CZ", "SK"}
 PREFIX = "nokturno."
 STRANKA_SOSAC = 100   # Sosáč vydává dlouhé seznamy, TMDB stránkuje po 20 samo
 TMDB_IMG = "https://image.tmdb.org/"
@@ -40,9 +52,13 @@ SEZNAM = (
     ("sosac.nove.filmy", "movie", "sosac", "moviesrecentlyadded",
      "Nově přidané filmy", "Novo pridané filmy"),
     ("sosac.nove.dabing", "movie", "sosac", "moviesrecentlyadded_dub",
-     "Nově přidané s CZ dabingem", "Novo pridané s CZ dabingom"),
+     "Nově přidané filmy s CZ dabingem", "Novo pridané filmy s CZ dabingom"),
     ("sosac.nove.titulky", "movie", "sosac", "moviesrecentlyadded_subs",
-     "Nově přidané s CZ titulky", "Novo pridané s CZ titulkami"),
+     "Nově přidané filmy s CZ titulky", "Novo pridané filmy s CZ titulkami"),
+    ("sosac.nove.serialy.dabing", "series", "jazyk", "dub",
+     "Nově přidané seriály s CZ dabingem", "Novo pridané seriály s CZ dabingom"),
+    ("sosac.nove.serialy.titulky", "series", "jazyk", "subs",
+     "Nově přidané seriály s CZ titulky", "Novo pridané seriály s CZ titulkami"),
     ("sosac.popularni.serialy", "series", "sosac", "tvshowsmostpopular",
      "Nejpopulárnější seriály", "Najpopulárnejšie seriály"),
     ("tmdb.trendy.filmy", "movie", "tmdb", "trending", "Trendy filmy tento týden", "Trendy filmy tento týždeň"),
@@ -64,6 +80,7 @@ DOPORUCENE = {
     "tmdb.popularni.filmy", "tmdb.popularni.serialy",
     "tmdb.nejlepsi.filmy", "tmdb.nejlepsi.serialy",
     "sosac.nove.dabing", "sosac.nove.titulky",
+    "sosac.nove.serialy.dabing", "sosac.nove.serialy.titulky",
 }
 
 
@@ -95,15 +112,67 @@ def nahled(typ, meta):
 
 
 class Katalogy:
-    def __init__(self, data_dir, tmdb_key="", ttl=TTL):
+    def __init__(self, data_dir, tmdb_key="", ttl=TTL, engine=None):
+        """`engine`: funkce vracející jádro s účty instance — bez něj se seriály podle jazyka nenabízejí."""
         self.store = Store(os.path.join(data_dir, "katalogy"))
         self.ttl = ttl
         self.sosac = SosacDirect(cache=self.store, index_store=self.store.index())
         self.tmdb = TmdbApi(tmdb_key, cache=self.store) if str(tmdb_key or "").strip() else None
         self.trend = TrendApi(cache=self.store)
+        self.engine = engine
+        self._jazyk_bezi = threading.Lock()
 
     def dostupne(self):
-        return [radek for radek in SEZNAM if radek[2] != "tmdb" or self.tmdb is not None]
+        return [radek for radek in SEZNAM
+                if (radek[2] != "tmdb" or self.tmdb is not None) and (radek[2] != "jazyk" or self.engine is not None)]
+
+    # --- seriály podle jazyka -----------------------------------------------------------
+
+    JAZYK_KLIC = "stremio:katalog:serialy-jazyk"
+
+    def serialy_podle_jazyka(self, stop=None):
+        """Přepočet obou seznamů: {"dub": [náhledy], "subs": [náhledy], "t": čas}. Dabing má přednost,
+        tentýž seriál nepatří do obou. Výpadek u jednoho seriálu ho jen přeskočí."""
+        engine = self.engine()
+        vysledek = {"dub": [], "subs": []}
+        for meta, sezona, dil in self.sosac.recent_series(JAZYK_KANDIDATU):
+            if len(vysledek["dub"]) >= JAZYK_CIL and len(vysledek["subs"]) >= JAZYK_CIL:
+                break
+            if stop is not None and stop():
+                break
+            try:
+                streamy = engine.raw_streams("series", f"{meta['imdb_id']}:{sezona}:{dil}", probe_audio=False)
+            except Exception as err:  # noqa: BLE001 – jeden seriál nesmí shodit celý seznam
+                _LOGGER.info("seriály podle jazyka: %s přeskočen (%s)", meta.get("imdb_id"), err)
+                continue
+            jazyky, titulky = set(), set()
+            for st in streamy or []:
+                jazyky.update(st.get("langs") or [])
+                titulky.update(st.get("subs") or [])
+            druh = "dub" if jazyky & CZECH else "subs" if titulky & CZECH else None
+            nahl = nahled("series", meta) if druh else None
+            if nahl and len(vysledek[druh]) < JAZYK_CIL:
+                vysledek[druh].append(nahl)
+        vysledek["t"] = int(time.time())
+        return vysledek
+
+    def _jazyk_prepocet(self):
+        if not self._jazyk_bezi.acquire(blocking=False):
+            return
+        try:
+            data = self.serialy_podle_jazyka()
+            if data["dub"] or data["subs"]:   # výpadek všech zdrojů nepřepíše poslední dobrý výsledek
+                self.store.cached_if(self.JAZYK_KLIC, self.ttl, lambda: data, fresh=True)
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("seriály podle jazyka: %s", err)
+        finally:
+            self._jazyk_bezi.release()
+
+    def _jazykove(self, cid, skip):
+        if self.store.peek_cached(self.JAZYK_KLIC, self.ttl) is None:
+            threading.Thread(target=self._jazyk_prepocet, name="katalog-serialy-jazyk", daemon=True).start()
+        data = self.store.peek_cached(self.JAZYK_KLIC, JAZYK_STALE) or {}
+        return list(data.get(cid) or [])[skip:]
 
     def formular(self, jazyk="cs"):
         """Nabídka pro formulář — jen doporučené katalogy (`DOPORUCENE`), které tahle
@@ -132,6 +201,8 @@ class Katalogy:
         except (TypeError, ValueError):
             skip = 0
         _klic, typ, zdroj, cid = radek[:4]
+        if zdroj == "jazyk":
+            return self._jazykove(cid, skip)
 
         def load():
             if zdroj == "sosac":

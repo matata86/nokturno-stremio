@@ -535,6 +535,43 @@ class TestKatalogy(unittest.TestCase):
         from nokturno.core.lib.trend_api import CATALOG_ID
         self.assertEqual(volani_trend, [("movie", CATALOG_ID, 0)])
 
+    def test_serialy_podle_jazyka_z_pozadi(self):
+        """Sosáč u seriálů jazyk neuvádí — server ověří streamy nejnovějšího dílu (5.2.15)."""
+        from nokturno.katalogy import Katalogy
+        dotazy = []
+
+        class Engine:
+            def raw_streams(self, ctype, item_id, probe_audio=True, **kw):
+                dotazy.append((ctype, item_id, probe_audio))
+                return {"tt1:1:6": [{"langs": ["EN"], "subs": ["CZ"]}, {"langs": ["CZ"]}],
+                        "tt2:2:1": [{"langs": ["EN"], "subs": ["SK"]}],
+                        "tt3:1:1": [{"langs": ["EN"], "subs": ["EN"]}]}.get(item_id, [])
+
+        class Sosac:
+            def recent_series(self, limit=60):
+                return [({"imdb_id": f"tt{i}", "name": f"S{i}", "year": "2026"}, s, e)
+                        for i, s, e in ((1, 1, 6), (2, 2, 1), (3, 1, 1))]
+
+        k = Katalogy(tempfile.mkdtemp(), engine=lambda: Engine())
+        k.sosac = Sosac()
+        self.assertEqual(k.polozky("series", "nokturno.sosac.nove.serialy.dabing"), [], "první dotaz jen spustí přepočet")
+        for vlakno in [v for v in __import__("threading").enumerate() if v.name == "katalog-serialy-jazyk"]:
+            vlakno.join(5)
+        self.assertEqual([m["id"] for m in k.polozky("series", "nokturno.sosac.nove.serialy.dabing")], ["tt1"])
+        self.assertEqual([m["id"] for m in k.polozky("series", "nokturno.sosac.nove.serialy.titulky")], ["tt2"])
+        self.assertEqual(dotazy[0], ("series", "tt1:1:6", False))
+        self.assertEqual(len(dotazy), 3, "hotový výsledek se znovu nepočítá")
+        # bez jádra instance se seriálové katalogy nenabízejí
+        self.assertNotIn("jazyk", {r[2] for r in self.k.dostupne()})
+        self.assertIsNone(self.k.polozky("series", "nokturno.sosac.nove.serialy.dabing"))
+
+    def test_nazvy_filmu_a_serialu_rozlisene(self):
+        from nokturno.katalogy import Katalogy
+        k = Katalogy(tempfile.mkdtemp(), engine=lambda: None)
+        nazvy = {f["klic"]: f["nazev"] for f in k.formular()}
+        self.assertEqual(nazvy["sosac.nove.dabing"], "Nově přidané filmy s CZ dabingem")
+        self.assertEqual(nazvy["sosac.nove.serialy.titulky"], "Nově přidané seriály s CZ titulky")
+
     def test_neznamy_katalog_a_verejny_bez_nastaveni(self):
         self.assertEqual(self.r.route(f"/c/{KOUSEK}/catalog/series/nokturno.sosac.nove.dabing.json", ZAKLAD).status, 404)
         self.assertEqual(self.r.route(f"/c/{KOUSEK}/catalog/movie/nokturno.tmdb.trendy.filmy.json", ZAKLAD).status, 404)
