@@ -160,10 +160,24 @@ class Handler(BaseHTTPRequestHandler):
             if self.command == "HEAD":
                 return
             while True:
-                kus = upstream.read(256 * 1024)
+                try:
+                    kus = upstream.read(256 * 1024)
+                except (TimeoutError, OSError) as err:
+                    # úložiště uprostřed souboru přestalo posílat — výpadek zdroje, ne chyba doplňku;
+                    # zavřít spojení, přehrávač se připojí znovu s Range
+                    _LOGGER.info("úložiště přestalo posílat data: %s", err)
+                    self.close_connection = True
+                    return
                 if not kus:
                     break
-                self.wfile.write(kus)
+                try:
+                    self.wfile.write(kus)
+                except TimeoutError:
+                    # přehrávač přestal číst déle než `timeout` (pauza, plný buffer, ztracená síť) —
+                    # stejné jako zavřené spojení, ne pád (dashboard Pády, 2026-09-17, 5.2.11)
+                    _LOGGER.debug("klient přestal číst při %s", bezpecna_cesta(self.path))
+                    self.close_connection = True
+                    return
 
     def _posli(self, odpoved):
         if odpoved.proxy:

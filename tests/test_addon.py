@@ -1249,6 +1249,48 @@ class TestHeadAProxyKodovani(unittest.TestCase):
         self.assertNotIn("NOKTURNO_TMDB_API_KEY", compose, "Stremio TMDB nečte")
 
 
+class TestProxyTimeout(unittest.TestCase):
+    """Dashboard Pády 2026-09-17: `TimeoutError` z `wfile.write` v `_proxy` — přehrávač přestal číst
+    (pauza déle než timeout spojení). Není to chyba doplňku, nesmí jít do hlášení o pádech."""
+
+    def handler(self, zapis=None, cteni=None):
+        from unittest import mock
+        from nokturno.server import Handler
+        h = object.__new__(Handler)
+        h.headers, h.command, h.path, h._verejny, h.close_connection = {}, "GET", "/play/x", False, False
+        for jmeno in ("send_response", "send_header", "end_headers"):
+            setattr(h, jmeno, lambda *a, **k: None)
+        h.wfile = mock.Mock(write=mock.Mock(side_effect=zapis))
+
+        class Upstream:
+            status, headers = 200, {"Content-Length": "10"}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self, n):
+                if cteni:
+                    raise cteni
+                return b"x"
+        return h, mock.patch("urllib.request.urlopen", return_value=Upstream())
+
+    def test_klient_prestal_cist(self):
+        h, patch = self.handler(zapis=TimeoutError("timed out"))
+        with patch:
+            h._proxy("http://uloziste/a.mkv", {})
+        self.assertTrue(h.close_connection)
+
+    def test_uloziste_prestalo_posilat(self):
+        h, patch = self.handler(cteni=TimeoutError("timed out"))
+        with patch:
+            h._proxy("http://uloziste/a.mkv", {})
+        self.assertTrue(h.close_connection)
+        h.wfile.write.assert_not_called()
+
+
 class TestLimitProxy(unittest.TestCase):
     def test_proxy_uloziste_ma_limit_na_nastaveni(self):
         from nokturno.routes import Okno
