@@ -24,7 +24,7 @@ se zapíná zvlášť ve formuláři. Detail titulu a díly seriálů dodá Stre
 | Seriály | ano, včetně jednotlivých dílů |
 | Titulky | ano, z WebShare a Sledujteto |
 | Zvuk | jazyk, kanály a kodek — z hlavičky souboru, u Sledujteto přímo z API; u FastShare jen s neomezeným stahováním (na kredit by čtení hlaviček ubíralo kredit) |
-| Katalogy | volitelně (od 5.1.0): Sosáč — nejpopulárnější filmy a seriály, nově přidané (i s CZ dabingem / titulky); TMDB — trendy, populární, nejlépe hodnocené (jen s klíčem instance `NOKTURNO_TMDB_KEY`). Jedna cache pro všechny, obnova po 6 h |
+| Katalogy | volitelně (od 5.1.0): Sosáč — nejpopulárnější filmy a seriály, nově přidané (i filmy s CZ dabingem / titulky); nově přidané seriály s CZ dabingem / titulky (jazyk ověřuje server podle streamů); TMDB — trendy, populární, nejlépe hodnocené (jen s klíčem instance `NOKTURNO_TMDB_KEY`). Jedna cache pro všechny, obnova po 6 h |
 | Torrenty | ne, zatím jen v integraci pro Home Assistant |
 | Popisy titulů | ne — detail k položkám katalogů i k ostatním titulům dodává Cinemeta |
 

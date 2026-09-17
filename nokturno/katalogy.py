@@ -168,9 +168,13 @@ class Katalogy:
         finally:
             self._jazyk_bezi.release()
 
-    def _jazykove(self, cid, skip):
-        if self.store.peek_cached(self.JAZYK_KLIC, self.ttl) is None:
+    def zahrat(self):
+        """Přepočet seriálů podle jazyka na pozadí, když není čerstvý — při startu serveru a při dotazu."""
+        if self.engine is not None and self.store.peek_cached(self.JAZYK_KLIC, self.ttl) is None:
             threading.Thread(target=self._jazyk_prepocet, name="katalog-serialy-jazyk", daemon=True).start()
+
+    def _jazykove(self, cid, skip):
+        self.zahrat()
         data = self.store.peek_cached(self.JAZYK_KLIC, JAZYK_STALE) or {}
         return list(data.get(cid) or [])[skip:]
 

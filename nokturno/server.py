@@ -259,6 +259,9 @@ def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, opti
     # katalogy sdílí jednu cache pro všechny adresy; TMDB jen s klíčem instance (viz katalogy.py)
     # seriály podle jazyka ověřuje výchozí (domácí) jádro s účty instance, viz katalogy.py
     katalogy = Katalogy(data_dir, os.environ.get("NOKTURNO_TMDB_KEY", ""), engine=enginy.pro)
+    if options is None:
+        # ať první dotaz po restartu nevrátí prázdný seznam seriálů; jen služba z prostředí (testy jdou bez sítě)
+        katalogy.zahrat()
     server.router = Router(enginy, predvyplnit=predvyplnit, statistiky=Statistiky.z_prostredi(VERZE),
                            katalogy=katalogy)
     server.pady = Pady.z_prostredi(data_dir, VERZE)
