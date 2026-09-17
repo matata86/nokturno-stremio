@@ -18,7 +18,12 @@ from . import sit
 
 _LOGGER = logging.getLogger(__name__)
 
-LIMIT = 20   # kolik různých nastavení držet naráz
+# Kolik různých nastavení držet naráz. Dvacet stačilo, dokud doplněk neměl víc
+# uživatelů než tolik: 2026-09-17 se za 24 h objevilo 155 různých nastavení a jádra
+# se protáčela — 439 vzniků za den, tedy každé v průměru 2,8× znovu, pokaždé s novým
+# přihlášením ke zdrojům a studenou cache. Padesát pokrývá běžný souběh; v paměti to
+# je pár set MB (kontejner má od 2026-09-17 2 GB místo 512 MB).
+LIMIT = 50
 
 
 class Enginy:

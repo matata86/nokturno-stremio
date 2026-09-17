@@ -539,9 +539,14 @@ class TestKatalogy(unittest.TestCase):
         """Sosáč u seriálů jazyk neuvádí — server ověří streamy nejnovějšího dílu (5.2.15)."""
         from nokturno.katalogy import Katalogy
         dotazy = []
+        # `_jazykove()` spustí přepočet a hned čte cache; s falešným jádrem doběhne
+        # vlákno tak rychle, že první dotaz občas vrátil rovnou hotový výsledek a test
+        # padal jednou za pár běhů. Brána drží přepočet, dokud si první dotaz neověříme.
+        pustit = __import__("threading").Event()
 
         class Engine:
             def raw_streams(self, ctype, item_id, probe_audio=True, **kw):
+                pustit.wait(5)
                 dotazy.append((ctype, item_id, probe_audio))
                 return {"tt1:1:6": [{"langs": ["EN"], "subs": ["CZ"]}, {"langs": ["CZ"]}],
                         "tt2:2:1": [{"langs": ["EN"], "subs": ["SK"]}],
@@ -555,6 +560,7 @@ class TestKatalogy(unittest.TestCase):
         k = Katalogy(tempfile.mkdtemp(), engine=lambda: Engine())
         k.sosac = Sosac()
         self.assertEqual(k.polozky("series", "nokturno.sosac.nove.serialy.dabing"), [], "první dotaz jen spustí přepočet")
+        pustit.set()
         for vlakno in [v for v in __import__("threading").enumerate() if v.name == "katalog-serialy-jazyk"]:
             vlakno.join(5)
         self.assertEqual([m["id"] for m in k.polozky("series", "nokturno.sosac.nove.serialy.dabing")], ["tt1"])
@@ -1087,6 +1093,25 @@ class TestVerejnaSit(unittest.TestCase):
         self.assertIsNone(domaci.opener)
         self.assertIs(enginy.pro(options, verejny=True), verejne)
         self.assertEqual(len(enginy), 2)
+
+    def test_nejdele_nepouzite_jadro_vypadne(self):
+        """Limit drží paměť na uzdě, ale musí vyhodit opravdu to nejdéle nepoužité —
+        jinak by se jádro právě obsluhovaného uživatele zahodilo zpod ruky."""
+        from nokturno.enginy import Enginy
+        enginy = Enginy(tempfile.mkdtemp(), {}, limit=2)
+        prvni = enginy.pro(config.from_mapping({"ws_username": "a"}))
+        druhe = enginy.pro(config.from_mapping({"ws_username": "b"}))
+        self.assertIs(enginy.pro(config.from_mapping({"ws_username": "a"})), prvni, "sáhnutí ho omladí")
+        enginy.pro(config.from_mapping({"ws_username": "c"}))       # přeteče → padá `druhe`
+        self.assertEqual(len(enginy), 2)
+        self.assertIs(enginy.pro(config.from_mapping({"ws_username": "a"})), prvni)
+        self.assertIsNot(enginy.pro(config.from_mapping({"ws_username": "b"})), druhe)
+
+    def test_limit_jader_pokryva_bezny_soubeh(self):
+        """2026-09-17: za 24 h 155 různých nastavení proti limitu 20 — jádra se protáčela
+        (439 vzniků za den, pokaždé nové přihlášení ke zdrojům a studená cache)."""
+        from nokturno import enginy as modul
+        self.assertGreaterEqual(modul.LIMIT, 50)
 
     def test_router_zaklada_verejne_jadro_pro_pozadavek_z_internetu(self):
         r = router()
