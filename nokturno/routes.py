@@ -4,7 +4,7 @@
     GET /configure                       formulář, který vyrobí adresu s účty
     GET /c/<nastavení>/manifest.json     co doplněk umí
     GET /c/<nastavení>/stream/:t/:id.json   streamy k titulu
-    GET /c/<nastavení>/play/:payload     302 na skutečný soubor (vlastní úložiště a FastShare: proxy)
+    GET /c/<nastavení>/play/:payload     302 na skutečný soubor
     GET /c/<nastavení>/check             ověření účtů pro formulář (WebShare + VIP)
     GET /health                          pro kontejner
 
@@ -22,6 +22,12 @@ Odkazy WebShare a HellSpy platí jen chvíli a nesou podpis, takže se nedávaj�
 rovnou do odpovědi. Stremio dostane adresu na `/play/`, která soubor rozklíčuje
 až ve chvíli, kdy se na ni přehrávač skutečně obrátí — a protože nese tentýž
 prefix, rozklíčuje ho pod správným účtem.
+
+Výjimkou jsou vlastní úložiště (`dav:`) a FastShare (`fs:`): ty chtějí u každého
+požadavku autentizační hlavičku, takže se vydávají jako přímá adresa zdroje
+s `behaviorHints.proxyHeaders` (viz `mapping.stream_object`). Data pak tečou ze
+zdroje rovnou ke klientovi a tenhle server se jich nedotkne — do 5.2.25 šla přes
+něj a byl tím fakticky veřejná proxy pro cizí úložiště.
 """
 import html as html_lib
 import logging
@@ -39,11 +45,9 @@ from . import config, mapping, sit
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "5.2.25"
+VERZE = "5.2.26"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
-PROXY_LIMIT = (600, 10 * 60)  # proxy souborů z úložiště na jedno nastavení za 10 min: přetáčení je pár dotazů
-                              # za sekundu, tisíce jsou už někdo, kdo přes doplněk tahá cizí úložiště
 
 
 class Okno:
@@ -116,16 +120,12 @@ def klient_z_useragent(user_agent):
 class Odpoved:
     """Co server pošle klientovi."""
 
-    def __init__(self, status=200, data=None, location=None, text=None, html=None, proxy=None, scheme=None):
+    def __init__(self, status=200, data=None, location=None, text=None, html=None):
         self.status = status
-        self.proxy = proxy   # (adresa, hlavičky) — server soubor stáhne a pošle dál sám
         self.data = data
         self.location = location
         self.text = text
         self.html = html
-        # jen pro provoz.py: "dav"/"fs" u proxy přehrávání (viz play()) — do žádné
-        # odpovědi klientovi se nedostane, čte ho jen server.Handler._nahlas()
-        self.scheme = scheme
 
     @property
     def body(self):
@@ -138,6 +138,38 @@ class Odpoved:
 
 def chyba(status, zprava):
     return Odpoved(status=status, text=zprava)
+
+
+NEUSPECHU_DOST = 3   # kolik selhání jednoho zdroje v jedné odpovědi stačí, než to vzdáme
+
+
+def _primy(engine):
+    """`vnitřní odkaz → (adresa, hlavičky)` pro zdroje z `mapping.PRES_HLAVICKY`.
+
+    None znamená „tenhle soubor teď přehrát nejde" (nenastavený účet, vypršelé
+    přihlášení, málo kreditu) — stream se pak vůbec nenabídne, protože bez
+    hlaviček by stejně neodehrál.
+
+    Selhání se počítají: FastShare se při nedostatku kreditu zkusí přihlásit
+    znovu (kredit se mohl mezitím dobít) a to je síťový dotaz — u výpisu s
+    desítkami souborů by se opakoval pro každý z nich.
+    """
+    neuspechy = {}
+
+    def primy(vnitrni):
+        klic = vnitrni.split(":", 1)[0]
+        if neuspechy.get(klic, 0) >= NEUSPECHU_DOST:
+            return None
+        try:
+            return engine.file_request(vnitrni)
+        except NokturnoError as err:
+            _LOGGER.info("přímý odkaz %s: %s", vnitrni[:40], err)
+        except Exception as err:  # noqa: BLE001 – výpadek zdroje nesmí shodit výpis streamů
+            _LOGGER.warning("přímý odkaz %s selhal: %s", vnitrni[:40], err)
+        neuspechy[klic] = neuspechy.get(klic, 0) + 1
+        return None
+
+    return primy
 
 
 class Router:
@@ -156,7 +188,6 @@ class Router:
         self.fs_api = FastshareApi
         self.dav_api = StorageApi
         self.check_okno = Okno(*CHECK_LIMIT)
-        self.proxy_okno = Okno(*PROXY_LIMIT)
 
     # --- adresy -----------------------------------------------------------
     @staticmethod
@@ -322,7 +353,8 @@ class Router:
         _LOGGER.info("streamy %s %s: %d", ctype, item_id, len(popisy))
         if self.statistiky is not None:
             self.statistiky.zaznamenej(engine, ctype, item_id, aplikace)
-        return Odpoved(data=mapping.streams_response(popisy, self._odkaz(zaklad, kousek)))
+        return Odpoved(data=mapping.streams_response(popisy, self._odkaz(zaklad, kousek),
+                                                      primy=_primy(engine)))
 
     def katalog(self, casti):
         """`/catalog/<typ>/<id>.json` nebo `/catalog/<typ>/<id>/skip=<n>.json` → `{"metas": [...]}`."""
@@ -343,17 +375,13 @@ class Router:
         vnitrni = mapping.dekoduj(payload)
         if not vnitrni:
             return chyba(400, "Neplatný odkaz.")
-        if vnitrni.startswith(("dav:", "fs:")):
-            # vlastní úložiště chce heslo, FastShare cookie z přihlášení a přehrávače Stremia
-            # hlavičku nepošlou — soubor proto jde přes doplněk (viz server.Handler._proxy)
-            if not self.proxy_okno.povolit(klic):
-                return chyba(429, "Příliš mnoho požadavků na úložiště, zkus to za chvíli.")
-            fs = vnitrni.startswith("fs:")
-            try:
-                return Odpoved(proxy=engine.fastshare_request(vnitrni) if fs else engine.storage_request(vnitrni),
-                                scheme="fs" if fs else "dav")
-            except NokturnoError as err:
-                return chyba(404, str(err))
+        if vnitrni.startswith(mapping.PRES_HLAVICKY):
+            # Vlastní úložiště a FastShare chtějí u každého požadavku hlavičku (heslo,
+            # cookie z přihlášení). Do 5.2.25 je soubor tekl přes tenhle server, od 5.2.26
+            # se vydává přímá adresa zdroje s `behaviorHints.proxyHeaders` (viz
+            # `mapping.stream_object`) — hlavičky posílá přehrávač sám. Sem se dostane jen
+            # odkaz uložený ve starém „pokračovat ve sledování"; ten se musí načíst znovu.
+            return chyba(410, "Tenhle odkaz už neplatí — otevři titul znovu a vyber stream.")
         try:
             skutecna = engine.resolve(vnitrni)
         except NokturnoError as err:
