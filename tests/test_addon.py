@@ -1092,6 +1092,19 @@ class TestVerejnaSit(unittest.TestCase):
         self.assertIs(enginy.pro(options, verejny=True), verejne)
         self.assertEqual(len(enginy), 2)
 
+    def test_klic_tmdb_dostane_i_verejne_jadro(self):
+        """Vědomá výjimka z „veřejný požadavek nedostane nastavení z prostředí":
+        bez klíče TMDB nejde přeložit `tmdb:` id od klientů, a tím ani najít streamy
+        k titulu z TMDB katalogu. Klíč je zdarma a jen na čtení, účty chráněné dál."""
+        from nokturno.enginy import Enginy
+        enginy = Enginy(tempfile.mkdtemp(), {}, tmdb_key="klic-instance")
+        options = config.from_mapping({"ws_username": "u", "ws_password": "p"})
+        for verejny in (True, False):
+            self.assertEqual(enginy.pro(options, verejny=verejny).options["tmdb_api_key"], "klic-instance")
+        self.assertNotIn("tmdb_api_key", options, "do nastavení z adresy se klíč nepromítne")
+        bez = Enginy(tempfile.mkdtemp(), {})
+        self.assertNotIn("tmdb_api_key", bez.pro(options).options)
+
     def test_nejdele_nepouzite_jadro_vypadne(self):
         """Limit drží paměť na uzdě, ale musí vyhodit opravdu to nejdéle nepoužité —
         jinak by se jádro právě obsluhovaného uživatele zahodilo zpod ruky."""
