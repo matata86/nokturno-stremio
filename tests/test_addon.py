@@ -813,6 +813,13 @@ class TestVlastniUloziste(unittest.TestCase):
         odpoved = r.route("/play/" + mapping.zakoduj("dav:1:Filmy/a.mkv"), ZAKLAD)
         self.assertEqual(odpoved.proxy, ("http://nas.lan/dav/Filmy/a.mkv", {"Authorization": "Basic x"}))
         self.assertIsNone(odpoved.location)
+        self.assertEqual(odpoved.scheme, "dav")   # provoz.py: rozliší vlastní úložiště od FastShare
+
+    def test_prehrani_fastshare_nese_scheme_fs(self):
+        r = router()
+        r.engine.fastshare_request = lambda url: ("https://fastshare.cz/x", {"Cookie": "sess=1"})
+        odpoved = r.route("/play/" + mapping.zakoduj("fs:x"), ZAKLAD)
+        self.assertEqual(odpoved.scheme, "fs")
 
     def test_neznamy_slot_je_404(self):
         r = router()
@@ -1433,6 +1440,18 @@ class TestProvoz(unittest.TestCase):
                          ("stremio", "/catalog/series"))
         self.assertEqual(klasifikuj("/"), ("stremio", "/"))
         self.assertEqual(klasifikuj("/health"), ("stremio", "/health"))
+
+    def test_klasifikace_rozlisi_vlastni_uloziste_a_fastshare(self):
+        from nokturno.provoz import klasifikuj
+        self.assertEqual(klasifikuj("/c/eyJ3cyI6MX0/play/x", scheme="dav"),
+                         ("prehravani", "/c/{nastaveni}/play/dav"))
+        self.assertEqual(klasifikuj("/c/eyJ3cyI6MX0/play/x", scheme="fs"),
+                         ("prehravani", "/c/{nastaveni}/play/fs"))
+        # přesměrování na jiné zdroje (WebShare, HellSpy, …) scheme nenese
+        self.assertEqual(klasifikuj("/c/eyJ3cyI6MX0/play/x", scheme=None),
+                         ("prehravani", "/c/{nastaveni}/play"))
+        self.assertEqual(klasifikuj("/c/eyJ3cyI6MX0/play/x", scheme="neco-jineho"),
+                         ("prehravani", "/c/{nastaveni}/play"))
 
     def test_ucty_z_adresy_se_nikam_neposlou(self):
         from nokturno.provoz import Provoz

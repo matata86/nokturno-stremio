@@ -31,11 +31,14 @@ STROP = 5000            # víc řádků než tohle se zahazuje (dashboard neodpo
 DAVKA = 1000            # nejvíc řádků v jednom požadavku
 
 
-def klasifikuj(cesta):
+def klasifikuj(cesta, scheme=None):
     """Cesta → (služba, cesta bez proměnných částí).
 
     Přehrávání přes proxy je vlastní služba: teče přes ni řádově víc dat než
     přes zbytek doplňku dohromady a ve statistice by ho jinak úplně přebila.
+    `scheme` (jen "dav"/"fs", viz routes.play()) rozlišuje vlastní úložiště od
+    FastShare u proxovaného přehrávání — bez účtu nebo adresy, jen která z nich.
+    Ostatní zdroje (WebShare, HellSpy, …) proxy nepoužívají, jdou přes 302.
     """
     holá = (cesta or "/").split("?", 1)[0]
     zbytek = re.sub(r"^/c/[^/?]+", "", holá)
@@ -45,7 +48,8 @@ def klasifikuj(cesta):
         return "stremio", (prefix + "/") if prefix else "/"
     prvni = casti[0]
     if prvni == "play":
-        return "prehravani", prefix + "/play"
+        pripona = f"/{scheme}" if scheme in ("dav", "fs") else ""
+        return "prehravani", f"{prefix}/play{pripona}"
     if prvni in ("stream", "meta", "catalog", "subtitles"):
         # typ (movie/series) je užitečný, id titulu ne
         typ = casti[1] if len(casti) > 1 and casti[1] in ("movie", "series") else "{typ}"
@@ -80,10 +84,10 @@ class Provoz:
             token = ""
         return cls(url=env.get("NOKTURNO_TRAFFIC_URL", VYCHOZI_URL).strip() or VYCHOZI_URL, token=token)
 
-    def zaznamenej(self, cesta, metoda, stav, bajty_ven=0, doba_ms=0, aplikace="stremio"):
+    def zaznamenej(self, cesta, metoda, stav, bajty_ven=0, doba_ms=0, aplikace="stremio", scheme=None):
         if not self.zapnuto:
             return
-        sluzba, tvar = klasifikuj(cesta)
+        sluzba, tvar = klasifikuj(cesta, scheme)
         with self._zamek:
             if len(self._fronta) >= self.strop:
                 self.zahozeno += 1

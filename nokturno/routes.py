@@ -39,7 +39,7 @@ from . import config, mapping, sit
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "5.2.24"
+VERZE = "5.2.25"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 PROXY_LIMIT = (600, 10 * 60)  # proxy souborů z úložiště na jedno nastavení za 10 min: přetáčení je pár dotazů
@@ -116,13 +116,16 @@ def klient_z_useragent(user_agent):
 class Odpoved:
     """Co server pošle klientovi."""
 
-    def __init__(self, status=200, data=None, location=None, text=None, html=None, proxy=None):
+    def __init__(self, status=200, data=None, location=None, text=None, html=None, proxy=None, scheme=None):
         self.status = status
         self.proxy = proxy   # (adresa, hlavičky) — server soubor stáhne a pošle dál sám
         self.data = data
         self.location = location
         self.text = text
         self.html = html
+        # jen pro provoz.py: "dav"/"fs" u proxy přehrávání (viz play()) — do žádné
+        # odpovědi klientovi se nedostane, čte ho jen server.Handler._nahlas()
+        self.scheme = scheme
 
     @property
     def body(self):
@@ -345,9 +348,10 @@ class Router:
             # hlavičku nepošlou — soubor proto jde přes doplněk (viz server.Handler._proxy)
             if not self.proxy_okno.povolit(klic):
                 return chyba(429, "Příliš mnoho požadavků na úložiště, zkus to za chvíli.")
+            fs = vnitrni.startswith("fs:")
             try:
-                return Odpoved(proxy=engine.fastshare_request(vnitrni) if vnitrni.startswith("fs:")
-                               else engine.storage_request(vnitrni))
+                return Odpoved(proxy=engine.fastshare_request(vnitrni) if fs else engine.storage_request(vnitrni),
+                                scheme="fs" if fs else "dav")
             except NokturnoError as err:
                 return chyba(404, str(err))
         try:
