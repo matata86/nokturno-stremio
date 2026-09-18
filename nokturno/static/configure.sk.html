@@ -297,7 +297,10 @@
           <h3>FastShare</h3>
           <span class="stitek">Voliteľné · kredit alebo paušál</span>
         </div>
-        <p>České úložisko súborov s veľkým výberom filmov a seriálov. Hľadá sa aj bez účtu, prehratie sa odpočíta z kreditu, ak nemáš neobmedzené sťahovanie. Súbor ide cez tento doplnok — prehrávač Stremia prihlásenie k FastShare nevie poslať.</p>
+        <p>České úložisko súborov s veľkým výberom filmov a seriálov. Hľadá sa aj bez účtu, prehratie sa odpočíta z kreditu, ak nemáš neobmedzené sťahovanie.</p>
+        <div class="poznamka">
+          <strong>Neprehrá sa vo webovom Stremiu.</strong> Súbor z FastShare chce na stiahnutie prihlásenie a tú hlavičku vie poslať len aplikácia — <strong>Stremio pre počítač, Android a Android TV</strong>, alebo Nuvio. V Stremiu v prehliadači sa taký stream nespustí; v zozname ich spoznáš podľa upozornenia pri popise. Dáta tečú z FastShare rovno k tebe, nie cez tento server.
+        </div>
         <div class="dvojice">
           <label class="pole"><span>Používateľ</span>
             <input type="text" name="fs_username" autocapitalize="off" spellcheck="false"></label>
@@ -341,6 +344,9 @@
           <span class="stitek">Voliteľné · až 3 · WebDAV</span>
         </div>
         <p>Tvoje vlastné filmy a seriály na NAS, Nextcloude alebo serveri s WebDAV. Nokturno prejde priečinky a súbory priradí k titulom podľa názvu súboru a priečinka nad ním („Sherlock/S01E02.mkv“).</p>
+        <div class="poznamka">
+          <strong>Neprehrá sa vo webovom Stremiu.</strong> Súbor z úložiska chce heslo a tú hlavičku vie poslať len aplikácia — <strong>Stremio pre počítač, Android a Android TV</strong>, alebo Nuvio. V Stremiu v prehliadači sa taký stream nespustí; v zozname ich spoznáš podľa upozornenia pri popise. Dáta tečú z tvojho úložiska rovno k tebe, nie cez tento server.
+        </div>
         <details class="uloziste" open>
           <summary>Úložisko 1</summary>
           <div class="dvojice">
@@ -392,10 +398,10 @@
           <div class="obsah">
             <ol>
               <li>Adresa je priečinok na WebDAV, napríklad <code>https://nas.example.cz/remote.php/dav/files/meno/Video/</code> (Nextcloud) alebo <code>https://server:10000/</code>. Tvar <code>davs://</code> z Kodi funguje tiež.</li>
-              <li>Meno a heslo sú tie, ktorými sa k úložisku prihlasuješ. Zostanú len v adrese doplnku — súbory idú cez doplnok, aby ich prehrávač dostal aj bez hesla.</li>
+              <li>Meno a heslo sú tie, ktorými sa k úložisku prihlasuješ. Zostanú len v adrese doplnku; pri prehratí ich pošle tvoj prehrávač priamo úložisku, takže súbor netečie cez tento server.</li>
               <li>Súbory pomenuj ako zvyčajne: <code>Pelisky (1999).mkv</code>, alebo priečinok <code>Sherlock/Season 1/S01E02.mkv</code>. Nový súbor sa zobrazí najneskôr do hodiny.</li>
             </ol>
-            <p>Úložisko musí byť dosiahnuteľné zo <strong>servera doplnku</strong>, nie z tvojho zariadenia. Adresy v domácej sieti preto fungujú len s doplnkom, ktorý beží u teba doma.</p>
+            <p>Úložisko musí byť dosiahnuteľné zo <strong>servera doplnku</strong> (hľadá v ňom súbory) <strong>aj zo zariadenia, na ktorom prehrávaš</strong> (sťahuje ich). Adresy v domácej sieti preto fungujú len s doplnkom, ktorý beží u teba doma.</p>
           </div>
         </details>
       </div>
@@ -595,7 +601,7 @@
           <li><strong>WebShare</strong> — najviac súborov, všetky kvality, potrebuje platené VIP.</li>
           <li><strong>Sosáč</strong> — ručne poskladaný katalóg českých filmov a seriálov s dabingom a titulkami, prehráva cez Streamuj.tv.</li>
           <li><strong>Sledujteto</strong> — české úložisko s veľkým výberom, hľadá cez tvoj účet a prehráva s Premium.</li>
-          <li><strong>FastShare</strong> — české úložisko s veľkým výberom, hľadá aj bez účtu, prehráva z kreditu alebo s neobmedzeným sťahovaním. Súbor ide cez doplnok.</li>
+          <li><strong>FastShare</strong> — české úložisko s veľkým výberom, hľadá aj bez účtu, prehráva z kreditu alebo s neobmedzeným sťahovaním. Len v aplikácii Stremio, nie v prehliadači.</li>
           <li><strong>HellSpy</strong> — verejné súbory zadarmo, bez účtu. Menší výber, ale nič nestojí.</li>
         </ul>
       </div>
