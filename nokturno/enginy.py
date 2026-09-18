@@ -29,10 +29,18 @@ LIMIT = 50
 class Enginy:
     """Jádra podle otisku nastavení, nejdéle nepoužité vypadne."""
 
-    def __init__(self, data_dir, vychozi_options=None, limit=LIMIT):
+    def __init__(self, data_dir, vychozi_options=None, limit=LIMIT, tmdb_key=""):
         self.data_dir = data_dir
         self.vychozi_options = vychozi_options or {}
         self.limit = limit
+        # Klíč TMDB instance (`NOKTURNO_TMDB_KEY`) — dostane ho **každé** jádro, i to
+        # pro požadavek z internetu. Je to výjimka z pravidla „veřejný požadavek nedostane
+        # nastavení z prostředí" (viz `server.je_verejny`), a je vědomá: to pravidlo chrání
+        # účty, na které se stahuje (WebShare, Streamuj — placené, cizí by na ně jely).
+        # Klíč TMDB je zdarma, jen na čtení veřejných metadat, klientovi se nikdy nevydá
+        # a bez něj nejde přeložit `tmdb:` id od klientů (viz `routes._imdb_z_tmdb`) —
+        # tedy ani najít streamy k titulu z TMDB katalogu.
+        self.tmdb_key = tmdb_key or ""
         self._cache = OrderedDict()
         self._zamek = threading.Lock()
 
@@ -42,6 +50,9 @@ class Enginy:
         slozka = os.path.join(self.data_dir, otisk)
         os.makedirs(slozka, exist_ok=True)
         _LOGGER.info("nové jádro pro nastavení %s%s", otisk, " (z internetu)" if verejny else "")
+        if self.tmdb_key:
+            # až za otiskem: klíč je pro všechna nastavení stejný, nemá tříštit cache
+            options = {**options, "tmdb_api_key": self.tmdb_key}
         return Engine(options, slozka, opener=sit.OPENER if verejny else None)
 
     def pro(self, options=None, verejny=False):

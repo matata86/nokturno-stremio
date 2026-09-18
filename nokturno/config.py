@@ -31,6 +31,9 @@ from .core.lib.const import LANGS, SORT_ORDERS
 # katalogový doplněk, ne my. Na dohledání souborů klíč vliv nemá — ověřeno na
 # Pelíškách, které Cinemeta zná jako „Cosy Dens": český název dodá i veřejný
 # katalog Sosáče, takže výsledek je s klíčem i bez něj stejný.
+# Proto tu `NOKTURNO_TMDB_KEY` **není**: klíč instance rozdává `Enginy` každému
+# jádru zvlášť (viz `enginy.Enginy.__init__`), protože bez něj nejde přeložit
+# `tmdb:` id od klientů. Do adresy s nastavením ani do formuláře nepatří.
 PROSTREDI = {
     "NOKTURNO_WS_USERNAME": "ws_username",
     "NOKTURNO_WS_PASSWORD": "ws_password",
