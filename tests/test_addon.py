@@ -831,6 +831,37 @@ class TestVlastniUloziste(unittest.TestCase):
                                        lambda v: "/play/" + v, primy=routes._primy(r.engine))
         self.assertIsNone(objekt)
 
+    def test_tmdb_id_od_klienta_se_prelozi_na_imdb(self):
+        """Nuvio posílá u titulů z TMDB katalogů `tmdb:<id>` — bez překladu vracel
+        doplněk prázdno (zjištěno z logu 2026-09-18: `tmdb:37738` = Okresní přebor)."""
+        class Tmdb:
+            def __init__(self):
+                self.dotazy = []
+
+            def imdb_id(self, ctype, tmdb_id):
+                self.dotazy.append((ctype, tmdb_id))
+                return "tt1592598"
+
+        r = router()
+        r.engine.tmdb = Tmdb()
+        r.route(f"/c/{KOUSEK}/stream/series/tmdb:37738:1:2.json", ZAKLAD)
+        self.assertEqual(r.engine.tmdb.dotazy, [("series", "37738")])
+        self.assertEqual(r.engine.dotazy[-1], ("series", "tt1592598:1:2"), "sezóna a díl musí zůstat")
+
+        r.route(f"/c/{KOUSEK}/stream/movie/tmdb:37738.json", ZAKLAD)
+        self.assertEqual(r.engine.dotazy[-1], ("movie", "tt1592598"))
+
+    def test_tmdb_id_bez_klice_nebo_bez_imdb_vraci_prazdno(self):
+        r = router()
+        r.engine.tmdb = None                     # uživatel nemá vlastní klíč TMDB
+        self.assertEqual(r.route(f"/c/{KOUSEK}/stream/movie/tmdb:1.json", ZAKLAD).data, {"streams": []})
+
+        class BezImdb:
+            def imdb_id(self, ctype, tmdb_id):
+                return ""                        # TMDB titul zná, IMDb id nemá
+        r.engine.tmdb = BezImdb()
+        self.assertEqual(r.route(f"/c/{KOUSEK}/stream/movie/tmdb:1.json", ZAKLAD).data, {"streams": []})
+
     def test_vypis_streamu_vyda_primou_adresu(self):
         """Celá cesta `/stream/…`: úložiště se do odpovědi dostane jako přímá adresa
         zdroje, ostatní zdroje dál přes `/play/` (podepsaný odkaz platí jen chvíli)."""
