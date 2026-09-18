@@ -45,6 +45,16 @@ NE_PRO_WEB = (".mkv", ".avi", ".ts", ".m2ts", ".wmv", ".flv")
 # beze změny, takže by `/play/` byl veřejný přesměrovávač kamkoli — vydávají se rovnou.
 SCHEMATA = ("ws:", "hs:", "st:", "fs:", "dav:", "streamuj:")
 PRIME = ("http://", "https://")
+# Zdroje, které chtějí u každého požadavku autentizační hlavičku (FastShare cookie
+# z přihlášení, vlastní úložiště Basic auth). Vydávají se jako přímá adresa zdroje
+# s `behaviorHints.proxyHeaders` — hlavičky pošle přehrávač Stremia sám a data tečou
+# rovnou ze zdroje ke klientovi, ne přes tenhle server.
+PRES_HLAVICKY = ("dav:", "fs:")
+# `proxyHeaders` platí jen u streamu označeného `notWebReady` a webový přehrávač
+# takový stream odmítne rovnou (`stremio-video/src/HTMLVideo.js`, `canPlayStream()`).
+# Poznat prohlížeč na serveru nejde (viz `routes.klient_z_useragent`), proto se to
+# píše rovnou do popisu streamu.
+JEN_V_APLIKACI = "⚠️ Ve webovém přehrávači se nepřehraje — jen v aplikaci"
 
 
 def odkaz_streamu(vnitrni, odkaz):
@@ -140,15 +150,26 @@ def titulky(popis, odkaz):
     return out
 
 
-def stream_object(popis, odkaz, jmeno_doplnku="Nokturno"):
+def stream_object(popis, odkaz, jmeno_doplnku="Nokturno", primy=None):
     """Jeden stream z `Engine._describe()` do podoby pro Stremio.
 
     `odkaz(vnitrni_url)` vrátí adresu na tuhle službu — odkazy WebShare platí jen
     chvíli, takže se nesmí vydávat dopředu, ale až když si přehrávač řekne.
+
+    `primy(vnitrni_url)` vrátí `(adresa, hlavičky)` u zdrojů z `PRES_HLAVICKY`,
+    nebo None, když je teď přehrát nejde (vypršelý účet, nedostatek kreditu) —
+    takový stream se nenabídne vůbec, protože bez hlaviček by stejně neodehrál.
     """
     vnitrni = popis.get("url") or ""
     if not vnitrni:
         return None
+
+    hlavicky = None
+    if vnitrni.startswith(PRES_HLAVICKY):
+        primo = primy(vnitrni) if primy else None
+        if not primo:
+            return None
+        adresa, hlavicky = primo
 
     kvalita = popis.get("quality") or ""
     zdroj = popis.get("source") or ""
@@ -180,12 +201,14 @@ def stream_object(popis, odkaz, jmeno_doplnku="Nokturno"):
         radek_udaju.append(f"🌐 {zdroj}")
 
     radky = [nazev_souboru, "  ".join(radek_jazyku), "  ".join(radek_udaju)]
+    if hlavicky:
+        radky.append(JEN_V_APLIKACI)
 
     # vlevo v úzkém sloupci je místo jen na jméno a kvalitu; HDR/DV k ní patří,
     # protože rozhoduje o tom, jestli má smysl sahat po velkém souboru
     vlevo = kvalita + (" " + " ".join(obraz[:1]) if obraz else "")
     objekt = {
-        "url": odkaz_streamu(vnitrni, odkaz),
+        "url": adresa if hlavicky else odkaz_streamu(vnitrni, odkaz),
         "name": jmeno_doplnku + (f"\n{vlevo}" if vlevo else ""),
         "description": "\n".join(r for r in radky if r),
         "behaviorHints": {},
@@ -196,8 +219,11 @@ def stream_object(popis, odkaz, jmeno_doplnku="Nokturno"):
         objekt["behaviorHints"]["videoSize"] = velikost
     if nazev_souboru:
         objekt["behaviorHints"]["filename"] = nazev_souboru
-    if nazev_souboru.lower().endswith(NE_PRO_WEB):
+    if nazev_souboru.lower().endswith(NE_PRO_WEB) or hlavicky:
         objekt["behaviorHints"]["notWebReady"] = True
+    if hlavicky:
+        # bez `notWebReady` Stremio `proxyHeaders` ignoruje (viz addon SDK)
+        objekt["behaviorHints"]["proxyHeaders"] = {"request": dict(hlavicky)}
     # aby „další díl“ držel stejný zdroj i kvalitu jako ten, co uživatel pustil
     if kvalita:
         objekt["behaviorHints"]["bingeGroup"] = f"nokturno-{zdroj}-{kvalita}".replace(" ", "-").lower()
@@ -208,11 +234,11 @@ def stream_object(popis, odkaz, jmeno_doplnku="Nokturno"):
     return objekt
 
 
-def streams_response(popisy, odkaz):
+def streams_response(popisy, odkaz, primy=None):
     """Celá odpověď endpointu `/stream/…`."""
     out = []
     for popis in popisy:
-        objekt = stream_object(popis, odkaz)
+        objekt = stream_object(popis, odkaz, primy=primy)
         if objekt:
             out.append(objekt)
     return {"streams": out}

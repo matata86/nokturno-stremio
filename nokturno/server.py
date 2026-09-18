@@ -14,18 +14,15 @@ import re
 import shutil
 import sys
 import time
-import urllib.error
-import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .config import decode, fingerprint, from_environ, sources_summary
 from .katalogy import Katalogy
 from .enginy import Enginy
-from .routes import VERZE, Odpoved, Router, jazyk_z_hlavicky, klient_z_useragent
+from .routes import VERZE, Router, jazyk_z_hlavicky, klient_z_useragent
 from .statistiky import Statistiky
 from .pady import Pady
 from .provoz import Provoz
-from . import sit
 
 _LOGGER = logging.getLogger("nokturno")
 
@@ -91,7 +88,6 @@ class Handler(BaseHTTPRequestHandler):
     _stav = 0
     _zapsano = 0
     _nahlaseno = True
-    _scheme = None
 
     # hlavičky pro stránky (úvod, formulář): žádné cizí skripty, žádné vkládání do
     # rámu, žádný Referer — formulář sbírá hesla a jeho adresa nese účty
@@ -110,7 +106,6 @@ class Handler(BaseHTTPRequestHandler):
         self._stav = 0
         self._zapsano = 0
         self._nahlaseno = False
-        self._scheme = None
 
     def send_response(self, code, message=None):
         self._stav = code
@@ -126,7 +121,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             provoz.zaznamenej(self.path, self.command or "GET", self._stav or 499, self._zapsano,
                               int((time.monotonic() - self._zacatek) * 1000),
-                              klient_z_useragent(self.headers.get("User-Agent")), scheme=self._scheme)
+                              klient_z_useragent(self.headers.get("User-Agent")))
         except Exception:  # noqa: BLE001 – statistika provozu nesmí nic shodit
             _LOGGER.debug("provoz se nezaznamenal", exc_info=True)
 
@@ -153,71 +148,7 @@ class Handler(BaseHTTPRequestHandler):
         schema = self.headers.get("X-Forwarded-Proto") or "http"
         return f"{schema}://{host}"
 
-    def _proxy(self, url, hlavicky):
-        """Soubor z vlastního úložiště přes doplněk — s heslem, které přehrávač nemá.
-
-        Přeposílá `Range`, takže přetáčení funguje a nic se nestahuje celé dopředu.
-        Heslo ani adresa úložiště klientovi neodejdou, dostane jen data.
-        """
-        pozadavek = dict(hlavicky)
-        for jmeno in ("Range", "If-Range"):
-            if self.headers.get(jmeno):
-                pozadavek[jmeno] = self.headers[jmeno]
-        # bez komprese: tělo se přeposílá po kouscích tak, jak přijde, a Content-Encoding se nepředával
-        pozadavek.setdefault("Accept-Encoding", "identity")
-        req = urllib.request.Request(url, headers=pozadavek, method="HEAD" if self.command == "HEAD" else "GET")
-        # z internetu jen hlídaným openerem: úložiště může přesměrovat dovnitř sítě
-        otevri = sit.OPENER.open if self._verejny else urllib.request.urlopen
-        try:
-            upstream = otevri(req, timeout=30)
-        except urllib.error.HTTPError as err:
-            upstream = err     # 416 a spol. patří klientovi, jen 401/403 se přeloží
-        except Exception as err:  # noqa: BLE001 – síť, DNS, zakázaná adresa
-            _LOGGER.info("úložiště neodpovídá: %s", err)
-            self._posli(Odpoved(status=502, text="Úložiště neodpovídá."))
-            return
-        with upstream:
-            status = getattr(upstream, "status", None) or upstream.code
-            if status in (401, 403):
-                self._posli(Odpoved(status=502, text="Úložiště odmítlo jméno nebo heslo."))
-                return
-            self.send_response(status)
-            for jmeno in ("Content-Type", "Content-Length", "Content-Range", "Accept-Ranges",
-                          "Last-Modified", "ETag", "Content-Encoding"):
-                if upstream.headers.get(jmeno):
-                    self.send_header(jmeno, upstream.headers[jmeno])
-            if not upstream.headers.get("Content-Length"):
-                self.close_connection = True   # bez délky jde konec poznat jen zavřením
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self._odeslano = True   # chyba odteď nesmí poslat druhou odpověď do téhož spojení
-            if self.command == "HEAD":
-                return
-            while True:
-                try:
-                    kus = upstream.read(256 * 1024)
-                except (TimeoutError, OSError) as err:
-                    # úložiště uprostřed souboru přestalo posílat — výpadek zdroje, ne chyba doplňku;
-                    # zavřít spojení, přehrávač se připojí znovu s Range
-                    _LOGGER.info("úložiště přestalo posílat data: %s", err)
-                    self.close_connection = True
-                    return
-                if not kus:
-                    break
-                try:
-                    self.wfile.write(kus)
-                    self._zapsano += len(kus)
-                except TimeoutError:
-                    # přehrávač přestal číst déle než `timeout` (pauza, plný buffer, ztracená síť) —
-                    # stejné jako zavřené spojení, ne pád (dashboard Pády, 2026-09-17, 5.2.11)
-                    _LOGGER.debug("klient přestal číst při %s", bezpecna_cesta(self.path))
-                    self.close_connection = True
-                    return
-
     def _posli(self, odpoved):
-        if odpoved.proxy:
-            self._proxy(*odpoved.proxy)
-            return
         telo, typ = odpoved.body
         self.send_response(odpoved.status)
         if odpoved.location:
@@ -248,10 +179,8 @@ class Handler(BaseHTTPRequestHandler):
             self._verejny = verejny
             jazyk = jazyk_z_hlavicky(self.headers.get("Accept-Language"))
             aplikace = klient_z_useragent(self.headers.get("User-Agent"))
-            odpoved = self.server.router.route(self.path, self._zaklad(), verejny=verejny, jazyk=jazyk,
-                                                klient=self._klient(), aplikace=aplikace)
-            self._scheme = getattr(odpoved, "scheme", None)
-            self._posli(odpoved)
+            self._posli(self.server.router.route(self.path, self._zaklad(), verejny=verejny, jazyk=jazyk,
+                                                 klient=self._klient(), aplikace=aplikace))
         except (BrokenPipeError, ConnectionResetError):
             # přehrávač si to rozmyslel a zavřel spojení — běžné, ne chyba
             _LOGGER.debug("klient zavřel spojení při %s", bezpecna_cesta(self.path))
