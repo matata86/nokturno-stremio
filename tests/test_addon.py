@@ -1206,6 +1206,7 @@ class TestFormularHellSpyAJazyk(unittest.TestCase):
         self.assertIs(config.from_mapping({})["hs_enabled"], True, "bez klíče zůstává výchozí")
         self.assertEqual(config.from_mapping({"pref_lang": "ANY"})["pref_lang"], "")
         self.assertEqual(config.from_mapping({})["pref_lang"], "CZ")
+        self.assertEqual(config.from_mapping({"pref_lang": "HU"})["pref_lang"], "HU")
         # jak to pošle formulář: False přežije encode, ANY se rozklíčuje na prázdné
         odesle = {"ws_username": "u", "ws_password": "p", "hs_enabled": False, "pref_lang": "ANY"}
         options = config.decode(config.encode(odesle))
