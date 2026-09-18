@@ -91,6 +91,7 @@ class Handler(BaseHTTPRequestHandler):
     _stav = 0
     _zapsano = 0
     _nahlaseno = True
+    _scheme = None
 
     # hlavičky pro stránky (úvod, formulář): žádné cizí skripty, žádné vkládání do
     # rámu, žádný Referer — formulář sbírá hesla a jeho adresa nese účty
@@ -109,6 +110,7 @@ class Handler(BaseHTTPRequestHandler):
         self._stav = 0
         self._zapsano = 0
         self._nahlaseno = False
+        self._scheme = None
 
     def send_response(self, code, message=None):
         self._stav = code
@@ -124,7 +126,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             provoz.zaznamenej(self.path, self.command or "GET", self._stav or 499, self._zapsano,
                               int((time.monotonic() - self._zacatek) * 1000),
-                              klient_z_useragent(self.headers.get("User-Agent")))
+                              klient_z_useragent(self.headers.get("User-Agent")), scheme=self._scheme)
         except Exception:  # noqa: BLE001 – statistika provozu nesmí nic shodit
             _LOGGER.debug("provoz se nezaznamenal", exc_info=True)
 
@@ -246,8 +248,10 @@ class Handler(BaseHTTPRequestHandler):
             self._verejny = verejny
             jazyk = jazyk_z_hlavicky(self.headers.get("Accept-Language"))
             aplikace = klient_z_useragent(self.headers.get("User-Agent"))
-            self._posli(self.server.router.route(self.path, self._zaklad(), verejny=verejny, jazyk=jazyk,
-                                                 klient=self._klient(), aplikace=aplikace))
+            odpoved = self.server.router.route(self.path, self._zaklad(), verejny=verejny, jazyk=jazyk,
+                                                klient=self._klient(), aplikace=aplikace)
+            self._scheme = getattr(odpoved, "scheme", None)
+            self._posli(odpoved)
         except (BrokenPipeError, ConnectionResetError):
             # přehrávač si to rozmyslel a zavřel spojení — běžné, ne chyba
             _LOGGER.debug("klient zavřel spojení při %s", bezpecna_cesta(self.path))
