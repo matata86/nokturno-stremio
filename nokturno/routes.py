@@ -45,7 +45,7 @@ from . import config, mapping, sit
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "5.2.26"
+VERZE = "5.2.27"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 
@@ -141,6 +141,32 @@ def chyba(status, zprava):
 
 
 NEUSPECHU_DOST = 3   # kolik selhání jednoho zdroje v jedné odpovědi stačí, než to vzdáme
+TMDB_PREFIX = "tmdb:"
+
+
+def _imdb_z_tmdb(engine, ctype, tmdb_id):
+    """`tmdb:<id>` → `tt…`, prázdno když se přeložit nedá.
+
+    Klienti Stremia (ověřeno u Nuvia 2026-09-18) posílají u titulů z TMDB katalogů
+    do `/stream/` id z TMDB. Zdroje ani jádro s ním neumí nic — celý doplněk stojí
+    na IMDb id — takže se přeloží přes TMDB. Detail je v jádru cachovaný, takže je
+    to jeden dotaz na titul, ne na požadavek.
+
+    **Bez vlastního TMDB klíče** (nepovinné pole formuláře) to nejde: přeložit
+    `tmdb:` id umí jen TMDB samo. Pak se vrátí prázdno jako dřív.
+    """
+    tmdb = getattr(engine, "tmdb", None)
+    if tmdb is None:
+        _LOGGER.info("tmdb:%s bez klíče TMDB nepřeložím", str(tmdb_id)[:20])
+        return ""
+    try:
+        imdb = tmdb.imdb_id(ctype, tmdb_id)
+    except Exception as err:  # noqa: BLE001 – výpadek TMDB = prázdno, ne chyba služby
+        _LOGGER.warning("překlad tmdb:%s selhal: %s", str(tmdb_id)[:20], err)
+        return ""
+    if not imdb:
+        _LOGGER.info("tmdb:%s nemá IMDb id", str(tmdb_id)[:20])
+    return imdb or ""
 
 
 def _primy(engine):
@@ -328,7 +354,12 @@ class Router:
     def streams(self, engine, ctype, item_id, zaklad, kousek, aplikace="stremio"):
         if ctype not in TYPY:
             return chyba(404, f"Neznámý typ obsahu: {ctype}")
-        base_id, season, _episode = split_episode_id(item_id)
+        base_id, season, episode = split_episode_id(item_id)
+        if base_id.startswith(TMDB_PREFIX):
+            base_id = _imdb_z_tmdb(engine, ctype, base_id[len(TMDB_PREFIX):])
+            if not base_id:
+                return Odpoved(data={"streams": []})
+            item_id = base_id if season is None else f"{base_id}:{season}:{episode}"
         if not (base_id.startswith("tt") or is_sosac_id(base_id)):
             # titul z cizího katalogu, jehož id neumíme přeložit na název — hledat
             # fulltextem není podle čeho. Zapíšeme si, co chodí: kdyby se nějaký
