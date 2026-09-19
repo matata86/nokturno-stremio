@@ -1358,6 +1358,73 @@ class TestLimityAUklid(unittest.TestCase):
         self.assertEqual(odp.status, 429)
         self.assertEqual(odp.utok[0], "limit")
 
+    def test_identita_vydani_a_overeni(self):
+        from nokturno.identita import Identita
+        i = Identita("tajne")
+        t = i.vydat()
+        self.assertTrue(i.platna(t))
+        self.assertFalse(i.platna(t[:-1] + ("0" if t[-1] != "0" else "1")))
+        self.assertFalse(i.platna("nesmysl"))
+        self.assertFalse(Identita("jine").platna(t))
+        vyp = Identita("")
+        self.assertEqual(vyp.vydat(), "")
+        self.assertFalse(vyp.platna(t))
+        self.assertEqual(config.from_mapping({"id": t, "ws_username": "a"})["id"], t)
+        self.assertNotIn("id", config.from_mapping({"id": "../x"}))
+        self.assertNotEqual(config.fingerprint(config.from_mapping({"id": t})),
+                            config.fingerprint(config.from_mapping({"id": i.vydat()})))
+
+    def test_neplatna_identita_v_adrese_je_403_krome_formulare(self):
+        from nokturno.identita import Identita
+        r = router()
+        r.identita = Identita("tajne")
+        spatne = config.encode(config.from_mapping({**NASTAVENI, "id": "0" * 16 + "." + "0" * 16}))
+        odp = r.route(f"/c/{spatne}/stream/movie/tt0133093.json", ZAKLAD, klient="1.2.3.4")
+        self.assertEqual(odp.status, 403)
+        self.assertEqual(odp.utok[0], "neplatné id")
+        self.assertEqual(r.route(f"/c/{spatne}/configure", ZAKLAD, klient="1.2.3.4").status, 200)
+        dobre = config.encode(config.from_mapping({**NASTAVENI, "id": r.identita.vydat()}))
+        self.assertEqual(r.route(f"/c/{dobre}/stream/movie/tt0133093.json", ZAKLAD, klient="1.2.3.4").status, 200)
+
+    def test_bez_tajemstvi_se_identita_ignoruje(self):
+        r = router()
+        s = config.encode(config.from_mapping({**NASTAVENI, "id": "a" * 16 + "." + "b" * 16}))
+        self.assertEqual(r.route(f"/c/{s}/stream/movie/tt0133093.json", ZAKLAD).status, 200)
+        self.assertNotIn("id", r.enginy_test.pozadovana_nastaveni[-1])
+
+    def test_limity_s_identitou_jdou_na_uzivatele_ne_na_adresu(self):
+        from nokturno import routes
+        from nokturno.identita import Identita
+        r = router()
+        r.identita = Identita("tajne")
+        r.stream_okno = routes.Okno(2, 600)
+        a = config.encode(config.from_mapping({**NASTAVENI, "id": r.identita.vydat()}))
+        b = config.encode(config.from_mapping({**NASTAVENI, "id": r.identita.vydat()}))
+        cesta = lambda k: f"/c/{k}/stream/movie/tt0133093.json"   # noqa: E731
+        self.assertEqual([r.route(cesta(a), ZAKLAD, klient="1.2.3.4").status for _ in range(3)], [200, 200, 429])
+        # jiná identita ze stejné adresy má vlastní limit; stejná identita z jiné adresy limit sdílí
+        self.assertEqual(r.route(cesta(b), ZAKLAD, klient="1.2.3.4").status, 200)
+        self.assertEqual(r.route(cesta(a), ZAKLAD, klient="9.9.9.9").status, 429)
+
+    def test_formular_vlozi_identitu_a_stavajici_zachova(self):
+        from nokturno import routes
+        from nokturno.identita import Identita
+        r = router()
+        r.identita = Identita("tajne")
+        r.id_okno = routes.Okno(2, 3600)
+        html = r.route("/configure", ZAKLAD, klient="1.2.3.4").html
+        import re
+        t1 = re.search(r'form.elements\["id"\].value = "([^"]*)"', html).group(1)
+        self.assertTrue(r.identita.platna(t1))
+        s = config.encode(config.from_mapping({**NASTAVENI, "id": t1}))
+        html = r.route(f"/c/{s}/configure", ZAKLAD, klient="1.2.3.4").html
+        self.assertIn(f'.value = "{t1}"', html)                 # stávající platná zůstává, nevydá se nová
+        r.route("/configure", ZAKLAD, klient="1.2.3.4")           # 2. vydání
+        html = r.route("/configure", ZAKLAD, klient="1.2.3.4").html
+        self.assertIn('form.elements["id"].value = ""', html)     # nad limit vydávání: bez identity
+        html = router().route("/configure", ZAKLAD).html          # bez tajemství
+        self.assertIn('form.elements["id"].value = ""', html)
+
     def test_klic_klienta(self):
         from nokturno.routes import klic_klienta
         self.assertEqual(klic_klienta("1.2.3.4"), "1.2.3.4")

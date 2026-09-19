@@ -19,6 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .config import decode, fingerprint, from_environ, sources_summary
 from .katalogy import Katalogy
+from .identita import Identita
 from .enginy import Enginy
 from .routes import VERZE, Router, jazyk_z_hlavicky, klient_z_useragent
 from .statistiky import Statistiky
@@ -304,7 +305,7 @@ def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, opti
         katalogy.zahrat()
     blokovane = {o.strip() for o in os.environ.get("NOKTURNO_BLOCKED_FINGERPRINTS", "").split(",") if o.strip()}
     server.router = Router(enginy, predvyplnit=predvyplnit, statistiky=Statistiky.z_prostredi(VERZE),
-                           katalogy=katalogy, blokovane=blokovane)
+                           katalogy=katalogy, blokovane=blokovane, identita=Identita.z_prostredi())
     server.pady = Pady.z_prostredi(data_dir, VERZE)
     server.pady.odesli()   # co zůstalo ve frontě z minula (server nebo síť tehdy neběžely)
     server.provoz = Provoz.z_prostredi()

@@ -458,6 +458,7 @@
         <p>Zoznamy filmov a seriálov priamo v Stremiu. Zapni len tie, ktoré chceš vidieť — detail titulu aj epizódy seriálov potom dodá Stremio samo a streamy Nokturno ako zvyčajne. Zoznamy sa na serveri obnovujú raz za 6 hodín.</p>
         <div id="katalogy"></div>
         <input type="hidden" name="katalogy">
+        <input type="hidden" name="id">
       </div>
     </section>
   </form>
@@ -637,6 +638,9 @@ for (const [klic, hodnota] of Object.entries(soucasne)) {
   else if (klic === "pref_lang" && hodnota === "") pole.value = "ANY";   // server drží „nezáleží“ jako prázdné
   else pole.value = hodnota;
 }
+// identita: podepsaný token serveru, ať má každý vlastní otisk (limity a jádra na uživatele,
+// ne na sdílené nastavení jen s HellSpy). Server vrátí stávající, nebo vydá nový; prázdné = vypnuto.
+form.elements["id"].value = "__ID__";
 if (Object.keys(soucasne).length === 0) {
   form.elements["hs_enabled"].checked = true;   // HellSpy nic nestojí
 }

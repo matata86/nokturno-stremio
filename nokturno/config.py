@@ -23,6 +23,7 @@ z prostředí ani z adresy nepřebírají; starší adresy, které je nesou, fun
 import base64
 import json
 import os
+import re
 
 from .core.lib.const import LANGS, SORT_ORDERS
 
@@ -56,6 +57,9 @@ PROSTREDI = {
        for n in (1, 2, 3) for pole in ("url", "username", "password", "name")},
 }
 PRAVDA = ("1", "true", "yes", "ano", "on")
+# identita uživatele (`identita.py`) — jde jen z adresy, nikdy z prostředí; tvar hlídá `identita.TVAR`
+ID_KLIC = "id"
+ID_RE = re.compile(r"^[0-9a-f]{16}\.[0-9a-f]{16}$")
 # klíče, u kterých engine čeká pravdivostní hodnotu, ne řetězec
 LOGICKE = ("hs_enabled", "pref_surround", "hide_sd")
 
@@ -81,7 +85,11 @@ def from_mapping(raw):
     """
     options = dict(VYCHOZI)
     for key, value in (raw or {}).items():
-        if value is None or key not in set(PROSTREDI.values()):
+        if value is None or (key not in set(PROSTREDI.values()) and key != ID_KLIC):
+            continue
+        if key == ID_KLIC:
+            if isinstance(value, str) and ID_RE.match(value.strip()):
+                options[key] = value.strip()
             continue
         if key in LOGICKE:
             options[key] = str(value).strip().lower() in PRAVDA if isinstance(value, str) else bool(value)

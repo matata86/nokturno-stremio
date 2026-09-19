@@ -44,10 +44,11 @@ from .core.lib.fastshare_api import FastshareApi
 from .core.lib.storage_api import SLOTS, StorageApi
 from . import config, mapping, sit
 from .enginy import PrilisMnohoNovych
+from .identita import Identita
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "6.0.5"
+VERZE = "6.1.0"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -56,6 +57,7 @@ CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut —
 # Dřív se počítalo per otisk nastavení — jenže nastavení bez účtů (jen HellSpy a volby) sdílí
 # spousta lidí, takže jeden bot vyčerpal limit, respektive blokaci, všem ostatním.
 STREAM_LIMIT = (60, 10 * 60)
+ID_LIMIT = (3, 3600)   # vydaných identit z jedné adresy za hodinu (formulář /configure)
 
 
 def klic_klienta(adresa):
@@ -273,8 +275,10 @@ class Router:
     """Obsluha požadavků. Jádro si bere podle nastavení v adrese."""
 
     def __init__(self, enginy, verze=VERZE, predvyplnit=False, statistiky=None, katalogy=None,
-                 blokovane=None):
+                 blokovane=None, identita=None):
         self.enginy = enginy
+        self.identita = identita or Identita("")
+        self.id_okno = Okno(*ID_LIMIT)
         self.katalogy = katalogy   # nokturno.katalogy.Katalogy, None = katalogy se nenabízejí
         self.verze = verze
         # nabídnout ve formuláři účty z prostředí? Na sdílené instanci NE — ukázalo
@@ -341,7 +345,7 @@ class Router:
                 pass
         return (STATIKA / f"{jmeno}.html").read_text(encoding="utf-8")
 
-    def configure(self, kousek, zaklad, verejny=False, jazyk="cs"):
+    def configure(self, kousek, zaklad, verejny=False, jazyk="cs", klient=""):
         """Formulář, který vyrobí adresu s účty. Předvyplní se z adresy, na které stojí."""
         try:
             html = self._stranka("configure", jazyk)
@@ -355,7 +359,26 @@ class Router:
         html = html.replace("__KATALOGY__", mapping.json_do_scriptu(self.katalogy.formular(jazyk) if self.katalogy else []))
         html = html.replace("__ZAKLAD__", html_lib.escape(zaklad, quote=True))
         html = html.replace("__VERZE__", self.verze)
+        html = html.replace("__ID__", self._identita_pro_formular(soucasne, klient))
         return Odpoved(html=html)
+
+    def _identita_pro_formular(self, soucasne, klient):
+        """Token do adresy: stávající platný zůstává, jinak nový (omezeně na adresu)."""
+        if not self.identita.zapnuta:
+            return ""
+        if soucasne and self.identita.platna(soucasne.get(config.ID_KLIC)):
+            return soucasne[config.ID_KLIC]
+        adresa = klic_klienta(klient)
+        if adresa and not self.id_okno.povolit(adresa):
+            _LOGGER.info("identita: limit vydávání pro %s", adresa)
+            return ""
+        return self.identita.vydat()
+
+    def _klic_limitu(self, options, klient):
+        """Na koho se počítají limity, blokace a nová jádra: identita z adresy, jinak adresa."""
+        if options and options.get(config.ID_KLIC):
+            return "id:" + options[config.ID_KLIC]
+        return klic_klienta(klient)
 
     def check(self, options, verejny=False):
         """Ověření účtů pro tlačítko ve formuláři.
@@ -528,6 +551,14 @@ class Router:
         options = config.decode(kousek) if kousek else None
         if kousek and options is None:
             return chyba(404, "Adresa nese nečitelné nastavení. Vyrob si novou na /configure")
+        if options and options.get(config.ID_KLIC):
+            if not self.identita.zapnuta or (zbytek == "/configure" and not self.identita.platna(options[config.ID_KLIC])):
+                # bez tajemství nejde ověřit; na formuláři se neplatná jen zahodí a vydá se nová
+                options.pop(config.ID_KLIC)
+            elif not self.identita.platna(options[config.ID_KLIC]):
+                odp = chyba(403, "Adresa nese neplatnou identitu. Vyrob si novou na /configure")
+                odp.utok = ("neplatné id", config.fingerprint(options))
+                return odp
         if kousek and self.blokovane and config.fingerprint(options) in self.blokovane:
             odp = chyba(403, "Tahle adresa doplňku je zablokovaná.")
             odp.utok = ("blokováno", config.fingerprint(options))
@@ -537,7 +568,7 @@ class Router:
 
         if zbytek in ("", "/", "/configure", "/configure/"):
             if zbytek in ("/configure", "/configure/"):
-                return self.configure(kousek, zaklad, verejny, jazyk)
+                return self.configure(kousek, zaklad, verejny, jazyk, klient)
             return self.uvod(zaklad, jazyk)
 
         if verejny and not kousek:
@@ -565,7 +596,7 @@ class Router:
 
         if kousek and casti and casti[0] == "stream":
             fp = config.fingerprint(options)
-            adresa = klic_klienta(klient)
+            adresa = self._klic_limitu(options, klient)
             if adresa and self.blokace.blokovana(adresa):
                 odp = chyba(403, "Tvoje adresa je kvůli množství požadavků na hodinu zablokovaná.")
                 odp.utok = ("auto-blok", fp)
@@ -577,9 +608,9 @@ class Router:
                 odp.utok = ("limit", fp)
                 return odp
         try:
-            engine = self.enginy.pro(options, verejny=verejny, klient=klic_klienta(klient) if kousek else "")
+            engine = self.enginy.pro(options, verejny=verejny, klient=self._klic_limitu(options, klient) if kousek else "")
         except PrilisMnohoNovych:
-            adresa = klic_klienta(klient)
+            adresa = self._klic_limitu(options, klient)
             if adresa:
                 self.blokace.prohresek(adresa)
             odp = chyba(429, "Příliš mnoho nových nastavení z jedné adresy za hodinu, zkus to později.")
