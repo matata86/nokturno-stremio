@@ -118,6 +118,7 @@
   .stav:empty { display: none; }
   .stav.chyba { color: var(--chyba); }
   details.adresa { margin-top: .35rem; }
+  p.pozn { margin: .5rem 0 0; font-size: .82rem; color: var(--tlumene); }
   details.adresa summary { cursor: pointer; font-size: .82rem; color: var(--tlumene); list-style: none; user-select: none; }
   details.adresa summary::-webkit-details-marker { display: none; }
   details.adresa summary::before { content: "▸ "; color: var(--akcent); }
@@ -622,6 +623,7 @@
   </div>
   <div class="stav" id="stav"></div>
   <details class="adresa"><summary>Zobrazit adresu doplňku</summary><pre id="adresa"></pre></details>
+  <p id="identita-pozn" class="pozn" hidden>Adresa nese tvoji osobní identitu (kromě účtů). Nikomu ji neposílej — kdo ji má, používá limity a případnou blokaci s tebou. Každý si má vyrobit vlastní na této stránce.</p>
 </div>
 
 <script>
@@ -641,6 +643,7 @@ for (const [klic, hodnota] of Object.entries(soucasne)) {
 // identita: podepsaný token serveru, ať má každý vlastní otisk (limity a jádra na uživatele,
 // ne na sdílené nastavení jen s HellSpy). Server vrátí stávající, nebo vydá nový; prázdné = vypnuto.
 form.elements["id"].value = "__ID__";
+if (form.elements["id"].value) $("identita-pozn").hidden = false;
 if (Object.keys(soucasne).length === 0) {
   form.elements["hs_enabled"].checked = true;   // HellSpy nic nestojí
 }
