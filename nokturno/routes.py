@@ -91,6 +91,52 @@ class Okno:
                 return False
             self._data[key] = (count + 1, start)
             return True
+
+
+class Blokace:
+    """Krátká automatická blokace adres, které opakovaně narážejí na limity streamů.
+
+    Limit `STREAM_LIMIT` (na adresu, IPv6 po /64) bota jen zpomalí, ale nezastaví — dál mu
+    odpovídá 429 a on tluče dál (v incidentu 2026-09-19 ~60 požadavků/s). Proto se počítají odmítnutí:
+    `PRAH` za `okno_s` a adresa dostane na `doba_s` rovnou 403 bez další práce. Stav je jen v paměti (restart ho vynuluje) a týká se jen
+    `/stream/` — jiné cesty se nikdy neblokují, adresu může sdílet víc lidí (CGNAT).
+    """
+
+    def __init__(self, prah=20, okno_s=10 * 60, doba_s=3600, max_klicu=5000):
+        self.prah, self.okno_s, self.doba_s, self.max_klicu = prah, okno_s, doba_s, max_klicu
+        self._odmitnuti = {}
+        self._blok = {}
+        self._zamek = threading.Lock()
+
+    def blokovana(self, ip):
+        with self._zamek:
+            do = self._blok.get(ip)
+            if do is None:
+                return False
+            if time.time() >= do:
+                del self._blok[ip]
+                return False
+            return True
+
+    def prohresek(self, ip):
+        """Zaznamená odmítnutí; vrátí True, když tím adresa právě dostala blokaci."""
+        now = time.time()
+        with self._zamek:
+            if len(self._odmitnuti) > self.max_klicu:
+                self._odmitnuti.clear()
+            pocet, start = self._odmitnuti.get(ip, (0, now))
+            if now - start > self.okno_s:
+                pocet, start = 0, now
+            pocet += 1
+            self._odmitnuti[ip] = (pocet, start)
+            if pocet >= self.prah and ip not in self._blok:
+                if len(self._blok) > self.max_klicu:
+                    self._blok.clear()
+                self._blok[ip] = now + self.doba_s
+                return True
+            return False
+
+
 STATIKA = pathlib.Path(__file__).resolve().parent / "static"
 JAZYKY = ("cs", "sk")   # stránky úvodu a formuláře; manifest a streamy zůstávají česky
 
@@ -240,6 +286,7 @@ class Router:
         self.dav_api = StorageApi
         self.check_okno = Okno(*CHECK_LIMIT)
         self.stream_okno = Okno(*STREAM_LIMIT)
+        self.blokace = Blokace()
         # ruční blokace zneužívající adresy (otisk `config.fingerprint()`, ne účty
         # samotné) — `NOKTURNO_BLOCKED_FINGERPRINTS` v `.env`, viz `server.py`.
         # Incident 2026-09-19: jedna adresa systematicky procházela celý katalog
@@ -515,11 +562,19 @@ class Router:
             # katalog na účtech nezávisí — jádro se nezakládá, cache je jedna pro všechny
             return self.katalog(casti)
 
-        if kousek and casti and casti[0] == "stream" and not self.stream_okno.povolit(
-                klic_klienta(klient) or config.fingerprint(options)):
-            odp = chyba(429, "Příliš mnoho požadavků na streamy za sebou, zkus to za pár minut.")
-            odp.utok = ("limit", config.fingerprint(options))
-            return odp
+        if kousek and casti and casti[0] == "stream":
+            fp = config.fingerprint(options)
+            adresa = klic_klienta(klient)
+            if adresa and self.blokace.blokovana(adresa):
+                odp = chyba(403, "Tvoje adresa je kvůli množství požadavků na hodinu zablokovaná.")
+                odp.utok = ("auto-blok", fp)
+                return odp
+            if not self.stream_okno.povolit(adresa or fp):
+                if adresa:
+                    self.blokace.prohresek(adresa)
+                odp = chyba(429, "Příliš mnoho požadavků na streamy za sebou, zkus to za pár minut.")
+                odp.utok = ("limit", fp)
+                return odp
         engine = self.enginy.pro(options, verejny=verejny)
 
         if casti and casti[0] == "play" and len(casti) == 2:

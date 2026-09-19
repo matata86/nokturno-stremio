@@ -10,6 +10,7 @@ import logging
 import pathlib
 import sys
 import tempfile
+import time
 import unittest
 import urllib.error
 
@@ -1274,6 +1275,31 @@ class TestLimityAUklid(unittest.TestCase):
         stavy = [r.route(cesta, ZAKLAD, klient=f"2a09:bac1:1da0:10::{i}").status for i in range(3)]
         self.assertEqual(stavy, [200, 200, 429])
         self.assertEqual(r.route(cesta, ZAKLAD, klient="2a09:bac1:1da0:11::1").status, 200)
+
+    def test_opakovane_narazeni_na_limit_zablokuje_adresu_na_hodinu(self):
+        from nokturno import routes
+        r = router()
+        r.stream_okno = routes.Okno(2, 600)
+        r.blokace = routes.Blokace(prah=3, okno_s=600, doba_s=3600)
+        cesta = f"/c/{KOUSEK}/stream/movie/tt0133093.json"
+        stavy = [r.route(cesta, ZAKLAD, klient="1.2.3.4").status for _ in range(7)]
+        # 2× 200, pak 3× 429 a od třetího odmítnutí už rovnou 403 (blokace)
+        self.assertEqual(stavy, [200, 200, 429, 429, 429, 403, 403])
+        odp = r.route(cesta, ZAKLAD, klient="1.2.3.4")
+        self.assertEqual(odp.utok[0], "auto-blok")
+        # jiná adresa a jiné cesty téže adresy zůstávají dostupné
+        self.assertEqual(r.route(cesta, ZAKLAD, klient="5.6.7.8").status, 200)
+        self.assertEqual(r.route(f"/c/{KOUSEK}/manifest.json", ZAKLAD, klient="1.2.3.4").status, 200)
+
+    def test_blokace_vyprsi(self):
+        from unittest import mock
+        from nokturno import routes
+        b = routes.Blokace(prah=2, okno_s=600, doba_s=100)
+        b.prohresek("1.2.3.4")
+        self.assertTrue(b.prohresek("1.2.3.4"))
+        self.assertTrue(b.blokovana("1.2.3.4"))
+        with mock.patch.object(routes.time, "time", return_value=time.time() + 101):
+            self.assertFalse(b.blokovana("1.2.3.4"))
 
     def test_klic_klienta(self):
         from nokturno.routes import klic_klienta
