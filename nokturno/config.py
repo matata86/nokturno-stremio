@@ -59,7 +59,7 @@ PROSTREDI = {
 PRAVDA = ("1", "true", "yes", "ano", "on")
 # identita uživatele (`identita.py`) — jde jen z adresy, nikdy z prostředí; tvar hlídá `identita.TVAR`
 ID_KLIC = "id"
-ID_RE = re.compile(r"^[0-9a-f]{16}\.[0-9a-f]{16}$")
+ID_RE = re.compile(r"^(?:[0-9a-f]{8}\.)?[0-9a-f]{16}\.[0-9a-f]{16}$")   # s časem vydání (6.1.3) i bez
 # klíče, u kterých engine čeká pravdivostní hodnotu, ne řetězec
 LOGICKE = ("hs_enabled", "pref_surround", "hide_sd")
 

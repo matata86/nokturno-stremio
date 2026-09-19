@@ -46,8 +46,11 @@ class _Okno:
     def povolit(self, klic):
         now = time.time()
         with self._zamek:
-            if len(self._data) > self.max_klicu:
-                self._data.clear()
+            if klic not in self._data and len(self._data) >= self.max_klicu:
+                # jen prošlá okna; když je i pak plno, nový klíč se odmítne (dřív se mazalo vše)
+                self._data = {k: v for k, v in self._data.items() if v[1] > now - self.okno_s}
+                if len(self._data) >= self.max_klicu:
+                    return False
             pocet, start = self._data.get(klic, (0, now))
             if now - start > self.okno_s:
                 pocet, start = 0, now

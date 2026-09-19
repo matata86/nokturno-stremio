@@ -32,6 +32,15 @@ VYCHOZI_PORT = 7127          # hned vedle Luny na 7126
 VYCHOZI_DATA = "./data"      # cache a mezipaměť jádra; v kontejneru svazek
 
 
+_CORS_RE = re.compile(r"^(?:/c/[^/]+)?/(?:manifest\.json|health|stream/.+\.json|catalog/.+\.json|play/.+)$")
+
+
+def cors_povoleno(path):
+    """Jen cesty protokolu Stremia (manifest, streamy, katalog, přehrání, health) dostanou
+    `Access-Control-Allow-Origin: *`. Formulář, `/check` a `/identita*` ne."""
+    return bool(_CORS_RE.match((path or "").partition("?")[0]))
+
+
 def je_verejny(headers, client_ip):
     """Přišel požadavek z internetu přes Tailscale Funnel?
 
@@ -140,6 +149,8 @@ class Handler(BaseHTTPRequestHandler):
         ("X-Content-Type-Options", "nosniff"),
         ("X-Frame-Options", "DENY"),
         ("Referrer-Policy", "no-referrer"),
+        # Funnel HSTS nepřidává; stránka sbírá hesla, ať prohlížeč na http už nechodí
+        ("Strict-Transport-Security", "max-age=31536000"),
     )
 
     # --- měření provozu (provoz.py) ---------------------------------------
@@ -195,17 +206,24 @@ class Handler(BaseHTTPRequestHandler):
         schema = self.headers.get("X-Forwarded-Proto") or "http"
         return f"{schema}://{host}"
 
+    def _cors(self):
+        """CORS jen na cesty protokolu Stremia (webový klient je tahá z jiného originu).
+        Formulář, `/check` a `/identita*` ho nepotřebují — a s `*` by cizí web mohl
+        v prohlížečích návštěvníků těžit identity z tisíců adres (audit 2026-09-19)."""
+        if cors_povoleno(self.path):
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Headers", "*")
+
     def _posli(self, odpoved):
         self._utok = getattr(odpoved, "utok", None)
         telo, typ = odpoved.body
         self.send_response(odpoved.status)
+        self._odeslano = True   # od teď už nejde poslat druhou odpověď (viz do_GET)
         if odpoved.location:
             self.send_header("Location", odpoved.location)
         self.send_header("Content-Type", typ)
         self.send_header("Content-Length", str(len(telo)))
-        # Stremio si doplněk tahá z webového klienta, takže bez CORS by neprošel
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Headers", "*")
+        self._cors()
         if odpoved.html is not None:
             self.send_header("Vary", "Accept-Language")   # stránky jsou česky nebo slovensky
             for jmeno, hodnota in self.HLAVICKY_STRANEK:
@@ -256,7 +274,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 self.send_response(204)
                 self.send_header("Content-Length", "0")
-                self.send_header("Access-Control-Allow-Origin", "*")
+                self._cors()
                 self.end_headers()
             finally:
                 self._nahlas()
@@ -267,9 +285,9 @@ class Handler(BaseHTTPRequestHandler):
         self._zacni()
         try:
             self.send_response(204)
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Headers", "*")
-            self.send_header("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
+            self._cors()
+            if cors_povoleno(self.path):
+                self.send_header("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
             self.send_header("Content-Length", "0")
             self.end_headers()
         finally:
@@ -330,11 +348,16 @@ def main(argv=None):
     _LOGGER.info("Nokturno %s běží na http://%s:%d", VERZE, args.host, args.port)
     _LOGGER.info("zdroje výchozího nastavení: %s", ", ".join(zdroje) if zdroje else "žádné, viz README")
     _LOGGER.info("nastavení a adresa doplňku: http://<adresa tohohle stroje>:%d/configure", args.port)
+    # `systemctl stop/restart` posílá SIGTERM a Python ho na výjimku nepřevádí — bez tohohle by
+    # `finally` neproběhlo a fronta provozu i nedoručená hlášení o pádech se zahodily
+    import signal
+    signal.signal(signal.SIGTERM, lambda *_: threading.Thread(target=server.shutdown, daemon=True).start())
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        _LOGGER.info("končím")
+        pass
     finally:
+        _LOGGER.info("končím")
         server.provoz.stop()
         server.provoz.odesli()   # co se nastřádalo od poslední dávky
         server.server_close()

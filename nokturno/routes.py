@@ -48,7 +48,7 @@ from .identita import Identita
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "6.1.2"
+VERZE = "6.1.3"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -58,6 +58,15 @@ CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut —
 # spousta lidí, takže jeden bot vyčerpal limit, respektive blokaci, všem ostatním.
 STREAM_LIMIT = (60, 10 * 60)
 ID_LIMIT = (3, 3600)   # vydaných identit z jedné adresy za hodinu (formulář /configure)
+# Audit 2026-09-19: `/play/` neměl limit vůbec (sto tisíc rozklíčování z jedné adresy = HellSpy
+# 429 a jádro ho pak vypne všem na 10 minut), `/catalog` taky ne (každý `skip` = nový dotaz na
+# TMDB/Sosáč). A s identitou v adrese se limity počítaly **místo** IP, takže N identit z jedné
+# adresy = N × limit — proto je nad tím strop na IP (IPv6 po /64), který identita neobejde;
+# je volnější než limit na uživatele, aby CGNAT s pár lidmi za jednou adresou nevadil.
+PLAY_LIMIT = (120, 10 * 60)
+KATALOG_LIMIT = (300, 10 * 60)
+IP_STROP = (300, 10 * 60)
+MAX_SKIP = 500
 
 
 def klic_klienta(adresa):
@@ -75,18 +84,28 @@ def klic_klienta(adresa):
 
 
 class Okno:
-    """Počítadlo v klouzavém okně per klíč (adresa klienta)."""
+    """Počítadlo v klouzavém okně per klíč (adresa klienta).
+
+    Při přetečení `max_keys` se vyhazují jen prošlá okna; když je i pak plno, nový klíč
+    se odmítne — dřív se slovník mazal celý, takže 5001 různých /64 z jednoho IPv6 /48
+    vynulovalo limity všem (audit 2026-09-19)."""
 
     def __init__(self, limit, window_s, max_keys=5000):
         self.limit, self.window_s, self.max_keys = limit, window_s, max_keys
         self._data = {}
         self._zamek = threading.Lock()
 
+    def _uklid(self, now):
+        hranice = now - self.window_s
+        self._data = {k: v for k, v in self._data.items() if v[1] > hranice}
+
     def povolit(self, key):
         now = time.time()
         with self._zamek:
-            if len(self._data) > self.max_keys:
-                self._data.clear()
+            if key not in self._data and len(self._data) >= self.max_keys:
+                self._uklid(now)
+                if len(self._data) >= self.max_keys:
+                    return False
             count, start = self._data.get(key, (0, now))
             if now - start > self.window_s:
                 count, start = 0, now
@@ -102,7 +121,8 @@ class Blokace:
     Limit `STREAM_LIMIT` (na adresu, IPv6 po /64) bota jen zpomalí, ale nezastaví — dál mu
     odpovídá 429 a on tluče dál (v incidentu 2026-09-19 ~60 požadavků/s). Proto se počítají odmítnutí:
     `PRAH` za `okno_s` a adresa dostane na `doba_s` rovnou 403 bez další práce. Stav je jen v paměti (restart ho vynuluje) a týká se jen
-    `/stream/` — jiné cesty se nikdy neblokují, adresu může sdílet víc lidí (CGNAT).
+    `/stream/` a `/play/` — jiné cesty se nikdy neblokují, adresu může sdílet víc lidí (CGNAT).
+    Při přetečení `max_klicu` se vyhazují jen prošlé záznamy; blokace se nikdy nemažou naráz.
     """
 
     def __init__(self, prah=20, okno_s=10 * 60, doba_s=3600, max_klicu=5000, soubor=None):
@@ -149,16 +169,21 @@ class Blokace:
         """Zaznamená odmítnutí; vrátí True, když tím adresa právě dostala blokaci."""
         now = time.time()
         with self._zamek:
-            if len(self._odmitnuti) > self.max_klicu:
-                self._odmitnuti.clear()
+            if ip not in self._odmitnuti and len(self._odmitnuti) >= self.max_klicu:
+                hranice = now - self.okno_s
+                self._odmitnuti = {k: v for k, v in self._odmitnuti.items() if v[1] > hranice}
+                if len(self._odmitnuti) >= self.max_klicu:
+                    return False   # plno i po úklidu: nový klíč se nepočítá, staré blokace zůstávají
             pocet, start = self._odmitnuti.get(ip, (0, now))
             if now - start > self.okno_s:
                 pocet, start = 0, now
             pocet += 1
             self._odmitnuti[ip] = (pocet, start)
             if pocet >= self.prah and ip not in self._blok:
-                if len(self._blok) > self.max_klicu:
-                    self._blok.clear()
+                if len(self._blok) >= self.max_klicu:
+                    self._blok = {k: do for k, do in self._blok.items() if do > now}
+                    if len(self._blok) >= self.max_klicu:
+                        return False
                 self._blok[ip] = now + self.doba_s
                 if ip.startswith("id:"):
                     self._kolikrat[ip] = self._kolikrat.get(ip, 0) + 1
@@ -320,6 +345,9 @@ class Router:
         self.dav_api = StorageApi
         self.check_okno = Okno(*CHECK_LIMIT)
         self.stream_okno = Okno(*STREAM_LIMIT)
+        self.play_okno = Okno(*PLAY_LIMIT)
+        self.katalog_okno = Okno(*KATALOG_LIMIT)
+        self.ip_okno = Okno(*IP_STROP)   # strop na adresu nad limity na uživatele (identitu)
         self.blokace = blokace or Blokace()
         # ruční blokace zneužívající adresy (otisk `config.fingerprint()`, ne účty
         # samotné) — `NOKTURNO_BLOCKED_FINGERPRINTS` v `.env`, viz `server.py`.
@@ -392,10 +420,11 @@ class Router:
         return Odpoved(html=html)
 
     def _identita_pro_formular(self, soucasne, klient):
-        """Token do adresy: jen stávající platný; novou si stránka vyžádá až za důkaz práce."""
+        """Token do adresy: stávající platný (v druhé půlce platnosti tiše vyměněný za čerstvý —
+        držitel platného už práci prokázal); bez něj si stránka novou vyžádá až za důkaz práce."""
         t = (soucasne or {}).get(config.ID_KLIC)
         if self.identita.zapnuta and t and self.identita.platna(t) and not self.blokace.odebrana("id:" + t):
-            return t
+            return self.identita.vydat() if self.identita.k_obnove(t) else t
         return ""
 
     def vydat_identitu(self, dotaz, klient):
@@ -404,7 +433,7 @@ class Router:
             return chyba(404, "Identity se nevydávají.")
         vyzva = (dotaz.get("vyzva") or [""])[0]
         reseni = (dotaz.get("reseni") or [""])[0]
-        if not self.identita.over_dukaz(vyzva, reseni):
+        if not self.identita.over_dukaz(vyzva, reseni, klic_klienta(klient)):
             odp = chyba(403, "Výzva nesedí nebo vypršela.")
             odp.utok = ("špatný důkaz", None)
             return odp
@@ -420,6 +449,27 @@ class Router:
         if options and options.get(config.ID_KLIC):
             return "id:" + options[config.ID_KLIC]
         return klic_klienta(klient)
+
+    def _omezit(self, okno, options, klient, co):
+        """Limit `okno` na klíč (identita, jinak adresa) + strop `IP_STROP` na adresu, který
+        identita neobejde; blokovaná adresa/identita dostane 403. None = smí dál."""
+        fp = config.fingerprint(options)
+        adresa = self._klic_limitu(options, klient)
+        ip = klic_klienta(klient)
+        for klic in {adresa, ip} - {""}:
+            if self.blokace.blokovana(klic):
+                odp = chyba(403, "Tvoje adresa je kvůli množství požadavků na hodinu zablokovaná.")
+                odp.utok = ("auto-blok", fp)
+                return odp
+        if not okno.povolit(adresa or fp) or (ip and ip != adresa and not self.ip_okno.povolit(ip)):
+            if adresa:
+                self.blokace.prohresek(adresa)
+            if ip and ip != adresa:
+                self.blokace.prohresek(ip)
+            odp = chyba(429, f"Příliš mnoho požadavků na {co} za sebou, zkus to za pár minut.")
+            odp.utok = ("limit", fp)
+            return odp
+        return None
 
     def check(self, options, verejny=False):
         """Ověření účtů pro tlačítko ve formuláři.
@@ -540,7 +590,13 @@ class Router:
             katalog_id, extra = casti[2][:-len(".json")], ""
         else:
             katalog_id, extra = casti[2], casti[3][:-len(".json")]
-        skip = (urllib.parse.parse_qs(extra).get("skip") or ["0"])[0]
+        try:
+            skip = max(0, int((urllib.parse.parse_qs(extra).get("skip") or ["0"])[0]))
+        except ValueError:
+            skip = 0
+        if skip > MAX_SKIP:
+            # každá hodnota skip je vlastní cache klíč a dotaz na zdroj; hlouběji Stremio nikdo neroluje
+            return Odpoved(data={"metas": []})
         metas = self.katalogy.polozky(typ, katalog_id, skip)
         if metas is None:
             return chyba(404, "Takový katalog tu není.")
@@ -588,7 +644,7 @@ class Router:
         if cesta == "/health":
             return self.health()
         if cesta == "/identita/vyzva":
-            return Odpoved(data={"vyzva": self.identita.vyzva(), "bity": self.identita.bity})
+            return Odpoved(data={"vyzva": self.identita.vyzva(klic_klienta(klient)), "bity": self.identita.bity})
         if cesta == "/identita":
             return self.vydat_identitu(urllib.parse.parse_qs(dotaz), klient)
 
@@ -632,7 +688,7 @@ class Router:
                               f"Vyrob si adresu na {zaklad}/configure")
 
         if zbytek == "/check":
-            if not self.check_okno.povolit(klient or "?"):
+            if not self.check_okno.povolit(klic_klienta(klient) or "?"):
                 odp = chyba(429, "Příliš mnoho ověření za sebou, zkus to za pár minut.")
                 odp.utok = ("limit", config.fingerprint(options) if kousek else None)
                 return odp
@@ -643,20 +699,19 @@ class Router:
         casti = [c for c in zbytek.split("/") if c]
         if casti and casti[0] == "catalog":
             # katalog na účtech nezávisí — jádro se nezakládá, cache je jedna pro všechny
+            if not self.katalog_okno.povolit(klic_klienta(klient) or "?"):
+                odp = chyba(429, "Příliš mnoho požadavků na katalog za sebou, zkus to za pár minut.")
+                odp.utok = ("limit", config.fingerprint(options) if kousek else None)
+                return odp
             return self.katalog(casti)
 
         if kousek and casti and casti[0] == "stream":
-            fp = config.fingerprint(options)
-            adresa = self._klic_limitu(options, klient)
-            if adresa and self.blokace.blokovana(adresa):
-                odp = chyba(403, "Tvoje adresa je kvůli množství požadavků na hodinu zablokovaná.")
-                odp.utok = ("auto-blok", fp)
+            odp = self._omezit(self.stream_okno, options, klient, "streamy")
+            if odp is not None:
                 return odp
-            if not self.stream_okno.povolit(adresa or fp):
-                if adresa:
-                    self.blokace.prohresek(adresa)
-                odp = chyba(429, "Příliš mnoho požadavků na streamy za sebou, zkus to za pár minut.")
-                odp.utok = ("limit", fp)
+        if kousek and casti and casti[0] == "play":
+            odp = self._omezit(self.play_okno, options, klient, "přehrání")
+            if odp is not None:
                 return odp
         try:
             engine = self.enginy.pro(options, verejny=verejny, klient=self._klic_limitu(options, klient) if kousek else "")

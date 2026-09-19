@@ -1425,24 +1425,152 @@ class TestLimityAUklid(unittest.TestCase):
         r.identita = Identita("tajne")
         r.identita.bity = 8
         r.id_okno = routes.Okno(2, 3600)
-        vyzva = r.route("/identita/vyzva", ZAKLAD).data["vyzva"]
+        vyzva = r.route("/identita/vyzva", ZAKLAD, klient="1.2.3.4").data["vyzva"]
         self.assertTrue(vyzva)
         self.assertEqual(r.route(f"/identita?vyzva={vyzva}&reseni=nesmysl", ZAKLAD, klient="1.2.3.4").status, 403)
         reseni = najdi_reseni(vyzva, 8)
+        # výzva je vázaná na adresu klienta: z jiné adresy neplatí (audit 2026-09-19)
+        self.assertEqual(r.route(f"/identita?vyzva={vyzva}&reseni={reseni}", ZAKLAD, klient="9.9.9.9").status, 403)
         odp = r.route(f"/identita?vyzva={vyzva}&reseni={reseni}", ZAKLAD, klient="1.2.3.4")
         self.assertEqual(odp.status, 200)
         self.assertTrue(r.identita.platna(odp.data["id"]))
+        # tatáž vyřešená výzva podruhé neprojde (replay)
+        self.assertEqual(r.route(f"/identita?vyzva={vyzva}&reseni={reseni}", ZAKLAD, klient="1.2.3.4").status, 403)
         # cizí/upravená výzva neprojde, vypršelá taky
-        cizi = Identita("jine").vyzva()
-        self.assertFalse(r.identita.over_dukaz(cizi, najdi_reseni(cizi, 8)))
-        stara = r.identita.vyzva(now=time.time() - 3600)
-        self.assertFalse(r.identita.over_dukaz(stara, najdi_reseni(stara, 8)))
+        cizi = Identita("jine").vyzva("1.2.3.4")
+        self.assertFalse(r.identita.over_dukaz(cizi, najdi_reseni(cizi, 8), "1.2.3.4"))
+        stara = r.identita.vyzva("1.2.3.4", now=time.time() - 3600)
+        self.assertFalse(r.identita.over_dukaz(stara, najdi_reseni(stara, 8), "1.2.3.4"))
         # limit vydávání na adresu (2. projde, 3. ne) — i se správným důkazem
-        v2 = r.identita.vyzva()
+        v2 = r.identita.vyzva("1.2.3.4")
         self.assertEqual(r.route(f"/identita?vyzva={v2}&reseni={najdi_reseni(v2, 8)}", ZAKLAD, klient="1.2.3.4").status, 200)
-        v3 = r.identita.vyzva()
+        v3 = r.identita.vyzva("1.2.3.4")
         self.assertEqual(r.route(f"/identita?vyzva={v3}&reseni={najdi_reseni(v3, 8)}", ZAKLAD, klient="1.2.3.4").status, 429)
         self.assertEqual(router().route("/identita/vyzva", ZAKLAD).data["vyzva"], "")   # bez tajemství
+
+    def test_identita_ma_platnost_a_formular_ji_obnovi(self):
+        """Audit 2026-09-19: token neměl čas vydání a platil navždy."""
+        from nokturno import identita as mod
+        from nokturno.identita import Identita
+        i = Identita("tajne")
+        now = time.time()
+        t = i.vydat(now=now)
+        self.assertTrue(i.platna(t, now=now))
+        self.assertTrue(i.platna(t, now=now + mod.PLATNOST - 1))
+        self.assertFalse(i.platna(t, now=now + mod.PLATNOST + 1))
+        self.assertFalse(i.platna(t, now=now - 3600), "token z budoucnosti neplatí")
+        self.assertFalse(i.k_obnove(t, now=now + 10))
+        self.assertTrue(i.k_obnove(t, now=now + mod.PLATNOST * 0.6))
+        # starý tvar (6.1.0–6.1.2) platí jen do STARE_DO a formulář ho vymění
+        nahoda = "a" * 16
+        stary = f"{nahoda}.{i._podpis(nahoda)}"
+        self.assertTrue(i.platna(stary, now=mod.STARE_DO - 1))
+        self.assertFalse(i.platna(stary, now=mod.STARE_DO + 1))
+        self.assertTrue(i.k_obnove(stary, now=mod.STARE_DO - 1))
+        self.assertTrue(config.ID_RE.match(t) and config.ID_RE.match(stary))
+        r = router()
+        r.identita = Identita("tajne")
+        s = config.encode(config.from_mapping({**NASTAVENI, "id": stary}))
+        html = r.route(f"/c/{s}/configure", ZAKLAD, klient="1.2.3.4").html
+        self.assertNotIn(f'.value = "{stary}"', html)
+        novy = html.split('form.elements["id"].value = "', 1)[1].split('"', 1)[0]
+        self.assertTrue(r.identita.platna(novy) and r.identita.vydana(novy) is not None)
+        # starý tvar dál funguje na /stream
+        self.assertEqual(r.route(f"/c/{s}/stream/movie/tt0133093.json", ZAKLAD, klient="1.2.3.4").status, 200)
+
+    def test_identita_neobejde_strop_na_adresu(self):
+        """Audit 2026-09-19: N identit z jedné adresy = N × limit. Nad limitem na uživatele je
+        strop na adresu (IPv6 po /64), který identita neobejde."""
+        from nokturno import routes
+        from nokturno.identita import Identita
+        r = router()
+        r.identita = Identita("tajne")
+        r.stream_okno = routes.Okno(2, 600)
+        r.ip_okno = routes.Okno(3, 600)
+        cesta = lambda k: f"/c/{k}/stream/movie/tt0133093.json"   # noqa: E731
+        stavy = []
+        for _ in range(3):
+            k = config.encode(config.from_mapping({**NASTAVENI, "id": r.identita.vydat()}))
+            stavy.append(r.route(cesta(k), ZAKLAD, klient="1.2.3.4").status)
+        self.assertEqual(stavy, [200, 200, 200])
+        k = config.encode(config.from_mapping({**NASTAVENI, "id": r.identita.vydat()}))
+        self.assertEqual(r.route(cesta(k), ZAKLAD, klient="1.2.3.4").status, 429, "4. identita, strop adresy")
+        self.assertEqual(r.route(cesta(k), ZAKLAD, klient="5.6.7.8").status, 200, "jiná adresa jede")
+
+    def test_play_ma_limit_a_blokaci(self):
+        """Audit 2026-09-19: `/play/` neměl limit — sto tisíc rozklíčování = HellSpy 429 pro všechny."""
+        from nokturno import routes
+        r = router()
+        r.play_okno = routes.Okno(2, 600)
+        r.blokace = routes.Blokace(prah=2, okno_s=600, doba_s=3600)
+        cesta = f"/c/{KOUSEK}/play/{mapping.zakoduj('ws:abc')}"
+        stavy = [r.route(cesta, ZAKLAD, klient="1.2.3.4").status for _ in range(5)]
+        self.assertEqual(stavy[:2], [302, 302])
+        self.assertEqual(stavy[2], 429)
+        self.assertEqual(stavy[-1], 403, "po prahu odmítnutí blokace i na /play/")
+        self.assertEqual(r.route(f"/c/{KOUSEK}/manifest.json", ZAKLAD, klient="1.2.3.4").status, 200)
+
+    def test_katalog_ma_limit_a_strop_skip(self):
+        from nokturno import routes
+        from nokturno.katalogy import Katalogy
+        volani = []
+
+        class Sosac:
+            def catalog(self, ctype, cid, skip=0, page=100):
+                volani.append(skip)
+                return [{"id": "sosacd_m_x", "imdb_id": "tt0133093", "name": "Matrix", "year": "1999"}]
+        r = router()
+        r.katalogy = Katalogy(tempfile.mkdtemp())
+        r.katalogy.sosac = Sosac()
+        r.katalog_okno = routes.Okno(1, 600)
+        cesta = "/catalog/movie/nokturno.sosac.nove.dabing.json"
+        self.assertEqual(r.route(f"/c/{KOUSEK}{cesta}", ZAKLAD, klient="1.2.3.4").status, 200)
+        self.assertEqual(r.route(f"/c/{KOUSEK}{cesta}", ZAKLAD, klient="1.2.3.4").status, 429)
+        self.assertEqual(r.route(f"/c/{KOUSEK}{cesta}", ZAKLAD, klient="5.6.7.8").status, 200, "jiná adresa jede")
+        r.katalog_okno = routes.Okno(100, 600)
+        odp = r.route(f"/c/{KOUSEK}/catalog/movie/nokturno.sosac.nove.dabing/skip={routes.MAX_SKIP + 1}.json",
+                      ZAKLAD, klient="1.2.3.4")
+        self.assertEqual(odp.status, 200)
+        self.assertEqual(odp.data, {"metas": []}, "za stropem prázdno bez dotazu na zdroj")
+        self.assertNotIn(routes.MAX_SKIP + 1, volani)
+
+    def test_check_limit_po_prefixu_ipv6(self):
+        from nokturno.routes import Okno
+        r = router()
+        r.ws_api = FalesnyWebshare
+        r.check_okno = Okno(1, 300)
+        kousek = config.encode(config.from_mapping({"ws_username": "u", "ws_password": "spravne"}))
+        self.assertEqual(r.route(f"/c/{kousek}/check", ZAKLAD, klient="2001:db8::1").status, 200)
+        self.assertEqual(r.route(f"/c/{kousek}/check", ZAKLAD, klient="2001:db8::2").status, 429,
+                         "jiná adresa v témž /64 sdílí limit")
+
+    def test_okno_pri_preteceni_nemaze_vse(self):
+        """Audit 2026-09-19: 5001 klíčů dřív smazalo celý slovník včetně blokací."""
+        from nokturno import routes
+        o = routes.Okno(1, 600, max_keys=3)
+        for k in ("a", "b", "c"):
+            self.assertTrue(o.povolit(k))
+        self.assertFalse(o.povolit("a"), "limit platí dál")
+        self.assertFalse(o.povolit("d"), "plno a nic neprošlo → nový klíč se odmítne, staré zůstávají")
+        o._data["b"] = (1, time.time() - 601)   # jedno okno prošlo
+        self.assertTrue(o.povolit("d"))
+        self.assertFalse(o.povolit("a"))
+        b = routes.Blokace(prah=1, okno_s=600, doba_s=3600, max_klicu=2)
+        b.prohresek("x")
+        b.prohresek("y")
+        self.assertTrue(b.blokovana("x"))
+        b.prohresek("z")
+        self.assertTrue(b.blokovana("x"), "přetečení nesmí odblokovat staré")
+        self.assertTrue(b.blokovana("y"))
+
+    def test_cors_jen_na_protokol(self):
+        from nokturno.server import cors_povoleno
+        for c in ("/health", "/manifest.json", f"/c/{KOUSEK}/manifest.json", f"/c/{KOUSEK}/stream/movie/tt1.json",
+                  f"/c/{KOUSEK}/catalog/movie/x/skip=20.json", f"/c/{KOUSEK}/play/abc", "/catalog/movie/x.json"):
+            self.assertTrue(cors_povoleno(c), c)
+        for c in ("/", "/configure", f"/c/{KOUSEK}/configure", f"/c/{KOUSEK}/check", "/identita/vyzva",
+                  "/identita?vyzva=1&reseni=2", "/configure?lang=sk"):
+            self.assertFalse(cors_povoleno(c), c)
 
     def test_druha_blokace_identity_ji_odebere_natrvalo(self):
         from nokturno import routes
