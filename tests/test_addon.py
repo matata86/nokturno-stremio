@@ -1254,6 +1254,15 @@ class TestLimityAUklid(unittest.TestCase):
         odp = r.route(f"/c/{KOUSEK}/manifest.json", ZAKLAD)
         self.assertEqual(odp.status, 403)
 
+    def test_limit_streamu_na_adresu(self):
+        from nokturno import routes
+        r = router()
+        r.stream_okno = routes.Okno(3, 600)
+        cesta = f"/c/{KOUSEK}/stream/movie/tt0133093.json"
+        self.assertEqual([r.route(cesta, ZAKLAD).status for _ in range(4)], [200, 200, 200, 429])
+        jina = config.encode(config.from_mapping({"ws_username": "druhy", "ws_password": "x"}))
+        self.assertEqual(r.route(f"/c/{jina}/stream/movie/tt0133093.json", ZAKLAD).status, 200)
+
     def test_jina_adresa_blokaci_neni_dotcena(self):
         r = Router(FalesneEnginy(FalesnyEngine()), blokovane={"jiny-otisk"})
         odp = r.route(f"/c/{KOUSEK}/manifest.json", ZAKLAD)
