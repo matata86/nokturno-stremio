@@ -13,7 +13,7 @@ vyplň účty a klikni na *Přidat do Stremia* nebo *Přidat do Nuvia*.
 
 ## Co umí
 
-- **Vlastní úložiště** (od 3.1.0) — až tři WebDAV složky s vlastními soubory ve formuláři (s ověřením). Soubory jsou mezi streamy první a přehrávají se **přes doplněk** (proxy s `Range`), protože přehrávače Stremia heslo neumí poslat — heslo ani adresa úložiště do nich neodejdou. Veřejná instance ignoruje úložiště s adresou na server samotný nebo link-local. Podrobně ve [wiki](https://github.com/matata86/nokturno-stremio/wiki/Zdroje-a-nastaveni#vlastní-úložiště).
+- **Vlastní úložiště** (od 3.1.0) — až tři WebDAV složky s vlastními soubory ve formuláři (s ověřením). Soubory jsou mezi streamy první a od 5.2.26 se přehrávají **přímo ze zdroje** (`behaviorHints.proxyHeaders` nese autentizační hlavičku, žádná proxy) — úložiště musí být dosažitelné ze serveru (hledání) i ze zařízení, kde se přehrává (stahování). ⚠️ Ve webovém přehrávači Stremia se proto nepřehraje, jen v aplikaci. Veřejná instance ignoruje úložiště s adresou na server samotný nebo link-local. Podrobně ve [wiki](https://github.com/matata86/nokturno-stremio/wiki/Zdroje-a-nastaveni#vlastní-úložiště).
 Hlavně streamy: doplněk se chytá na všem, co má identifikátor IMDb, a k tomu přihodí
 své streamy. Od 5.1.0 k tomu umí **volitelné katalogy** — seznamy ze Sosáče a TMDB, každý
 se zapíná zvlášť ve formuláři. Detail titulu a díly seriálů dodá Stremio z Cinemety.
@@ -147,14 +147,15 @@ Nesahají na síť a nepotřebují účty. Jádro má vlastní testy ve svém re
 
 ## Stav a co dál
 
-Stabilní 4.0, v provozu na vlastní instanci, veřejně přes Tailscale Funnel na
+Stabilní 5.5.0, v provozu na vlastní instanci, veřejně přes Tailscale Funnel na
 [nokturno.tailf0014.ts.net](https://nokturno.tailf0014.ts.net/). Nastavení s návody je na
 `/configure`, včetně ověření účtů WebShare, Sledujteto a FastShare i vlastních úložišť.
 
-Veřejná instance je chráněná: ověřování účtů i proxy vlastního úložiště mají limit
-požadavků na jedno nastavení, úložiště s adresou na server samotný nebo link-local se
-ignoruje, `/play/` přijímá jen odkazy známých zdrojů, stránky mají CSP hlavičky a účty
-se nezapisují do logu. Server za proxy má poslouchat jen na `127.0.0.1` (`NOKTURNO_HOST`).
+Veřejná instance je chráněná: ověřování účtů má limit požadavků na jedno nastavení,
+úložiště s adresou na server samotný nebo link-local se ignoruje, `/play/` přijímá jen
+odkazy známých zdrojů, stránky mají CSP hlavičky a účty se nezapisují do logu. Od 5.2.26
+vlastní úložiště a FastShare netečou přes server vůbec (viz Co umí výš), takže proxy limit
+odpadl. Server má poslouchat jen na `127.0.0.1` (`NOKTURNO_HOST`).
 
 Chystá se:
 
@@ -163,7 +164,9 @@ Chystá se:
 
 ## Licence
 
-MIT
+Zdrojový kód je veřejně čitelný pro transparentnost a instalaci přes oficiální
+kanály (GitHub Releases, repozitář zipů). Kopírování, úpravy a šíření bez
+svolení autora nejsou dovolené — viz [LICENSE](LICENSE).
 
 ---
 

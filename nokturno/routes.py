@@ -45,7 +45,7 @@ from . import config, mapping, sit
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "5.5.1"
+VERZE = "5.5.2"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 
@@ -201,7 +201,8 @@ def _primy(engine):
 class Router:
     """Obsluha požadavků. Jádro si bere podle nastavení v adrese."""
 
-    def __init__(self, enginy, verze=VERZE, predvyplnit=False, statistiky=None, katalogy=None):
+    def __init__(self, enginy, verze=VERZE, predvyplnit=False, statistiky=None, katalogy=None,
+                 blokovane=None):
         self.enginy = enginy
         self.katalogy = katalogy   # nokturno.katalogy.Katalogy, None = katalogy se nenabízejí
         self.verze = verze
@@ -214,6 +215,12 @@ class Router:
         self.fs_api = FastshareApi
         self.dav_api = StorageApi
         self.check_okno = Okno(*CHECK_LIMIT)
+        # ruční blokace zneužívající adresy (otisk `config.fingerprint()`, ne účty
+        # samotné) — `NOKTURNO_BLOCKED_FINGERPRINTS` v `.env`, viz `server.py`.
+        # Incident 2026-09-19: jedna adresa systematicky procházela celý katalog
+        # (stream požadavek na tisíce id po řadě) a nafoukla cache adresáře na
+        # tolik souborů, že LXC 124 došly inody i sousednímu dashboardu.
+        self.blokovane = frozenset(blokovane or ())
 
     # --- adresy -----------------------------------------------------------
     @staticmethod
@@ -448,6 +455,8 @@ class Router:
         options = config.decode(kousek) if kousek else None
         if kousek and options is None:
             return chyba(404, "Adresa nese nečitelné nastavení. Vyrob si novou na /configure")
+        if kousek and self.blokovane and config.fingerprint(options) in self.blokovane:
+            return chyba(403, "Tahle adresa doplňku je zablokovaná.")
         if verejny and options:
             options = config.bez_lokalnich_uloziste(options)
 

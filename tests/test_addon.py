@@ -1247,6 +1247,18 @@ class TestLimityAUklid(unittest.TestCase):
         self.assertEqual(bezpecna_cesta("/health"), "/health")
         self.assertEqual(bezpecna_cesta(f"/c/{KOUSEK}/configure?lang=sk"), f"/c/{config.fingerprint(NASTAVENI)}/configure?lang=sk")
 
+    def test_blokovany_otisk_dostane_403(self):
+        otisk = config.fingerprint(NASTAVENI)
+        enginy = FalesneEnginy(FalesnyEngine())
+        r = Router(enginy, blokovane={otisk})
+        odp = r.route(f"/c/{KOUSEK}/manifest.json", ZAKLAD)
+        self.assertEqual(odp.status, 403)
+
+    def test_jina_adresa_blokaci_neni_dotcena(self):
+        r = Router(FalesneEnginy(FalesnyEngine()), blokovane={"jiny-otisk"})
+        odp = r.route(f"/c/{KOUSEK}/manifest.json", ZAKLAD)
+        self.assertEqual(odp.status, 200)
+
     def test_uklid_starych_slozek_jader(self):
         import os
         import time
