@@ -296,8 +296,9 @@ def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, opti
     if options is None:
         # ať první dotaz po restartu nevrátí prázdný seznam seriálů; jen služba z prostředí (testy jdou bez sítě)
         katalogy.zahrat()
+    blokovane = {o.strip() for o in os.environ.get("NOKTURNO_BLOCKED_FINGERPRINTS", "").split(",") if o.strip()}
     server.router = Router(enginy, predvyplnit=predvyplnit, statistiky=Statistiky.z_prostredi(VERZE),
-                           katalogy=katalogy)
+                           katalogy=katalogy, blokovane=blokovane)
     server.pady = Pady.z_prostredi(data_dir, VERZE)
     server.pady.odesli()   # co zůstalo ve frontě z minula (server nebo síť tehdy neběžely)
     server.provoz = Provoz.z_prostredi()
