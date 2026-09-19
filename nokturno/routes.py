@@ -45,9 +45,13 @@ from . import config, mapping, sit
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "5.5.2"
+VERZE = "5.5.3"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
+# streamy z jedné adresy doplňku (otisk nastavení). Reálná data 2026-09-19: medián 2 titulů za
+# den, 99. percentil 37, nejvíc 61; bot procházející katalog jich dělal stovky za vteřiny a
+# nafoukl cache na 400 000 souborů. 60 za 10 min člověk nepřekročí, bot ano hned.
+STREAM_LIMIT = (60, 10 * 60)
 
 
 class Okno:
@@ -215,6 +219,7 @@ class Router:
         self.fs_api = FastshareApi
         self.dav_api = StorageApi
         self.check_okno = Okno(*CHECK_LIMIT)
+        self.stream_okno = Okno(*STREAM_LIMIT)
         # ruční blokace zneužívající adresy (otisk `config.fingerprint()`, ne účty
         # samotné) — `NOKTURNO_BLOCKED_FINGERPRINTS` v `.env`, viz `server.py`.
         # Incident 2026-09-19: jedna adresa systematicky procházela celý katalog
@@ -486,6 +491,8 @@ class Router:
             # katalog na účtech nezávisí — jádro se nezakládá, cache je jedna pro všechny
             return self.katalog(casti)
 
+        if kousek and casti and casti[0] == "stream" and not self.stream_okno.povolit(config.fingerprint(options)):
+            return chyba(429, "Příliš mnoho požadavků na streamy za sebou, zkus to za pár minut.")
         engine = self.enginy.pro(options, verejny=verejny)
 
         if casti and casti[0] == "play" and len(casti) == 2:
