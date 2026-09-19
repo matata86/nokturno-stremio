@@ -13,6 +13,7 @@ import os
 import re
 import shutil
 import sys
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -74,6 +75,46 @@ def uklid_dat(data_dir, max_age_s=30 * 86400):
     except OSError:
         pass
     return smazano
+
+
+def uklid_cache(data_dir, max_age_s=72 * 3600):
+    """Prošlé soubory `cache/*.json` uvnitř složek jader (`Store.cached_if()`, TTL
+    se hlídá jen při čtení). Kodi i HA tohle spouští svou vlastní údržbou
+    (`Store.prune_cache()`), Stremio žádnou periodickou údržbu nemělo — jedna
+    adresa doplňku se stránkovacím parametrem `skip` (katalogy.py) tak nasbírala
+    přes 400 000 souborů za pár dní a došly inody celému kontejneru i sousednímu
+    dashboardu (incident 2026-09-19). Volá `_udrzba_smycka` jednou za hodinu."""
+    hranice = time.time() - max_age_s
+    smazano = 0
+    try:
+        for name in os.listdir(data_dir):
+            cdir = os.path.join(data_dir, name, "cache")
+            if not os.path.isdir(cdir):
+                continue
+            for fn in os.listdir(cdir):
+                fp = os.path.join(cdir, fn)
+                try:
+                    if os.path.getmtime(fp) < hranice:
+                        os.remove(fp)
+                        smazano += 1
+                except OSError:
+                    pass
+    except OSError:
+        pass
+    return smazano
+
+
+def _udrzba_smycka(data_dir, interval_s=3600):
+    """Na pozadí, ať i dlouho běžící proces (žádný restart = žádné spuštění
+    `uklid_dat` ze `vytvor_server`) nenechá cache prošlých požadavků růst navždy."""
+    while True:
+        time.sleep(interval_s)
+        try:
+            smazano = uklid_cache(data_dir)
+            if smazano:
+                _LOGGER.info("úklid cache: %d prošlých souborů", smazano)
+        except Exception:
+            _LOGGER.exception("úklid cache selhal")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -261,6 +302,7 @@ def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, opti
     server.pady.odesli()   # co zůstalo ve frontě z minula (server nebo síť tehdy neběžely)
     server.provoz = Provoz.z_prostredi()
     server.provoz.start()  # bez NOKTURNO_TRAFFIC_TOKEN se vlákno nespustí a nic se neměří
+    threading.Thread(target=_udrzba_smycka, args=(data_dir,), daemon=True).start()
     return server, zdroje
 
 

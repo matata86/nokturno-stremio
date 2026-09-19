@@ -1260,6 +1260,27 @@ class TestLimityAUklid(unittest.TestCase):
         self.assertEqual(uklid_dat(str(tmp)), 1)
         self.assertEqual(sorted(p.name for p in tmp.iterdir()), sorted([nova.name, cizi.name]))
 
+    def test_uklid_cache_smaze_jen_prosle(self):
+        import os
+        import time
+        from nokturno.server import uklid_cache
+        tmp = pathlib.Path(tempfile.mkdtemp())
+        cdir = tmp / ("a" * 16) / "cache"
+        cdir.mkdir(parents=True)
+        stary, novy = cdir / "stary.json", cdir / "novy.json"
+        stary.write_text("{}")
+        novy.write_text("{}")
+        os.utime(stary, (time.time() - 100 * 3600,) * 2)
+        self.assertEqual(uklid_cache(str(tmp), max_age_s=72 * 3600), 1)
+        self.assertFalse(stary.exists())
+        self.assertTrue(novy.exists())
+
+    def test_uklid_cache_bez_cache_slozky_nic(self):
+        from nokturno.server import uklid_cache
+        tmp = pathlib.Path(tempfile.mkdtemp())
+        (tmp / ("a" * 16)).mkdir()
+        self.assertEqual(uklid_cache(str(tmp)), 0)
+
     def test_statistiky_nedrzi_neomezene(self):
         from nokturno.statistiky import Statistiky
         st = Statistiky("v")
