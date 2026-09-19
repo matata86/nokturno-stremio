@@ -1254,14 +1254,40 @@ class TestLimityAUklid(unittest.TestCase):
         odp = r.route(f"/c/{KOUSEK}/manifest.json", ZAKLAD)
         self.assertEqual(odp.status, 403)
 
-    def test_limit_streamu_na_adresu(self):
+    def test_limit_streamu_na_ip(self):
+        from nokturno import routes
+        r = router()
+        r.stream_okno = routes.Okno(3, 600)
+        cesta = f"/c/{KOUSEK}/stream/movie/tt0133093.json"
+        self.assertEqual([r.route(cesta, ZAKLAD, klient="1.2.3.4").status for _ in range(4)],
+                         [200, 200, 200, 429])
+        # stejné nastavení z jiné IP limit nesdílí (nastavení bez účtů má spousta lidí)
+        self.assertEqual(r.route(cesta, ZAKLAD, klient="5.6.7.8").status, 200)
+        jina = config.encode(config.from_mapping({"ws_username": "druhy", "ws_password": "x"}))
+        self.assertEqual(r.route(f"/c/{jina}/stream/movie/tt0133093.json", ZAKLAD, klient="1.2.3.4").status, 429)
+
+    def test_limit_streamu_ipv6_po_64(self):
+        from nokturno import routes
+        r = router()
+        r.stream_okno = routes.Okno(2, 600)
+        cesta = f"/c/{KOUSEK}/stream/movie/tt0133093.json"
+        stavy = [r.route(cesta, ZAKLAD, klient=f"2a09:bac1:1da0:10::{i}").status for i in range(3)]
+        self.assertEqual(stavy, [200, 200, 429])
+        self.assertEqual(r.route(cesta, ZAKLAD, klient="2a09:bac1:1da0:11::1").status, 200)
+
+    def test_klic_klienta(self):
+        from nokturno.routes import klic_klienta
+        self.assertEqual(klic_klienta("1.2.3.4"), "1.2.3.4")
+        self.assertEqual(klic_klienta("::ffff:1.2.3.4"), "1.2.3.4")
+        self.assertEqual(klic_klienta("2a09:bac1:1da0:10::1f:b9"), "2a09:bac1:1da0:10::/64")
+        self.assertEqual(klic_klienta(""), "")
+
+    def test_limit_streamu_bez_ip_podle_otisku(self):
         from nokturno import routes
         r = router()
         r.stream_okno = routes.Okno(3, 600)
         cesta = f"/c/{KOUSEK}/stream/movie/tt0133093.json"
         self.assertEqual([r.route(cesta, ZAKLAD).status for _ in range(4)], [200, 200, 200, 429])
-        jina = config.encode(config.from_mapping({"ws_username": "druhy", "ws_password": "x"}))
-        self.assertEqual(r.route(f"/c/{jina}/stream/movie/tt0133093.json", ZAKLAD).status, 200)
 
     def test_jina_adresa_blokaci_neni_dotcena(self):
         r = Router(FalesneEnginy(FalesnyEngine()), blokovane={"jiny-otisk"})

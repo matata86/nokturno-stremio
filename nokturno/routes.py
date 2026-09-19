@@ -30,6 +30,7 @@ zdroje rovnou ke klientovi a tenhle server se jich nedotkne — do 5.2.25 šla p
 něj a byl tím fakticky veřejná proxy pro cizí úložiště.
 """
 import html as html_lib
+import ipaddress
 import logging
 import pathlib
 import threading
@@ -45,13 +46,29 @@ from . import config, mapping, sit
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "6.0.4"
+VERZE = "6.0.5"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
-# streamy z jedné adresy doplňku (otisk nastavení). Reálná data 2026-09-19: medián 2 titulů za
-# den, 99. percentil 37, nejvíc 61; bot procházející katalog jich dělal stovky za vteřiny a
-# nafoukl cache na 400 000 souborů. 60 za 10 min člověk nepřekročí, bot ano hned.
+# streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
+# 2 titulů za den, 99. percentil 37, nejvíc 61; bot procházející katalog jich dělal stovky za
+# vteřiny a nafoukl cache na 400 000 souborů. 60 za 10 min člověk nepřekročí, bot ano hned.
+# Dřív se počítalo per otisk nastavení — jenže nastavení bez účtů (jen HellSpy a volby) sdílí
+# spousta lidí, takže jeden bot vyčerpal limit, respektive blokaci, všem ostatním.
 STREAM_LIMIT = (60, 10 * 60)
+
+
+def klic_klienta(adresa):
+    """Klíč do limitu: IPv4 celá, IPv6 jen prefix /64 — ten má jedna domácnost či stroj
+    celý, takže by si bot jinak mohl adresu uvnitř něj měnit s každým požadavkem."""
+    try:
+        ip = ipaddress.ip_address((adresa or "").strip())
+    except ValueError:
+        return adresa or ""
+    if ip.version == 6 and ip.ipv4_mapped:
+        return str(ip.ipv4_mapped)
+    if ip.version == 6:
+        return str(ipaddress.ip_network(f"{ip}/64", strict=False))
+    return str(ip)
 
 
 class Okno:
@@ -498,7 +515,8 @@ class Router:
             # katalog na účtech nezávisí — jádro se nezakládá, cache je jedna pro všechny
             return self.katalog(casti)
 
-        if kousek and casti and casti[0] == "stream" and not self.stream_okno.povolit(config.fingerprint(options)):
+        if kousek and casti and casti[0] == "stream" and not self.stream_okno.povolit(
+                klic_klienta(klient) or config.fingerprint(options)):
             odp = chyba(429, "Příliš mnoho požadavků na streamy za sebou, zkus to za pár minut.")
             odp.utok = ("limit", config.fingerprint(options))
             return odp
