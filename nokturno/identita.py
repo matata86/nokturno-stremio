@@ -15,8 +15,13 @@ import hashlib
 import os
 import re
 import secrets
+import time
 
 TVAR = re.compile(r"^[0-9a-f]{16}\.[0-9a-f]{16}$")
+VYZVA_RE = re.compile(r"^\d{1,12}\.[0-9a-f]{16}\.[0-9a-f]{16}$")
+RESENI_RE = re.compile(r"^[0-9a-zA-Z]{1,32}$")
+DUKAZ_BITY = 19          # nulových bitů na začátku SHA-256(výzva + "." + řešení); ~0,5 M pokusů
+VYZVA_PLATNOST = 10 * 60
 
 
 class Identita:
@@ -26,7 +31,14 @@ class Identita:
     @classmethod
     def z_prostredi(cls, environ=None):
         env = os.environ if environ is None else environ
-        return cls(str(env.get("NOKTURNO_ID_SECRET", "")).strip())
+        i = cls(str(env.get("NOKTURNO_ID_SECRET", "")).strip())
+        try:
+            i.bity = max(0, min(28, int(env.get("NOKTURNO_ID_DUKAZ_BITY", DUKAZ_BITY))))
+        except ValueError:
+            pass
+        return i
+
+    bity = DUKAZ_BITY
 
     @property
     def zapnuta(self):
@@ -47,3 +59,38 @@ class Identita:
             return False
         nahoda, podpis = token.split(".", 1)
         return hmac.compare_digest(self._podpis(nahoda), podpis)
+
+    # --- důkaz práce: identitu vydáme až za spočítanou výzvu (bez třetí strany) ---
+    def vyzva(self, now=None):
+        """Podepsaná výzva `<čas>.<náhoda>.<podpis>` — bez uloženého stavu, platí 10 minut."""
+        if not self.zapnuta:
+            return ""
+        cas = str(int(now if now is not None else time.time()))
+        nahoda = secrets.token_hex(8)
+        return f"{cas}.{nahoda}.{self._podpis(cas + '.' + nahoda)}"
+
+    def over_dukaz(self, vyzva, reseni, now=None):
+        """Výzva od nás, čerstvá, a SHA-256(výzva + "." + řešení) začíná `bity` nulami."""
+        if not self.zapnuta or not isinstance(vyzva, str) or not isinstance(reseni, str):
+            return False
+        if not VYZVA_RE.match(vyzva) or not RESENI_RE.match(reseni):
+            return False
+        cas, nahoda, podpis = vyzva.split(".")
+        if not hmac.compare_digest(self._podpis(cas + "." + nahoda), podpis):
+            return False
+        ted = now if now is not None else time.time()
+        if not (0 <= ted - int(cas) <= VYZVA_PLATNOST):
+            return False
+        otisk = hashlib.sha256(f"{vyzva}.{reseni}".encode("ascii")).digest()
+        return int.from_bytes(otisk[:4], "big") >> (32 - self.bity) == 0 if self.bity else True
+
+
+def najdi_reseni(vyzva, bity):
+    """Jen pro testy a měření — totéž, co dělá prohlížeč."""
+    n = 0
+    while True:
+        r = str(n)
+        if int.from_bytes(hashlib.sha256(f"{vyzva}.{r}".encode()).digest()[:4], "big") >> (32 - bity) == 0:
+            return r
+        n += 1
+

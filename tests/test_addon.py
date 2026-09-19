@@ -7,6 +7,7 @@ vlastní doplňku: převod streamů do podoby pro Stremio, rozcestník a odmít�
 odkazů, které by se neměly přehrát.
 """
 import logging
+import os
 import pathlib
 import sys
 import tempfile
@@ -1406,24 +1407,64 @@ class TestLimityAUklid(unittest.TestCase):
         self.assertEqual(r.route(cesta(b), ZAKLAD, klient="1.2.3.4").status, 200)
         self.assertEqual(r.route(cesta(a), ZAKLAD, klient="9.9.9.9").status, 429)
 
-    def test_formular_vlozi_identitu_a_stavajici_zachova(self):
-        from nokturno import routes
+    def test_formular_vlozi_jen_stavajici_identitu(self):
         from nokturno.identita import Identita
         r = router()
         r.identita = Identita("tajne")
-        r.id_okno = routes.Okno(2, 3600)
         html = r.route("/configure", ZAKLAD, klient="1.2.3.4").html
-        import re
-        t1 = re.search(r'form.elements\["id"\].value = "([^"]*)"', html).group(1)
-        self.assertTrue(r.identita.platna(t1))
+        self.assertIn('form.elements["id"].value = ""', html)      # novou si stránka vyžádá za důkaz práce
+        t1 = r.identita.vydat()
         s = config.encode(config.from_mapping({**NASTAVENI, "id": t1}))
         html = r.route(f"/c/{s}/configure", ZAKLAD, klient="1.2.3.4").html
-        self.assertIn(f'.value = "{t1}"', html)                 # stávající platná zůstává, nevydá se nová
-        r.route("/configure", ZAKLAD, klient="1.2.3.4")           # 2. vydání
-        html = r.route("/configure", ZAKLAD, klient="1.2.3.4").html
-        self.assertIn('form.elements["id"].value = ""', html)     # nad limit vydávání: bez identity
-        html = router().route("/configure", ZAKLAD).html          # bez tajemství
-        self.assertIn('form.elements["id"].value = ""', html)
+        self.assertIn(f'.value = "{t1}"', html)
+
+    def test_identita_se_vyda_jen_za_dukaz_prace_a_omezene(self):
+        from nokturno import routes
+        from nokturno.identita import Identita, najdi_reseni
+        r = router()
+        r.identita = Identita("tajne")
+        r.identita.bity = 8
+        r.id_okno = routes.Okno(2, 3600)
+        vyzva = r.route("/identita/vyzva", ZAKLAD).data["vyzva"]
+        self.assertTrue(vyzva)
+        self.assertEqual(r.route(f"/identita?vyzva={vyzva}&reseni=nesmysl", ZAKLAD, klient="1.2.3.4").status, 403)
+        reseni = najdi_reseni(vyzva, 8)
+        odp = r.route(f"/identita?vyzva={vyzva}&reseni={reseni}", ZAKLAD, klient="1.2.3.4")
+        self.assertEqual(odp.status, 200)
+        self.assertTrue(r.identita.platna(odp.data["id"]))
+        # cizí/upravená výzva neprojde, vypršelá taky
+        cizi = Identita("jine").vyzva()
+        self.assertFalse(r.identita.over_dukaz(cizi, najdi_reseni(cizi, 8)))
+        stara = r.identita.vyzva(now=time.time() - 3600)
+        self.assertFalse(r.identita.over_dukaz(stara, najdi_reseni(stara, 8)))
+        # limit vydávání na adresu (2. projde, 3. ne) — i se správným důkazem
+        v2 = r.identita.vyzva()
+        self.assertEqual(r.route(f"/identita?vyzva={v2}&reseni={najdi_reseni(v2, 8)}", ZAKLAD, klient="1.2.3.4").status, 200)
+        v3 = r.identita.vyzva()
+        self.assertEqual(r.route(f"/identita?vyzva={v3}&reseni={najdi_reseni(v3, 8)}", ZAKLAD, klient="1.2.3.4").status, 429)
+        self.assertEqual(router().route("/identita/vyzva", ZAKLAD).data["vyzva"], "")   # bez tajemství
+
+    def test_druha_blokace_identity_ji_odebere_natrvalo(self):
+        from nokturno import routes
+        from nokturno.identita import Identita
+        with tempfile.TemporaryDirectory() as tmp:
+            soubor = os.path.join(tmp, "odebrane.txt")
+            r = router()
+            r.identita = Identita("tajne")
+            r.stream_okno = routes.Okno(1, 600)
+            r.blokace = routes.Blokace(prah=2, okno_s=600, doba_s=0, soubor=soubor)
+            t = r.identita.vydat()
+            k = config.encode(config.from_mapping({**NASTAVENI, "id": t}))
+            cesta = f"/c/{k}/stream/movie/tt0133093.json"
+            stavy = [r.route(cesta, ZAKLAD, klient="1.2.3.4").status for _ in range(9)]
+            # 200, 429, 429(→1. blokace, doba 0 → hned vyprší), 429, 429(→2. blokace = odebrání), pak 403 napořád
+            self.assertEqual(stavy[-1], 403)
+            self.assertTrue(r.blokace.odebrana("id:" + t))
+            self.assertEqual(r.route(cesta, ZAKLAD, klient="1.2.3.4").utok[0], "odebráno")
+            # formulář odebranou zahodí (vydá se nová), soubor přežije restart
+            html = r.route(f"/c/{k}/configure", ZAKLAD, klient="1.2.3.4").html
+            self.assertIn('form.elements["id"].value = ""', html)
+            self.assertTrue(routes.Blokace(soubor=soubor).odebrana("id:" + t))
 
     def test_klic_klienta(self):
         from nokturno.routes import klic_klienta

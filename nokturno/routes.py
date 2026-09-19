@@ -48,7 +48,7 @@ from .identita import Identita
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "6.1.0"
+VERZE = "6.1.1"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -105,13 +105,37 @@ class Blokace:
     `/stream/` — jiné cesty se nikdy neblokují, adresu může sdílet víc lidí (CGNAT).
     """
 
-    def __init__(self, prah=20, okno_s=10 * 60, doba_s=3600, max_klicu=5000):
+    def __init__(self, prah=20, okno_s=10 * 60, doba_s=3600, max_klicu=5000, soubor=None):
         self.prah, self.okno_s, self.doba_s, self.max_klicu = prah, okno_s, doba_s, max_klicu
         self._odmitnuti = {}
         self._blok = {}
+        self._kolikrat = {}
         self._zamek = threading.Lock()
+        # identity (klíč `id:…`) odebrané natrvalo — druhá blokace téže identity; soubor přežije restart
+        self.soubor = soubor
+        self.odebrane = set()
+        if soubor:
+            try:
+                with open(soubor, encoding="utf-8") as f:
+                    self.odebrane = {r.strip() for r in f if r.strip()}
+            except OSError:
+                pass
+
+    def odebrana(self, klic):
+        return klic in self.odebrane
+
+    def _odebrat(self, klic):
+        self.odebrane.add(klic)
+        if self.soubor:
+            try:
+                with open(self.soubor, "a", encoding="utf-8") as f:
+                    f.write(klic + "\n")
+            except OSError:
+                _LOGGER.warning("odebrané identity se nepodařilo zapsat do %s", self.soubor)
 
     def blokovana(self, ip):
+        if ip in self.odebrane:
+            return True
         with self._zamek:
             do = self._blok.get(ip)
             if do is None:
@@ -136,6 +160,11 @@ class Blokace:
                 if len(self._blok) > self.max_klicu:
                     self._blok.clear()
                 self._blok[ip] = now + self.doba_s
+                if ip.startswith("id:"):
+                    self._kolikrat[ip] = self._kolikrat.get(ip, 0) + 1
+                    if self._kolikrat[ip] >= 2:
+                        self._odebrat(ip)   # identita podruhé v blokaci: natrvalo, ať si bot shání novou
+                        _LOGGER.warning("identita odebrána natrvalo: %s", ip[3:11] + "…")
                 return True
             return False
 
@@ -275,7 +304,7 @@ class Router:
     """Obsluha požadavků. Jádro si bere podle nastavení v adrese."""
 
     def __init__(self, enginy, verze=VERZE, predvyplnit=False, statistiky=None, katalogy=None,
-                 blokovane=None, identita=None):
+                 blokovane=None, identita=None, blokace=None):
         self.enginy = enginy
         self.identita = identita or Identita("")
         self.id_okno = Okno(*ID_LIMIT)
@@ -291,7 +320,7 @@ class Router:
         self.dav_api = StorageApi
         self.check_okno = Okno(*CHECK_LIMIT)
         self.stream_okno = Okno(*STREAM_LIMIT)
-        self.blokace = Blokace()
+        self.blokace = blokace or Blokace()
         # ruční blokace zneužívající adresy (otisk `config.fingerprint()`, ne účty
         # samotné) — `NOKTURNO_BLOCKED_FINGERPRINTS` v `.env`, viz `server.py`.
         # Incident 2026-09-19: jedna adresa systematicky procházela celý katalog
@@ -363,16 +392,28 @@ class Router:
         return Odpoved(html=html)
 
     def _identita_pro_formular(self, soucasne, klient):
-        """Token do adresy: stávající platný zůstává, jinak nový (omezeně na adresu)."""
+        """Token do adresy: jen stávající platný; novou si stránka vyžádá až za důkaz práce."""
+        t = (soucasne or {}).get(config.ID_KLIC)
+        if self.identita.zapnuta and t and self.identita.platna(t) and not self.blokace.odebrana("id:" + t):
+            return t
+        return ""
+
+    def vydat_identitu(self, dotaz, klient):
+        """Nová identita za spočítanou výzvu (`identita.over_dukaz`), nejvýš `ID_LIMIT` na adresu."""
         if not self.identita.zapnuta:
-            return ""
-        if soucasne and self.identita.platna(soucasne.get(config.ID_KLIC)):
-            return soucasne[config.ID_KLIC]
+            return chyba(404, "Identity se nevydávají.")
+        vyzva = (dotaz.get("vyzva") or [""])[0]
+        reseni = (dotaz.get("reseni") or [""])[0]
+        if not self.identita.over_dukaz(vyzva, reseni):
+            odp = chyba(403, "Výzva nesedí nebo vypršela.")
+            odp.utok = ("špatný důkaz", None)
+            return odp
+        # limit až za správný důkaz — špatný stojí jen toho, kdo ho poslal
         adresa = klic_klienta(klient)
         if adresa and not self.id_okno.povolit(adresa):
             _LOGGER.info("identita: limit vydávání pro %s", adresa)
-            return ""
-        return self.identita.vydat()
+            return chyba(429, "Příliš mnoho identit z jedné adresy za hodinu.")
+        return Odpoved(data={"id": self.identita.vydat()})
 
     def _klic_limitu(self, options, klient):
         """Na koho se počítají limity, blokace a nová jádra: identita z adresy, jinak adresa."""
@@ -546,18 +587,28 @@ class Router:
         cesta = urllib.parse.unquote(cesta)
         if cesta == "/health":
             return self.health()
+        if cesta == "/identita/vyzva":
+            return Odpoved(data={"vyzva": self.identita.vyzva(), "bity": self.identita.bity})
+        if cesta == "/identita":
+            return self.vydat_identitu(urllib.parse.parse_qs(dotaz), klient)
 
         kousek, zbytek = self._rozdel(cesta)
         options = config.decode(kousek) if kousek else None
         if kousek and options is None:
             return chyba(404, "Adresa nese nečitelné nastavení. Vyrob si novou na /configure")
         if options and options.get(config.ID_KLIC):
-            if not self.identita.zapnuta or (zbytek == "/configure" and not self.identita.platna(options[config.ID_KLIC])):
-                # bez tajemství nejde ověřit; na formuláři se neplatná jen zahodí a vydá se nová
+            platna = self.identita.platna(options[config.ID_KLIC])
+            odebrana = self.blokace.odebrana("id:" + options[config.ID_KLIC])
+            if not self.identita.zapnuta or (zbytek == "/configure" and (not platna or odebrana)):
+                # bez tajemství nejde ověřit; na formuláři se neplatná/odebraná jen zahodí a vydá se nová
                 options.pop(config.ID_KLIC)
-            elif not self.identita.platna(options[config.ID_KLIC]):
+            elif not platna:
                 odp = chyba(403, "Adresa nese neplatnou identitu. Vyrob si novou na /configure")
                 odp.utok = ("neplatné id", config.fingerprint(options))
+                return odp
+            elif odebrana:
+                odp = chyba(403, "Tahle identita byla kvůli opakovanému zneužití odebrána. Vyrob si novou na /configure")
+                odp.utok = ("odebráno", config.fingerprint(options))
                 return odp
         if kousek and self.blokovane and config.fingerprint(options) in self.blokovane:
             odp = chyba(403, "Tahle adresa doplňku je zablokovaná.")

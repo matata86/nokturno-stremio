@@ -644,6 +644,52 @@ for (const [klic, hodnota] of Object.entries(soucasne)) {
 // ne na sdílené nastavení jen s HellSpy). Server vrátí stávající, nebo vydá nový; prázdné = vypnuto.
 form.elements["id"].value = "__ID__";
 if (form.elements["id"].value) $("identita-pozn").hidden = false;
+// --- identita: bez stávající si vyžádáme novou za důkaz práce (SHA-256 s nulami na začátku).
+// Počítá se na pozadí ve workeru, zatím jde vyrobit adresa bez identity (sdílené limity).
+(async function () {
+  if (form.elements["id"].value) return;
+  let vyzva, bity;
+  try {
+    const r = await fetch(ZAKLAD + "/identita/vyzva", { cache: "no-store" });
+    ({ vyzva, bity } = await r.json());
+  } catch (e) { return; }
+  if (!vyzva) return;
+  nastavStav("Připravuji tvoji identitu… (pár sekund, adresa jde použít i bez ní)");
+  const kod = `
+    const K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+    const W=new Int32Array(64);
+    function h0(b){ // vrací prvních 32 bitů SHA-256 zprávy b (Uint8Array, < 56 bajtů/blok zvládne víc bloků)
+      const l=b.length, n=((l+9+63)>>6)<<6, m=new Uint8Array(n); m.set(b); m[l]=0x80;
+      const bits=l*8; m[n-4]=(bits>>>24)&255; m[n-3]=(bits>>>16)&255; m[n-2]=(bits>>>8)&255; m[n-1]=bits&255;
+      let a=0x6a09e667,B=0xbb67ae85,c=0x3c6ef372,d=0xa54ff53a,e=0x510e527f,f=0x9b05688c,g=0x1f83d9ab,h=0x5be0cd19;
+      for(let o=0;o<n;o+=64){
+        for(let i=0;i<16;i++)W[i]=(m[o+i*4]<<24)|(m[o+i*4+1]<<16)|(m[o+i*4+2]<<8)|m[o+i*4+3];
+        for(let i=16;i<64;i++){const x=W[i-15],y=W[i-2];
+          W[i]=(W[i-16]+(((x>>>7)|(x<<25))^((x>>>18)|(x<<14))^(x>>>3))+W[i-7]+(((y>>>17)|(y<<15))^((y>>>19)|(y<<13))^(y>>>10)))|0;}
+        let A=a,Bb=B,C=c,D=d,E=e,F=f,G=g,H=h;
+        for(let i=0;i<64;i++){
+          const t1=(H+(((E>>>6)|(E<<26))^((E>>>11)|(E<<21))^((E>>>25)|(E<<7)))+((E&F)^(~E&G))+K[i]+W[i])|0;
+          const t2=((((A>>>2)|(A<<30))^((A>>>13)|(A<<19))^((A>>>22)|(A<<10)))+((A&Bb)^(A&C)^(Bb&C)))|0;
+          H=G;G=F;F=E;E=(D+t1)|0;D=C;C=Bb;Bb=A;A=(t1+t2)|0;}
+        a=(a+A)|0;B=(B+Bb)|0;c=(c+C)|0;d=(d+D)|0;e=(e+E)|0;f=(f+F)|0;g=(g+G)|0;h=(h+H)|0;}
+      return a>>>0;}
+    onmessage=(ev)=>{const {vyzva,bity}=ev.data, enc=new TextEncoder(), pre=enc.encode(vyzva+".");
+      for(let n=0;;n++){const s=String(n), b=new Uint8Array(pre.length+s.length); b.set(pre); b.set(enc.encode(s),pre.length);
+        if(bity===0||(h0(b)>>>(32-bity))===0){postMessage(s);return;}}};`;
+  const w = new Worker(URL.createObjectURL(new Blob([kod], { type: "text/javascript" })));
+  w.onmessage = async (ev) => {
+    w.terminate();
+    try {
+      const r = await fetch(ZAKLAD + "/identita?vyzva=" + encodeURIComponent(vyzva) + "&reseni=" + encodeURIComponent(ev.data), { cache: "no-store" });
+      const d = await r.json();
+      if (d.id) { form.elements["id"].value = d.id; $("identita-pozn").hidden = false; prekresli(); }
+    } catch (e) { /* bez identity to jde taky */ }
+    nastavStav("");
+  };
+  w.onerror = () => { w.terminate(); nastavStav(""); };
+  w.postMessage({ vyzva, bity });
+})();
+
 if (Object.keys(soucasne).length === 0) {
   form.elements["hs_enabled"].checked = true;   // HellSpy nic nestojí
 }
