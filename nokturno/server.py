@@ -135,7 +135,7 @@ class Handler(BaseHTTPRequestHandler):
     # rámu, žádný Referer — formulář sbírá hesla a jeho adresa nese účty
     HLAVICKY_STRANEK = (
         ("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
-                                    "img-src https://raw.githubusercontent.com data:; connect-src 'self'; "
+                                    "img-src https://raw.githubusercontent.com data:; connect-src 'self'; worker-src blob:; "
                                     "base-uri 'none'; frame-ancestors 'none'"),
         ("X-Content-Type-Options", "nosniff"),
         ("X-Frame-Options", "DENY"),
