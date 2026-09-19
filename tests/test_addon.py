@@ -76,7 +76,7 @@ class FalesneEnginy:
         self.pozadovana_nastaveni = []
         self.vychozi_options = {"ws_username": "z-prostredi"}
 
-    def pro(self, options=None, verejny=False):
+    def pro(self, options=None, verejny=False, klient=""):
         self.pozadovana_nastaveni.append(options)
         self.verejny = verejny
         return self.engine
@@ -1300,6 +1300,27 @@ class TestLimityAUklid(unittest.TestCase):
         self.assertTrue(b.blokovana("1.2.3.4"))
         with mock.patch.object(routes.time, "time", return_value=time.time() + 101):
             self.assertFalse(b.blokovana("1.2.3.4"))
+
+    def test_nova_jadra_z_jedne_adresy_maji_strop_existujici_ne(self):
+        from nokturno.enginy import Enginy, PrilisMnohoNovych
+        with tempfile.TemporaryDirectory() as tmp:
+            enginy = Enginy(tmp, nova_jadra=(2, 3600))
+            a, b, c = (config.from_mapping({"ws_username": u}) for u in "abc")
+            prvni = enginy.pro(a, klient="1.2.3.4")
+            enginy.pro(b, klient="1.2.3.4")
+            with self.assertRaises(PrilisMnohoNovych):
+                enginy.pro(c, klient="1.2.3.4")
+            self.assertIs(enginy.pro(a, klient="1.2.3.4"), prvni)      # existující jádro se neomezuje
+            enginy.pro(c, klient="5.6.7.8")                            # jiná adresa má vlastní strop
+            self.assertEqual(len(enginy), 3)
+
+    def test_router_vrati_429_kdyz_adresa_zaklada_moc_jader(self):
+        from nokturno.enginy import PrilisMnohoNovych
+        r = router()
+        r.enginy.pro = lambda *a, **k: (_ for _ in ()).throw(PrilisMnohoNovych("x"))
+        odp = r.route(f"/c/{KOUSEK}/stream/movie/tt0133093.json", ZAKLAD, klient="1.2.3.4")
+        self.assertEqual(odp.status, 429)
+        self.assertEqual(odp.utok[0], "limit")
 
     def test_klic_klienta(self):
         from nokturno.routes import klic_klienta

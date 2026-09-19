@@ -10,6 +10,7 @@ s překlepem v hesle založila jádro navždy.
 import logging
 import os
 import threading
+import time
 from collections import OrderedDict
 
 from .config import fingerprint
@@ -24,13 +25,43 @@ _LOGGER = logging.getLogger(__name__)
 # přihlášením ke zdrojům a studenou cache. Padesát pokrývá běžný souběh; v paměti to
 # je pár set MB (kontejner má od 2026-09-17 2 GB místo 512 MB).
 LIMIT = 50
+NOVA_JADRA_LIMIT = (10, 3600)   # nových jader z jedné adresy za hodinu — viz `PrilisMnohoNovych`
+
+
+class PrilisMnohoNovych(Exception):
+    """Adresa za hodinu založila víc nových jader, než je rozumné. Bot, který posílá požadavky
+    s vymyšlenými nastaveními, by jinak vytlačil z paměti jádra skutečných uživatelů (limit
+    `LIMIT` je malý, nejdéle nepoužité vypadne) a každý by začínal se studenou cache."""
+
+
+class _Okno:
+    """Počítadlo v pevném okně na klíč (totéž co `routes.Okno`, jen bez závislosti na routes)."""
+
+    def __init__(self, limit, okno_s, max_klicu=5000):
+        self.limit, self.okno_s, self.max_klicu = limit, okno_s, max_klicu
+        self._data = {}
+        self._zamek = threading.Lock()
+
+    def povolit(self, klic):
+        now = time.time()
+        with self._zamek:
+            if len(self._data) > self.max_klicu:
+                self._data.clear()
+            pocet, start = self._data.get(klic, (0, now))
+            if now - start > self.okno_s:
+                pocet, start = 0, now
+            if pocet >= self.limit:
+                return False
+            self._data[klic] = (pocet + 1, start)
+            return True
 
 
 class Enginy:
     """Jádra podle otisku nastavení, nejdéle nepoužité vypadne."""
 
-    def __init__(self, data_dir, vychozi_options=None, limit=LIMIT, tmdb_key=""):
+    def __init__(self, data_dir, vychozi_options=None, limit=LIMIT, tmdb_key="", nova_jadra=NOVA_JADRA_LIMIT):
         self.data_dir = data_dir
+        self._nova = _Okno(*nova_jadra)
         self.vychozi_options = vychozi_options or {}
         self.limit = limit
         # Klíč TMDB instance (`NOKTURNO_TMDB_KEY`) — dostane ho **každé** jádro, i to
@@ -55,11 +86,14 @@ class Enginy:
             options = {**options, "tmdb_api_key": self.tmdb_key}
         return Engine(options, slozka, opener=sit.OPENER if verejny else None)
 
-    def pro(self, options=None, verejny=False):
+    def pro(self, options=None, verejny=False, klient=""):
         """Jádro pro dané nastavení; bez nastavení to výchozí z prostředí.
 
         Veřejné a domácí jádro téhož nastavení jsou dvě: liší se tím, kam se smí
         připojit. Složku s cache sdílejí, obsah je stejný.
+
+        Se `klient` (klíč adresy) se počítá, kolik nových jader adresa založila; už
+        existující jádro se neomezuje nikdy. Nad limit `PrilisMnohoNovych`.
         """
         if options is None:
             options = self.vychozi_options
@@ -68,6 +102,8 @@ class Enginy:
         with self._zamek:
             engine = self._cache.get(klic)
             if engine is None:
+                if klient and not self._nova.povolit(klient):
+                    raise PrilisMnohoNovych(klient)
                 engine = self._vytvor(options, otisk, verejny)
                 self._cache[klic] = engine
                 while len(self._cache) > self.limit:

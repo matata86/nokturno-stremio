@@ -43,6 +43,7 @@ from .core.lib.sledujteto_api import SledujtetoApi
 from .core.lib.fastshare_api import FastshareApi
 from .core.lib.storage_api import SLOTS, StorageApi
 from . import config, mapping, sit
+from .enginy import PrilisMnohoNovych
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -575,7 +576,15 @@ class Router:
                 odp = chyba(429, "Příliš mnoho požadavků na streamy za sebou, zkus to za pár minut.")
                 odp.utok = ("limit", fp)
                 return odp
-        engine = self.enginy.pro(options, verejny=verejny)
+        try:
+            engine = self.enginy.pro(options, verejny=verejny, klient=klic_klienta(klient) if kousek else "")
+        except PrilisMnohoNovych:
+            adresa = klic_klienta(klient)
+            if adresa:
+                self.blokace.prohresek(adresa)
+            odp = chyba(429, "Příliš mnoho nových nastavení z jedné adresy za hodinu, zkus to později.")
+            odp.utok = ("limit", config.fingerprint(options))
+            return odp
 
         if casti and casti[0] == "play" and len(casti) == 2:
             return self.play(engine, casti[1], klic=config.fingerprint(options) if kousek else "vychozi")
