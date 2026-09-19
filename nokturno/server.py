@@ -146,6 +146,7 @@ class Handler(BaseHTTPRequestHandler):
         self._zacatek = time.monotonic()
         self._stav = 0
         self._zapsano = 0
+        self._utok = None
         self._nahlaseno = False
 
     def send_response(self, code, message=None):
@@ -160,6 +161,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._nahlaseno = True
         try:
+            if self._utok:
+                # blokované a přetížené nastavení: ne do provozu, jen do přehledu útočníků
+                provoz.zaznamenej_utok(self._klient(), self.headers.get("User-Agent"), *self._utok[::-1])
+                return
             provoz.zaznamenej(self.path, self.command or "GET", self._stav or 499, self._zapsano,
                               int((time.monotonic() - self._zacatek) * 1000),
                               klient_z_useragent(self.headers.get("User-Agent")))
@@ -190,6 +195,7 @@ class Handler(BaseHTTPRequestHandler):
         return f"{schema}://{host}"
 
     def _posli(self, odpoved):
+        self._utok = getattr(odpoved, "utok", None)
         telo, typ = odpoved.body
         self.send_response(odpoved.status)
         if odpoved.location:

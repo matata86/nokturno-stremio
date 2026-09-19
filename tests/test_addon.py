@@ -1440,6 +1440,30 @@ class TestProvoz(unittest.TestCase):
         self.assertEqual(radek["service"], "prehravani")
         self.assertEqual(radek["bytes_out"], 10 ** 7)
 
+    def test_utoky_se_slucuji_a_nejdou_do_provozu(self):
+        from unittest import mock
+        from nokturno.provoz import Provoz
+        p = Provoz(token="t")
+        for _ in range(3):
+            p.zaznamenej_utok("2001:db8::1", "Python/3.12 aiohttp", "abcdef0123456789xyz", "limit")
+        p.zaznamenej_utok("2001:db8::2", None, None, "blokováno")
+        self.assertEqual(p._fronta, [])
+        poslano = []
+        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None: poslano.append((d, u)) or True):
+            p.odesli()
+        [(davka, utoky)] = poslano
+        self.assertEqual(davka, [])
+        prvni = next(u for u in utoky if u["ip"] == "2001:db8::1")
+        self.assertEqual((prvni["hits"], prvni["reason"], prvni["fp"]), (3, "limit", "abcdef0123456789"))
+        self.assertEqual(p._utoky, {})
+
+    def test_utoky_maji_strop(self):
+        from nokturno import provoz
+        p = provoz.Provoz(token="t")
+        for i in range(provoz.STROP_UTOKU + 50):
+            p.zaznamenej_utok(f"10.0.{i // 250}.{i % 250}", "x", "fp", "limit")
+        self.assertEqual(len(p._utoky), provoz.STROP_UTOKU)
+
     def test_bez_tokenu_je_vypnuto(self):
         from nokturno.provoz import Provoz
         p = Provoz.z_prostredi(environ={})

@@ -7,8 +7,13 @@ neposílá; nasazení bez dashboardu tím pádem funguje dál.
 
 Co se posílá: čas, služba (`stremio` / `prehravani`), **normalizovaná** cesta,
 metoda, stav, appka podle User-Agentu, odeslané bajty a doba obsluhy. Co se
-neposílá: adresa klienta a prefix `/c/<nastavení>/` — ten nese účty, a i kdyby
+neposílá: adresa klienta (kromě odmítnutých požadavků, viz níž) a prefix `/c/<nastavení>/` — ten nese účty, a i kdyby
 odsud omylem prošel, server ho ještě jednou přepíše (`traffic.prijmi_davku`).
+
+Výjimka: odmítnuté požadavky (zablokované nastavení, překročený limit) se do provozu
+nepočítají vůbec — jdou jako souhrn `abuse` po (adresa, nastavení, důvod) s počtem zásahů,
+User-Agentem a prvním/posledním časem, ať dashboard ukáže, kdo na doplněk tluče. Nastavení
+se posílá jen jako zkrácený otisk, ne obsah.
 
 Kdyby dashboard neodpovídal, dávka se zahodí a pokračuje se dál — statistika
 provozu nesmí zdržet ani jeden požadavek přehrávače.
@@ -29,6 +34,7 @@ VYPNUTO = ("0", "false", "ne", "no", "off")
 INTERVAL = 30           # jak často se fronta odesílá (s)
 STROP = 5000            # víc řádků než tohle se zahazuje (dashboard neodpovídá)
 DAVKA = 1000            # nejvíc řádků v jednom požadavku
+STROP_UTOKU = 500       # nejvíc různých (adresa, nastavení, důvod) ve frontě
 
 
 def klasifikuj(cesta):
@@ -68,6 +74,7 @@ class Provoz:
         self.zapnuto = bool(token)
         self.zahozeno = 0
         self._fronta = []
+        self._utoky = {}
         self._zamek = threading.Lock()
         self._vlakno = None
         self._konec = threading.Event()
@@ -95,6 +102,21 @@ class Provoz:
                 "dur_ms": max(0, int(doba_ms)),
             })
 
+    def zaznamenej_utok(self, ip, ua, fp, duvod):
+        """Odmítnutý požadavek → jen počítadlo, žádný řádek provozu."""
+        if not self.zapnuto:
+            return
+        klic = (str(ip or "?")[:64], (fp or "")[:16], str(duvod)[:20])
+        with self._zamek:
+            u = self._utoky.get(klic)
+            if u is None:
+                if len(self._utoky) >= STROP_UTOKU:
+                    return
+                u = self._utoky[klic] = {"hits": 0, "first": int(time.time())}
+            u["hits"] += 1
+            u["last"] = int(time.time())
+            u["ua"] = str(ua or "")[:120]
+
     def start(self):
         if not self.zapnuto or self._vlakno is not None:
             return
@@ -115,6 +137,9 @@ class Provoz:
         """Odešle frontu (po dávkách). Vrací, kolik řádků odešlo. Nikdy nevyhodí výjimku."""
         with self._zamek:
             fronta, self._fronta = self._fronta, []
+            utoky, self._utoky = self._utoky, {}
+        if utoky:
+            self._posli_davku([], [{"ip": k[0], "fp": k[1], "reason": k[2], **v} for k, v in utoky.items()])
         odeslano = 0
         for i in range(0, len(fronta), DAVKA):
             davka = fronta[i:i + DAVKA]
@@ -125,8 +150,8 @@ class Provoz:
             odeslano += len(davka)
         return odeslano
 
-    def _posli_davku(self, davka):
-        telo = json.dumps({"events": davka}).encode("utf-8")
+    def _posli_davku(self, davka, utoky=None):
+        telo = json.dumps({"events": davka, "abuse": utoky or []}).encode("utf-8")
         req = urllib.request.Request(self.url, data=telo, method="POST", headers={
             "Content-Type": "application/json",
             "X-Nokturno-Token": self.token,

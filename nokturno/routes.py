@@ -124,7 +124,10 @@ def klient_z_useragent(user_agent):
 class Odpoved:
     """Co server pošle klientovi."""
 
-    def __init__(self, status=200, data=None, location=None, text=None, html=None):
+    def __init__(self, status=200, data=None, location=None, text=None, html=None, utok=None):
+        # `utok` = (důvod, otisk nastavení): odmítnutí, které se nepočítá do provozu, ale
+        # do přehledu „kdo na nás útočí" (provoz.py). Klientovi se neposílá.
+        self.utok = utok
         self.status = status
         self.data = data
         self.location = location
@@ -461,7 +464,9 @@ class Router:
         if kousek and options is None:
             return chyba(404, "Adresa nese nečitelné nastavení. Vyrob si novou na /configure")
         if kousek and self.blokovane and config.fingerprint(options) in self.blokovane:
-            return chyba(403, "Tahle adresa doplňku je zablokovaná.")
+            odp = chyba(403, "Tahle adresa doplňku je zablokovaná.")
+            odp.utok = ("blokováno", config.fingerprint(options))
+            return odp
         if verejny and options:
             options = config.bez_lokalnich_uloziste(options)
 
@@ -481,7 +486,9 @@ class Router:
 
         if zbytek == "/check":
             if not self.check_okno.povolit(klient or "?"):
-                return chyba(429, "Příliš mnoho ověření za sebou, zkus to za pár minut.")
+                odp = chyba(429, "Příliš mnoho ověření za sebou, zkus to za pár minut.")
+                odp.utok = ("limit", config.fingerprint(options) if kousek else None)
+                return odp
             return self.check(options if kousek else self.enginy.vychozi_options, verejny=verejny)
         if zbytek == "/manifest.json":
             return self.manifest(options if kousek else self.enginy.vychozi_options, nastaveno=bool(kousek))
@@ -492,7 +499,9 @@ class Router:
             return self.katalog(casti)
 
         if kousek and casti and casti[0] == "stream" and not self.stream_okno.povolit(config.fingerprint(options)):
-            return chyba(429, "Příliš mnoho požadavků na streamy za sebou, zkus to za pár minut.")
+            odp = chyba(429, "Příliš mnoho požadavků na streamy za sebou, zkus to za pár minut.")
+            odp.utok = ("limit", config.fingerprint(options))
+            return odp
         engine = self.enginy.pro(options, verejny=verejny)
 
         if casti and casti[0] == "play" and len(casti) == 2:
