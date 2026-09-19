@@ -589,5 +589,10 @@ class Router:
         if casti and casti[0] == "play" and len(casti) == 2:
             return self.play(engine, casti[1], klic=config.fingerprint(options) if kousek else "vychozi")
         if casti and casti[0] == "stream" and len(casti) == 3 and casti[2].endswith(".json"):
-            return self.streams(engine, casti[1], casti[2][:-len(".json")], zaklad, kousek, aplikace)
+            odp = self.streams(engine, casti[1], casti[2][:-len(".json")], zaklad, kousek, aplikace)
+            if kousek and isinstance(odp.data, dict) and odp.data.get("streams"):
+                povysit = getattr(self.enginy, "povysit", None)
+                if povysit is not None:
+                    povysit(options, verejny)   # první skutečný stream = jádro se ověřilo
+            return odp
         return chyba(404, "Tady nic není. Doplněk se nastavuje na /configure")

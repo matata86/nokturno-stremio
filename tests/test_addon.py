@@ -1110,7 +1110,7 @@ class TestVerejnaSit(unittest.TestCase):
         """Limit drží paměť na uzdě, ale musí vyhodit opravdu to nejdéle nepoužité —
         jinak by se jádro právě obsluhovaného uživatele zahodilo zpod ruky."""
         from nokturno.enginy import Enginy
-        enginy = Enginy(tempfile.mkdtemp(), {}, limit=2)
+        enginy = Enginy(tempfile.mkdtemp(), {}, limit=2, nova_limit=2)
         prvni = enginy.pro(config.from_mapping({"ws_username": "a"}))
         druhe = enginy.pro(config.from_mapping({"ws_username": "b"}))
         self.assertIs(enginy.pro(config.from_mapping({"ws_username": "a"})), prvni, "sáhnutí ho omladí")
@@ -1118,6 +1118,42 @@ class TestVerejnaSit(unittest.TestCase):
         self.assertEqual(len(enginy), 2)
         self.assertIs(enginy.pro(config.from_mapping({"ws_username": "a"})), prvni)
         self.assertIsNot(enginy.pro(config.from_mapping({"ws_username": "b"})), druhe)
+
+    def test_bot_s_vymyslenymi_nastavenimi_nevytlaci_overena_jadra(self):
+        """Nové jádro je na zkoušku; do ověřených ho pustí až první vrácený stream (`povysit`).
+        Bot, který tvoří nastavení bez konce, tak vytlačuje jen jiná nová jádra."""
+        from nokturno.enginy import Enginy
+        enginy = Enginy(tempfile.mkdtemp(), {}, limit=2, nova_limit=3, nova_jadra=(10 ** 6, 3600))
+        uzivatele = [config.from_mapping({"ws_username": u}) for u in ("a", "b")]
+        jadra = [enginy.pro(o) for o in uzivatele]
+        for o in uzivatele:
+            enginy.povysit(o)
+        for i in range(50):
+            enginy.pro(config.from_mapping({"ws_username": f"bot{i}"}))
+        self.assertEqual(len(enginy), 2 + 3)                       # 2 ověřená + 3 nejnovější bota
+        self.assertIs(enginy.pro(uzivatele[0]), jadra[0])
+        self.assertIs(enginy.pro(uzivatele[1]), jadra[1])
+
+    def test_povyseni_prenese_jadro_do_overenych_a_je_idempotentni(self):
+        from nokturno.enginy import Enginy
+        enginy = Enginy(tempfile.mkdtemp(), {}, limit=5, nova_limit=1)
+        o = config.from_mapping({"ws_username": "a"})
+        jadro = enginy.pro(o)
+        enginy.povysit(o)
+        enginy.povysit(o)
+        enginy.pro(config.from_mapping({"ws_username": "b"}))
+        enginy.pro(config.from_mapping({"ws_username": "c"}))       # vytlačí jen `b`
+        self.assertIs(enginy.pro(o), jadro)
+
+    def test_router_povysi_jadro_az_po_prvnim_streamu(self):
+        r = router()
+        volani = []
+        r.enginy.povysit = lambda options, verejny=False: volani.append(options)
+        r.route(f"/c/{KOUSEK}/manifest.json", ZAKLAD)
+        self.assertEqual(volani, [])
+        odp = r.route(f"/c/{KOUSEK}/stream/movie/tt0133093.json", ZAKLAD)
+        self.assertEqual(odp.status, 200)
+        self.assertEqual(len(volani), 1 if odp.data and odp.data.get("streams") else 0)
 
     def test_limit_jader_pokryva_bezny_soubeh(self):
         """2026-09-17: za 24 h 155 různých nastavení proti limitu 20 — jádra se protáčela

@@ -25,6 +25,7 @@ _LOGGER = logging.getLogger(__name__)
 # přihlášením ke zdrojům a studenou cache. Padesát pokrývá běžný souběh; v paměti to
 # je pár set MB (kontejner má od 2026-09-17 2 GB místo 512 MB).
 LIMIT = 50
+NOVA_LIMIT = 20   # kolik jader „na zkoušku" (ještě nevrátila stream) se drží; viz `Enginy.povysit`
 NOVA_JADRA_LIMIT = (10, 3600)   # nových jader z jedné adresy za hodinu — viz `PrilisMnohoNovych`
 
 
@@ -57,11 +58,18 @@ class _Okno:
 
 
 class Enginy:
-    """Jádra podle otisku nastavení, nejdéle nepoužité vypadne."""
+    """Jádra podle otisku nastavení, nejdéle nepoužité vypadne.
 
-    def __init__(self, data_dir, vychozi_options=None, limit=LIMIT, tmdb_key="", nova_jadra=NOVA_JADRA_LIMIT):
+    Dva oddělené seznamy: **ověřená** jádra (`limit`; vrátila aspoň jeden stream, nebo jde o výchozí
+    nastavení z prostředí) a **nová** na zkoušku (`nova_limit`). Nové jádro se do ověřených
+    povýší až v `povysit`, tedy po prvním vráceném streamu. Bot s vymyšlenými nastaveními tak
+    vytlačuje jen jiná nová jádra a skutečným uživatelům nesahá na jejich rozehranou cache.
+    """
+
+    def __init__(self, data_dir, vychozi_options=None, limit=LIMIT, tmdb_key="", nova_jadra=NOVA_JADRA_LIMIT,
+                 nova_limit=NOVA_LIMIT):
         self.data_dir = data_dir
-        self._nova = _Okno(*nova_jadra)
+        self._nova_okno = _Okno(*nova_jadra)
         self.vychozi_options = vychozi_options or {}
         self.limit = limit
         # Klíč TMDB instance (`NOKTURNO_TMDB_KEY`) — dostane ho **každé** jádro, i to
@@ -72,7 +80,9 @@ class Enginy:
         # a bez něj nejde přeložit `tmdb:` id od klientů (viz `routes._imdb_z_tmdb`) —
         # tedy ani najít streamy k titulu z TMDB katalogu.
         self.tmdb_key = tmdb_key or ""
-        self._cache = OrderedDict()
+        self.nova_limit = nova_limit
+        self._cache = OrderedDict()   # ověřená
+        self._nova = OrderedDict()    # na zkoušku
         self._zamek = threading.Lock()
 
     def _vytvor(self, options, otisk, verejny):
@@ -100,18 +110,39 @@ class Enginy:
         otisk = fingerprint(options)
         klic = (otisk, bool(verejny))
         with self._zamek:
-            engine = self._cache.get(klic)
-            if engine is None:
-                if klient and not self._nova.povolit(klient):
-                    raise PrilisMnohoNovych(klient)
-                engine = self._vytvor(options, otisk, verejny)
+            for seznam in (self._cache, self._nova):
+                engine = seznam.get(klic)
+                if engine is not None:
+                    seznam.move_to_end(klic)
+                    return engine
+            if klient and not self._nova_okno.povolit(klient):
+                raise PrilisMnohoNovych(klient)
+            engine = self._vytvor(options, otisk, verejny)
+            if options is self.vychozi_options:
+                # výchozí nastavení z prostředí je vždy ověřené — nikdo cizí ho nevymyslí
                 self._cache[klic] = engine
-                while len(self._cache) > self.limit:
-                    stary, _ = self._cache.popitem(last=False)
-                    _LOGGER.info("zahazuji nepoužívané jádro %s", stary)
+                self._oriznout(self._cache, self.limit)
             else:
-                self._cache.move_to_end(klic)
+                self._nova[klic] = engine
+                self._oriznout(self._nova, self.nova_limit)
         return engine
 
+    def povysit(self, options=None, verejny=False):
+        """Jádro vrátilo stream → z „na zkoušku" do ověřených (tam ho bot nevytlačí)."""
+        if options is None:
+            return
+        klic = (fingerprint(options), bool(verejny))
+        with self._zamek:
+            engine = self._nova.pop(klic, None)
+            if engine is not None:
+                self._cache[klic] = engine
+                self._oriznout(self._cache, self.limit)
+
+    @staticmethod
+    def _oriznout(seznam, limit):
+        while len(seznam) > limit:
+            stary, _ = seznam.popitem(last=False)
+            _LOGGER.info("zahazuji nepoužívané jádro %s", stary)
+
     def __len__(self):
-        return len(self._cache)
+        return len(self._cache) + len(self._nova)
