@@ -45,7 +45,7 @@ from . import config, mapping, sit
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "6.0.2"
+VERZE = "6.0.4"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné adresy doplňku (otisk nastavení). Reálná data 2026-09-19: medián 2 titulů za
