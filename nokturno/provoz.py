@@ -87,6 +87,8 @@ class Provoz:
         self._fronta = []
         self._utoky = {}
         self._zprava = ""
+        self._odkaz = ""
+        self._hlasy = {}
         self._zamek = threading.Lock()
         self._vlakno = None
         self._konec = threading.Event()
@@ -131,9 +133,18 @@ class Provoz:
             u["has_id"] = -1 if ma_id is None else int(ma_id)
 
     def zprava(self):
-        """Zpráva z dashboardu pro uživatele Stremia (obrazovka Zprávy); prázdné = žádná.
-        Čte se z paměti, obnovuje ji vlákno provozu — požadavek na streamy na síť nečeká."""
-        return self._zprava
+        """(text, odkaz) zprávy z dashboardu pro uživatele Stremia (obrazovka Zprávy);
+        text prázdný = žádná. Čte se z paměti, obnovuje ji vlákno provozu — požadavek
+        na streamy na síť nečeká."""
+        return self._zprava, self._odkaz
+
+    def zaznamenej_hlas(self, anketa, hlasujici, volba):
+        """Hlas v anketě → dávka pro dashboard (poslední hlas hlasujícího platí)."""
+        if not self.zapnuto:
+            return
+        with self._zamek:
+            if len(self._hlasy) < 1000 or (anketa, hlasujici) in self._hlasy:
+                self._hlasy[(anketa, hlasujici)] = volba
 
     def _nacti_zpravu(self):
         adresa = self.url.rsplit("/", 1)[0] + "/traffic/message" if self.url.endswith("/traffic") else self.url + "/message"
@@ -143,6 +154,8 @@ class Provoz:
                 data = json.loads(odp.read(20000).decode("utf-8"))
             text = data.get("text") if isinstance(data, dict) else ""
             self._zprava = " ".join(str(text or "").split())[:300]
+            odkaz = data.get("link") if isinstance(data, dict) else ""
+            self._odkaz = str(odkaz or "")[:200]
         except (urllib.error.URLError, OSError, ValueError) as err:
             _LOGGER.debug("zpráva z dashboardu se nenačetla: %s", err)   # zůstává poslední známá
 
@@ -168,8 +181,10 @@ class Provoz:
         with self._zamek:
             fronta, self._fronta = self._fronta, []
             utoky, self._utoky = self._utoky, {}
-        if utoky:
-            self._posli_davku([], [{"ip": k[0], "fp": k[1], "reason": k[2], **v} for k, v in utoky.items()])
+            hlasy, self._hlasy = self._hlasy, {}
+        if utoky or hlasy:
+            self._posli_davku([], [{"ip": k[0], "fp": k[1], "reason": k[2], **v} for k, v in utoky.items()],
+                              [{"poll": k[0], "voter": k[1], "choice": v} for k, v in hlasy.items()])
         odeslano = 0
         for i in range(0, len(fronta), DAVKA):
             davka = fronta[i:i + DAVKA]
@@ -180,8 +195,8 @@ class Provoz:
             odeslano += len(davka)
         return odeslano
 
-    def _posli_davku(self, davka, utoky=None):
-        telo = json.dumps({"events": davka, "abuse": utoky or []}).encode("utf-8")
+    def _posli_davku(self, davka, utoky=None, hlasy=None):
+        telo = json.dumps({"events": davka, "abuse": utoky or [], "votes": hlasy or []}).encode("utf-8")
         req = urllib.request.Request(self.url, data=telo, method="POST", headers={
             "Content-Type": "application/json",
             "X-Nokturno-Token": self.token,

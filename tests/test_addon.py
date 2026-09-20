@@ -1816,7 +1816,7 @@ class TestProvoz(unittest.TestCase):
         p.zaznamenej_utok("2001:db8::2", None, None, "blokováno")
         self.assertEqual(p._fronta, [])
         poslano = []
-        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None: poslano.append((d, u)) or True):
+        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None, h=None: poslano.append((d, u)) or True):
             p.odesli()
         [(davka, utoky)] = poslano
         self.assertEqual(davka, [])
@@ -1832,7 +1832,7 @@ class TestProvoz(unittest.TestCase):
         p.zaznamenej_utok("b", "x", "fp", "limit", ma_id=False)
         p.zaznamenej_utok("c", "x", "fp", "limit")
         poslano = []
-        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None: poslano.append(u) or True):
+        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None, h=None: poslano.append(u) or True):
             p.odesli()
         self.assertEqual({u["ip"]: u["has_id"] for u in poslano[0]}, {"a": 1, "b": 0, "c": -1})
 
@@ -1847,14 +1847,43 @@ class TestProvoz(unittest.TestCase):
 
     def test_zprava_z_dashboardu_je_prvni_stream(self):
         r = router()
-        r.zprava = lambda: "Výpadek Sosáče, řešíme."
+        r.zprava = lambda: ("Výpadek Sosáče, řešíme.", "")
         cesta = f"/c/{KOUSEK}/stream/movie/tt0133093.json"
         odp = r.route(cesta, ZAKLAD)
         self.assertEqual(odp.data["streams"][0]["name"], "📢 Nokturno")
         self.assertEqual(odp.data["streams"][0]["title"], "Výpadek Sosáče, řešíme.")
         self.assertTrue(odp.data["streams"][0]["externalUrl"].startswith("http"))   # bez odkazu Stremio stream zahodí
-        r.zprava = lambda: ""
+        r.zprava = lambda: ("", "")
         self.assertNotIn("📢", str(r.route(cesta, ZAKLAD).data))
+
+    def test_zprava_s_odkazem_na_anketu(self):
+        r = router()
+        r.zprava = lambda: ("Hlasuj", "/anketa")
+        s = r.route(f"/c/{KOUSEK}/stream/movie/tt0133093.json", ZAKLAD).data["streams"][0]
+        self.assertEqual(s["externalUrl"], ZAKLAD + "/anketa")
+
+    def test_anketa_stranka_a_hlas(self):
+        r = router()
+        hlasy = []
+        r.hlas = lambda *a: hlasy.append(a)
+        self.assertIn("Měli byste zájem o CZtor", r.route("/anketa", ZAKLAD).html)
+        v = "0123456789abcdef0123456789abcdef"
+        self.assertEqual(r.route(f"/anketa/hlas?v={v}&volba=ano", ZAKLAD, klient="1.2.3.4").status, 200)
+        self.assertEqual(hlasy, [("cztor-stremio", v, "ano")])
+        for spatne in (f"/anketa/hlas?v={v}&volba=mozna", "/anketa/hlas?v=xyz&volba=ano", "/anketa/hlas"):
+            self.assertEqual(r.route(spatne, ZAKLAD, klient="1.2.3.4").status, 400)
+        self.assertEqual(len(hlasy), 1)
+
+    def test_provoz_posila_hlasy(self):
+        from unittest import mock
+        from nokturno.provoz import Provoz
+        p = Provoz(token="t")
+        p.zaznamenej_hlas("cztor-stremio", "a" * 32, "ne")
+        p.zaznamenej_hlas("cztor-stremio", "a" * 32, "ano")   # poslední hlas platí
+        poslano = []
+        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None, h=None: poslano.append(h) or True):
+            p.odesli()
+        self.assertEqual(poslano, [[{"poll": "cztor-stremio", "voter": "a" * 32, "choice": "ano"}]])
 
     def test_provoz_nacte_zpravu_z_dashboardu(self):
         from unittest import mock
@@ -1864,11 +1893,11 @@ class TestProvoz(unittest.TestCase):
         odpoved.__enter__.return_value.read.return_value = '{"text": "Ahoj   světe\\n"}'.encode()
         with mock.patch("urllib.request.urlopen", return_value=odpoved) as uo:
             p._nacti_zpravu()
-        self.assertEqual(p.zprava(), "Ahoj světe")
+        self.assertEqual(p.zprava(), ("Ahoj světe", ""))
         self.assertTrue(uo.call_args[0][0].full_url.endswith("/traffic/message"))
         with mock.patch("urllib.request.urlopen", side_effect=OSError("dole")):
             p._nacti_zpravu()
-        self.assertEqual(p.zprava(), "Ahoj světe")   # výpadek nechá poslední známou
+        self.assertEqual(p.zprava(), ("Ahoj světe", ""))   # výpadek nechá poslední známou
 
     def test_stara_adresa_dostane_jen_vyzvu(self):
         from nokturno.identita import Identita

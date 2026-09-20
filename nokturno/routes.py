@@ -33,6 +33,7 @@ import html as html_lib
 import ipaddress
 import logging
 import pathlib
+import re
 import threading
 import time
 import urllib.parse
@@ -48,7 +49,7 @@ from .identita import Identita
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "6.5.1"
+VERZE = "6.5.2"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -334,7 +335,9 @@ class Router:
                  blokovane=None, identita=None, blokace=None):
         self.enginy = enginy
         self.identita = identita or Identita("")
-        self.zprava = None   # volatelná: text zprávy z dashboardu (nastaví server)
+        self.zprava = None   # volatelná → (text, odkaz) zprávy z dashboardu (nastaví server)
+        self.hlas = None     # volatelná (anketa, hlasující, volba) → hlas do dashboardu (nastaví server)
+        self.hlas_okno = Okno(30, 3600)   # hlasů z jedné adresy za hodinu
         self.id_okno = Okno(*ID_LIMIT)
         self.katalogy = katalogy   # nokturno.katalogy.Katalogy, None = katalogy se nenabízejí
         self.verze = verze
@@ -554,6 +557,20 @@ class Router:
                                         "chyba": "nedostupné" if verejny else (str(err) or "nedostupné")})
         return Odpoved(data=out)
 
+    ANKETA = "cztor-stremio"
+
+    def hlasovat(self, q, klient):
+        """Hlas z `/anketa`: anonymní id z prohlížeče + ano/ne. Limit na adresu, nic se neukládá tady."""
+        hlasujici = (q.get("v") or [""])[0]
+        volba = (q.get("volba") or [""])[0]
+        if not re.fullmatch(r"[0-9a-f]{32}", hlasujici) or volba not in ("ano", "ne"):
+            return chyba(400, "Neplatný hlas")
+        if not self.hlas_okno.povolit(klic_klienta(klient) or "?"):
+            return chyba(429, "Příliš mnoho hlasů z jedné adresy, zkus to později.")
+        if callable(self.hlas):
+            self.hlas(self.ANKETA, hlasujici, volba)
+        return Odpoved(data={"ok": True})
+
     def uvod(self, zaklad, jazyk="cs"):
         """Úvodní stránka a rozcestník celé rodiny Nokturna — nic o nastavení instance neprozradí."""
         try:
@@ -661,6 +678,13 @@ class Router:
         cesta = urllib.parse.unquote(cesta)
         if cesta == "/health":
             return self.health()
+        if cesta == "/anketa":
+            try:
+                return Odpoved(html=self._stranka("anketa", "cs").replace("__ZAKLAD__", html_lib.escape(zaklad, quote=True)))
+            except OSError:
+                return chyba(404, "Anketa tu není.")
+        if cesta == "/anketa/hlas":
+            return self.hlasovat(urllib.parse.parse_qs(dotaz), klient)
         if cesta == "/identita/vyzva":
             return Odpoved(data={"vyzva": self.identita.vyzva(klic_klienta(klient)), "bity": self.identita.bity})
         if cesta == "/identita":
@@ -760,8 +784,9 @@ class Router:
                 povysit = getattr(self.enginy, "povysit", None)
                 if povysit is not None:
                     povysit(options, verejny)   # první skutečný stream = jádro se ověřilo
-            oznameni = self.zprava() if callable(self.zprava) else ""
+            oznameni, odkaz = self.zprava() if callable(self.zprava) else ("", "")
             if oznameni and isinstance(odp.data, dict) and isinstance(odp.data.get("streams"), list):
-                odp.data["streams"].insert(0, mapping.zprava_z_dashboardu(oznameni, zaklad + "/"))
+                cil = odkaz if odkaz.startswith("https://") else zaklad + (odkaz if odkaz.startswith("/") else "/")
+                odp.data["streams"].insert(0, mapping.zprava_z_dashboardu(oznameni, cil))
             return odp
         return chyba(404, "Tady nic není. Doplněk se nastavuje na /configure")
