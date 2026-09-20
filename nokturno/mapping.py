@@ -244,6 +244,12 @@ def streams_response(popisy, odkaz, primy=None):
     return {"streams": out}
 
 
+def upozorneni_nova_adresa(nova_adresa):
+    """První položka v seznamu streamů u adresy bez identity: kam si vyrobit novou."""
+    text = f"Aktualizuj doplněk: vyrob si novou adresu na {nova_adresa}"
+    return {"name": "⚠️ Nokturno", "title": text, "description": text, "externalUrl": nova_adresa}
+
+
 def manifest_version(verze):
     """Ořízne betasufix (např. '5.2.1b1' -> '5.2.1') pro pole 'version' manifestu.
 
@@ -256,7 +262,7 @@ def manifest_version(verze):
     return shoda.group(0) if shoda else verze
 
 
-def manifest(verze, zdroje=(), nastaveno=True, katalogy=()):
+def manifest(verze, zdroje=(), nastaveno=True, katalogy=(), nova_adresa=None):
     """Manifest doplňku.
 
     Vždy `stream`; `catalog` jen když si uživatel ve formuláři zapnul některý
@@ -272,6 +278,8 @@ def manifest(verze, zdroje=(), nastaveno=True, katalogy=()):
     popis = "Streamy z WebShare, Sosáče, Sledujteto, FastShare a HellSpy k filmům a seriálům, které už ve Stremiu vidíš."
     if zdroje:
         popis += " Nastavené zdroje: " + ", ".join(zdroje) + "."
+    if nova_adresa:
+        popis += f" ⚠️ Přejdi na novou adresu na {nova_adresa} (doplněk pak odinstaluj a nainstaluj znovu)."
     return {
         "id": "community.nokturno",
         "version": manifest_version(verze),

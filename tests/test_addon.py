@@ -1831,6 +1831,21 @@ class TestProvoz(unittest.TestCase):
             p.odesli()
         self.assertEqual({u["ip"]: u["has_id"] for u in poslano[0]}, {"a": 1, "b": 0, "c": -1})
 
+    def test_upozorneni_na_novou_adresu(self):
+        from nokturno import mapping
+        nova = "https://x.example/configure"
+        self.assertIn(nova, mapping.manifest("6.4.6", (), nova_adresa=nova)["description"])
+        self.assertNotIn("configure", mapping.manifest("6.4.6", ())["description"])
+        u = mapping.upozorneni_nova_adresa(nova)
+        self.assertEqual(u["externalUrl"], nova)
+        self.assertTrue(u["name"].startswith("⚠️"))
+
+    def test_provoz_rozlisuje_adresu_s_identitou(self):
+        from nokturno.provoz import klasifikuj
+        s_id = config.encode({**NASTAVENI, config.ID_KLIC: "0123456789abcdef.0123456789abcdef"})
+        self.assertEqual(klasifikuj(f"/c/{s_id}/stream/movie/tt1.json")[1], "/c/{nastaveni s identitou}/stream/movie")
+        self.assertEqual(klasifikuj(f"/c/{KOUSEK}/stream/movie/tt1.json")[1], "/c/{nastaveni}/stream/movie")
+
     def test_ma_identitu_z_cesty(self):
         r = router()
         s_id = config.encode({**NASTAVENI, config.ID_KLIC: "0123456789abcdef.0123456789abcdef"})

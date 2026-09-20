@@ -27,6 +27,8 @@ import time
 import urllib.error
 import urllib.request
 
+from . import config
+
 _LOGGER = logging.getLogger(__name__)
 
 VYCHOZI_URL = "http://127.0.0.1:8080/traffic"
@@ -45,7 +47,11 @@ def klasifikuj(cesta):
     """
     holá = (cesta or "/").split("?", 1)[0]
     zbytek = re.sub(r"^/c/[^/?]+", "", holá)
-    prefix = "/c/{nastaveni}" if zbytek != holá else ""
+    prefix = ""
+    if zbytek != holá:
+        # rozlišení pro přehled „kolik lidí ještě nemá identitu“ (bez ověření podpisu)
+        nastaveni = config.decode(holá.split("/")[2])
+        prefix = "/c/{nastaveni s identitou}" if nastaveni and nastaveni.get(config.ID_KLIC) else "/c/{nastaveni}"
     casti = [c for c in zbytek.split("/") if c]
     if not casti:
         return "stremio", (prefix + "/") if prefix else "/"

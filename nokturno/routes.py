@@ -48,7 +48,7 @@ from .identita import Identita
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "6.4.5"
+VERZE = "6.4.6"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -387,11 +387,11 @@ class Router:
         return odkaz
 
     # --- endpointy --------------------------------------------------------
-    def manifest(self, options, nastaveno):
+    def manifest(self, options, nastaveno, nova_adresa=None):
         """Jen z nastavení — jádro se kvůli manifestu nezakládá (viz `sources_from_options`)."""
         zdroje = config.sources_from_options(options)
         katalogy = self.katalogy.manifest(options) if self.katalogy else []
-        data = mapping.manifest(self.verze, zdroje, nastaveno=bool(zdroje), katalogy=katalogy)
+        data = mapping.manifest(self.verze, zdroje, nastaveno=bool(zdroje), katalogy=katalogy, nova_adresa=nova_adresa)
         data["behaviorHints"]["configurable"] = True
         # bez vlastního nastavení ať Stremio rovnou nabídne formulář
         data["behaviorHints"]["configurationRequired"] = not (nastaveno or zdroje)
@@ -701,8 +701,13 @@ class Router:
                 odp.utok = ("limit", config.fingerprint(options) if kousek else None)
                 return odp
             return self.check(options if kousek else self.enginy.vychozi_options, verejny=verejny)
+        # adresa z doby před identitou (do 6.1.0): funguje dál, ale limity sdílí celá IP —
+        # uživatele postrčíme na novou (popis doplňku, první položka streamů)
+        stara = bool(kousek) and self.identita.zapnuta and not options.get(config.ID_KLIC)
+        nova = f"{zaklad}/configure"
         if zbytek == "/manifest.json":
-            return self.manifest(options if kousek else self.enginy.vychozi_options, nastaveno=bool(kousek))
+            return self.manifest(options if kousek else self.enginy.vychozi_options, nastaveno=bool(kousek),
+                                 nova_adresa=nova if stara else None)
 
         casti = [c for c in zbytek.split("/") if c]
         if casti and casti[0] == "catalog":
@@ -735,6 +740,8 @@ class Router:
             return self.play(engine, casti[1], klic=config.fingerprint(options) if kousek else "vychozi")
         if casti and casti[0] == "stream" and len(casti) == 3 and casti[2].endswith(".json"):
             odp = self.streams(engine, casti[1], casti[2][:-len(".json")], zaklad, kousek, aplikace)
+            if stara and isinstance(odp.data, dict) and isinstance(odp.data.get("streams"), list):
+                odp.data["streams"].insert(0, mapping.upozorneni_nova_adresa(nova))
             if kousek and isinstance(odp.data, dict) and odp.data.get("streams"):
                 povysit = getattr(self.enginy, "povysit", None)
                 if povysit is not None:
