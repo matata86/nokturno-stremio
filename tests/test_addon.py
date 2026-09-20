@@ -97,6 +97,8 @@ def router(**kw):
 # adresa s nastavením, jakou vyrobí formulář
 NASTAVENI = config.from_mapping({"ws_username": "uzivatel", "ws_password": "tajne"})
 KOUSEK = config.encode(NASTAVENI)
+# nastavení jen s HellSpy — sdílí ho spousta lidí, limity se proto počítají na IP
+KOUSEK_HS = config.encode(config.from_mapping({"hs_enabled": True}))
 
 
 class TestManifest(unittest.TestCase):
@@ -1313,19 +1315,22 @@ class TestLimityAUklid(unittest.TestCase):
         from nokturno import routes
         r = router()
         r.stream_okno = routes.Okno(3, 600)
-        cesta = f"/c/{KOUSEK}/stream/movie/tt0133093.json"
+        cesta = f"/c/{KOUSEK_HS}/stream/movie/tt0133093.json"
         self.assertEqual([r.route(cesta, ZAKLAD, klient="1.2.3.4").status for _ in range(4)],
                          [200, 200, 200, 429])
         # stejné nastavení z jiné IP limit nesdílí (nastavení bez účtů má spousta lidí)
         self.assertEqual(r.route(cesta, ZAKLAD, klient="5.6.7.8").status, 200)
-        jina = config.encode(config.from_mapping({"ws_username": "druhy", "ws_password": "x"}))
+        jina = config.encode(config.from_mapping({"hs_enabled": True, "pref_lang": "SK"}))
         self.assertEqual(r.route(f"/c/{jina}/stream/movie/tt0133093.json", ZAKLAD, klient="1.2.3.4").status, 429)
+        # vlastní účty = jedinečný otisk: limit se počítá na něj, ne na sdílenou IP
+        ucty = f"/c/{KOUSEK}/stream/movie/tt0133093.json"
+        self.assertEqual([r.route(ucty, ZAKLAD, klient="1.2.3.4").status for _ in range(4)], [200, 200, 200, 429])
 
     def test_limit_streamu_ipv6_po_64(self):
         from nokturno import routes
         r = router()
         r.stream_okno = routes.Okno(2, 600)
-        cesta = f"/c/{KOUSEK}/stream/movie/tt0133093.json"
+        cesta = f"/c/{KOUSEK_HS}/stream/movie/tt0133093.json"
         stavy = [r.route(cesta, ZAKLAD, klient=f"2a09:bac1:1da0:10::{i}").status for i in range(3)]
         self.assertEqual(stavy, [200, 200, 429])
         self.assertEqual(r.route(cesta, ZAKLAD, klient="2a09:bac1:1da0:11::1").status, 200)
@@ -1335,7 +1340,7 @@ class TestLimityAUklid(unittest.TestCase):
         r = router()
         r.stream_okno = routes.Okno(2, 600)
         r.blokace = routes.Blokace(prah=3, okno_s=600, doba_s=3600)
-        cesta = f"/c/{KOUSEK}/stream/movie/tt0133093.json"
+        cesta = f"/c/{KOUSEK_HS}/stream/movie/tt0133093.json"
         stavy = [r.route(cesta, ZAKLAD, klient="1.2.3.4").status for _ in range(7)]
         # 2× 200, pak 3× 429 a od třetího odmítnutí už rovnou 403 (blokace)
         self.assertEqual(stavy, [200, 200, 429, 429, 429, 403, 403])
@@ -1343,7 +1348,7 @@ class TestLimityAUklid(unittest.TestCase):
         self.assertEqual(odp.utok[0], "auto-blok")
         # jiná adresa a jiné cesty téže adresy zůstávají dostupné
         self.assertEqual(r.route(cesta, ZAKLAD, klient="5.6.7.8").status, 200)
-        self.assertEqual(r.route(f"/c/{KOUSEK}/manifest.json", ZAKLAD, klient="1.2.3.4").status, 200)
+        self.assertEqual(r.route(f"/c/{KOUSEK_HS}/manifest.json", ZAKLAD, klient="1.2.3.4").status, 200)
 
     def test_blokace_vyprsi(self):
         from unittest import mock
@@ -1844,14 +1849,30 @@ class TestProvoz(unittest.TestCase):
         from nokturno.provoz import klasifikuj
         s_id = config.encode({**NASTAVENI, config.ID_KLIC: "0123456789abcdef.0123456789abcdef"})
         self.assertEqual(klasifikuj(f"/c/{s_id}/stream/movie/tt1.json")[1], "/c/{nastaveni s identitou}/stream/movie")
-        self.assertEqual(klasifikuj(f"/c/{KOUSEK}/stream/movie/tt1.json")[1], "/c/{nastaveni}/stream/movie")
+        self.assertEqual(klasifikuj(f"/c/{KOUSEK_HS}/stream/movie/tt1.json")[1], "/c/{nastaveni}/stream/movie")
+        self.assertEqual(klasifikuj(f"/c/{KOUSEK}/stream/movie/tt1.json")[1], "/c/{nastaveni s účty}/stream/movie")
 
     def test_ma_identitu_z_cesty(self):
         r = router()
         s_id = config.encode({**NASTAVENI, config.ID_KLIC: "0123456789abcdef.0123456789abcdef"})
-        self.assertTrue(r.ma_identitu(f"/c/{s_id}/stream/movie/tt1.json"))
-        self.assertFalse(r.ma_identitu(f"/c/{KOUSEK}/stream/movie/tt1.json"))
-        self.assertFalse(r.ma_identitu("/catalog/movie/x.json"))
+        s_ucty = config.encode({"hs_enabled": True, "ws_username": "u", "ws_password": "p"})
+        s_hs = config.encode({"hs_enabled": True})
+        self.assertEqual(r.ma_identitu(f"/c/{s_id}/stream/movie/tt1.json"), 1)
+        self.assertEqual(r.ma_identitu(f"/c/{s_ucty}/stream/movie/tt1.json"), 2)
+        self.assertEqual(r.ma_identitu(f"/c/{s_hs}/stream/movie/tt1.json"), 0)
+        self.assertEqual(r.ma_identitu("/catalog/movie/x.json"), 0)
+
+    def test_limit_na_otisk_uctu_ne_na_ip(self):
+        """Dva lidé s vlastními účty za jednou IP si limit nedělí; nastavení jen s HellSpy ano."""
+        r = router()
+        a = config.encode({"hs_enabled": True, "ws_username": "a", "ws_password": "1"})
+        b = config.encode({"hs_enabled": True, "ws_username": "b", "ws_password": "2"})
+        h = config.encode({"hs_enabled": True})
+        ka = r._klic_limitu(config.decode(a), "1.2.3.4")
+        kb = r._klic_limitu(config.decode(b), "1.2.3.4")
+        self.assertNotEqual(ka, kb)
+        self.assertTrue(ka.startswith("fp:"))
+        self.assertEqual(r._klic_limitu(config.decode(h), "1.2.3.4"), "1.2.3.4")
 
     def test_utoky_maji_strop(self):
         from nokturno import provoz

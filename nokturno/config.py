@@ -204,6 +204,15 @@ def sources_summary(engine):
     return [NAZVY_ZDROJU[k] for k, zapnuto in engine.sources().items() if zapnuto and k in NAZVY_ZDROJU]
 
 
+def ma_ucty(options):
+    """Má nastavení vlastní přihlašovací údaje nebo úložiště? Jejich otisk (`fingerprint`)
+    je pak jedinečný pro uživatele, takže na něj jde počítat limity místo sdílené IP.
+    Nastavení jen s HellSpy a volbami sdílí spousta lidí — to takové není."""
+    o = options or {}
+    return any(str(o.get(k) or "").strip() for k in (
+        "ws_username", "streamuj_username", "st_email", "fs_username", "dav1_url", "dav2_url", "dav3_url"))
+
+
 def sources_from_options(options):
     """Totéž jen z nastavení, bez jádra — pro manifest. Manifest se dřív ptal jádra,
     a to znamenalo založit ho i se složkou na disku pro každou adresu, kterou kdo

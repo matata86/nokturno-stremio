@@ -48,7 +48,7 @@ from .identita import Identita
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "6.4.6"
+VERZE = "6.4.7"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -368,10 +368,13 @@ class Router:
         return None, cesta
 
     def ma_identitu(self, cesta):
-        """Nese adresa token identity (`id`)? Jen pro přehled útočníků — bez ověření podpisu."""
+        """Čím je adresa jedinečná — jen pro přehled útočníků, bez ověření podpisu:
+        1 = token identity (`id`), 2 = vlastní účty (jedinečný otisk), 0 = nic (sdílené)."""
         kousek, _ = self._rozdel(urllib.parse.unquote((cesta or "").split("?", 1)[0]))
         options = config.decode(kousek) if kousek else None
-        return bool(options and options.get(config.ID_KLIC))
+        if not options:
+            return 0
+        return 1 if options.get(config.ID_KLIC) else 2 if config.ma_ucty(options) else 0
 
     def _odkaz(self, zaklad, kousek):
         """Stavitel adres na `/play/`, se stejným nastavením jako příchozí požadavek.
@@ -456,6 +459,8 @@ class Router:
         """Na koho se počítají limity, blokace a nová jádra: identita z adresy, jinak adresa."""
         if options and options.get(config.ID_KLIC):
             return "id:" + options[config.ID_KLIC]
+        if options and config.ma_ucty(options):
+            return "fp:" + config.fingerprint(options)   # účty v adrese = jedinečný otisk uživatele
         return klic_klienta(klient)
 
     def _omezit(self, okno, options, klient, co):
@@ -469,10 +474,14 @@ class Router:
                 odp = chyba(403, "Tvoje adresa je kvůli množství požadavků na hodinu zablokovaná.")
                 odp.utok = ("auto-blok", fp)
                 return odp
-        if not okno.povolit(adresa or fp) or (ip and ip != adresa and not self.ip_okno.povolit(ip)):
-            if adresa:
+        vlastni_ok = okno.povolit(adresa or fp)
+        ip_ok = not (ip and ip != adresa) or self.ip_okno.povolit(ip)
+        if not vlastni_ok or not ip_ok:
+            # prohřešek dostane jen ten klíč, který limit opravdu překročil — jinak by jeden
+            # uživatel s vlastním otiskem přivedl na blokaci celou domácnost za stejnou IP
+            if adresa and not vlastni_ok:
                 self.blokace.prohresek(adresa)
-            if ip and ip != adresa:
+            if ip and ip != adresa and not ip_ok:
                 self.blokace.prohresek(ip)
             odp = chyba(429, f"Příliš mnoho požadavků na {co} za sebou, zkus to za pár minut.")
             odp.utok = ("limit", fp)
@@ -701,9 +710,9 @@ class Router:
                 odp.utok = ("limit", config.fingerprint(options) if kousek else None)
                 return odp
             return self.check(options if kousek else self.enginy.vychozi_options, verejny=verejny)
-        # adresa z doby před identitou (do 6.1.0): funguje dál, ale limity sdílí celá IP —
-        # uživatele postrčíme na novou (popis doplňku, první položka streamů)
-        stara = bool(kousek) and self.identita.zapnuta and not options.get(config.ID_KLIC)
+        # adresa z doby před identitou (do 6.1.0) a bez účtů (jen HellSpy): funguje dál, ale limity
+        # sdílí celá IP — uživatele postrčíme na novou (popis doplňku, první položka streamů)
+        stara = bool(kousek) and self.identita.zapnuta and not options.get(config.ID_KLIC) and not config.ma_ucty(options)
         nova = f"{zaklad}/configure"
         if zbytek == "/manifest.json":
             return self.manifest(options if kousek else self.enginy.vychozi_options, nastaveno=bool(kousek),

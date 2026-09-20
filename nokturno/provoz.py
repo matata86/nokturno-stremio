@@ -51,7 +51,12 @@ def klasifikuj(cesta):
     if zbytek != holá:
         # rozlišení pro přehled „kolik lidí ještě nemá identitu“ (bez ověření podpisu)
         nastaveni = config.decode(holá.split("/")[2])
-        prefix = "/c/{nastaveni s identitou}" if nastaveni and nastaveni.get(config.ID_KLIC) else "/c/{nastaveni}"
+        if nastaveni and nastaveni.get(config.ID_KLIC):
+            prefix = "/c/{nastaveni s identitou}"
+        elif nastaveni and config.ma_ucty(nastaveni):
+            prefix = "/c/{nastaveni s účty}"
+        else:
+            prefix = "/c/{nastaveni}"   # sdílené nastavení bez účtů — ti, kdo mají přejít na identitu
     casti = [c for c in zbytek.split("/") if c]
     if not casti:
         return "stremio", (prefix + "/") if prefix else "/"
@@ -122,7 +127,7 @@ class Provoz:
             u["hits"] += 1
             u["last"] = int(time.time())
             u["ua"] = str(ua or "")[:120]
-            u["has_id"] = -1 if ma_id is None else int(bool(ma_id))
+            u["has_id"] = -1 if ma_id is None else int(ma_id)
 
     def start(self):
         if not self.zapnuto or self._vlakno is not None:
