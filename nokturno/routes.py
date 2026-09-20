@@ -48,7 +48,7 @@ from .identita import Identita
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "6.4.4"
+VERZE = "6.4.5"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -366,6 +366,12 @@ class Router:
         if len(casti) >= 2 and casti[0] == "c":
             return casti[1], "/" + "/".join(casti[2:])
         return None, cesta
+
+    def ma_identitu(self, cesta):
+        """Nese adresa token identity (`id`)? Jen pro přehled útočníků — bez ověření podpisu."""
+        kousek, _ = self._rozdel(urllib.parse.unquote((cesta or "").split("?", 1)[0]))
+        options = config.decode(kousek) if kousek else None
+        return bool(options and options.get(config.ID_KLIC))
 
     def _odkaz(self, zaklad, kousek):
         """Stavitel adres na `/play/`, se stejným nastavením jako příchozí požadavek.

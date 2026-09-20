@@ -1819,6 +1819,25 @@ class TestProvoz(unittest.TestCase):
         self.assertEqual((prvni["hits"], prvni["reason"], prvni["fp"]), (3, "limit", "abcdef0123456789"))
         self.assertEqual(p._utoky, {})
 
+    def test_utok_nese_priznak_identity(self):
+        from unittest import mock
+        from nokturno.provoz import Provoz
+        p = Provoz(token="t")
+        p.zaznamenej_utok("a", "x", "fp", "limit", ma_id=True)
+        p.zaznamenej_utok("b", "x", "fp", "limit", ma_id=False)
+        p.zaznamenej_utok("c", "x", "fp", "limit")
+        poslano = []
+        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None: poslano.append(u) or True):
+            p.odesli()
+        self.assertEqual({u["ip"]: u["has_id"] for u in poslano[0]}, {"a": 1, "b": 0, "c": -1})
+
+    def test_ma_identitu_z_cesty(self):
+        r = router()
+        s_id = config.encode({**NASTAVENI, config.ID_KLIC: "0123456789abcdef.0123456789abcdef"})
+        self.assertTrue(r.ma_identitu(f"/c/{s_id}/stream/movie/tt1.json"))
+        self.assertFalse(r.ma_identitu(f"/c/{KOUSEK}/stream/movie/tt1.json"))
+        self.assertFalse(r.ma_identitu("/catalog/movie/x.json"))
+
     def test_utoky_maji_strop(self):
         from nokturno import provoz
         p = provoz.Provoz(token="t")

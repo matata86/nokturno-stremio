@@ -102,7 +102,7 @@ class Provoz:
                 "dur_ms": max(0, int(doba_ms)),
             })
 
-    def zaznamenej_utok(self, ip, ua, fp, duvod):
+    def zaznamenej_utok(self, ip, ua, fp, duvod, ma_id=None):
         """Odmítnutý požadavek → jen počítadlo, žádný řádek provozu."""
         if not self.zapnuto:
             return
@@ -116,6 +116,7 @@ class Provoz:
             u["hits"] += 1
             u["last"] = int(time.time())
             u["ua"] = str(ua or "")[:120]
+            u["has_id"] = -1 if ma_id is None else int(bool(ma_id))
 
     def start(self):
         if not self.zapnuto or self._vlakno is not None:
