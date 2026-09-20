@@ -67,6 +67,15 @@
   .jazyky a:hover { color: var(--text); }
   .jazyky a[aria-current] { color: var(--text); font-weight: 600; }
   footer { margin: 2.5rem 0 2rem; color: var(--tlumene); font-size: .82rem; text-align: center; }
+  .anketa { background: var(--panel); border: 1px solid var(--akcent); border-radius: 16px; padding: 1.2rem 1.4rem; margin: 1.5rem 0 0; }
+  .anketa h2 { margin: 0 0 .3rem; font-size: 1.15rem; }
+  .anketa p { margin: 0 0 .9rem; color: var(--tlumene); font-size: .92rem; }
+  .anketa .tlacitka { display: flex; gap: .7rem; flex-wrap: wrap; }
+  .anketa button { font: inherit; font-weight: 600; padding: .65rem 1.2rem; border-radius: 10px; border: 1px solid var(--okraj);
+                   background: var(--pozadi); color: var(--text); cursor: pointer; }
+  .anketa button:hover { border-color: var(--akcent); }
+  .anketa button.vybrano { background: var(--akcent); border-color: var(--akcent); color: #fff; }
+  #anketa-stav { color: var(--ok); font-size: .88rem; min-height: 1.3em; margin-top: .6rem; }
 </style>
 </head>
 <body>
@@ -79,6 +88,16 @@
     </div>
     <nav class="jazyky" aria-label="Jazyk"><a href="?lang=cs" hreflang="cs" lang="cs" aria-current="true">CZ</a> | <a href="?lang=sk" hreflang="sk" lang="sk">SK</a></nav>
   </header>
+
+  <section class="anketa" id="anketa">
+    <h2>Měli byste zájem o CZtor i ve Stremiu?</h2>
+    <p>CZtor je placený katalog s vlastním účtem. V Kodi a Home Assistantu už jde připojit přes Nokturno, zajímá nás, jestli ho chcete i ve Stremiu, Nuviu a Streamletu. Hlasování je anonymní.</p>
+    <div class="tlacitka">
+      <button id="anketa-ano" type="button">👍 Ano, chci</button>
+      <button id="anketa-ne" type="button">👎 Ne, nepotřebuji</button>
+    </div>
+    <div id="anketa-stav" data-ok="Díky za hlas! Odpověď můžeš kdykoli změnit." data-chyba="Hlas se nepodařilo uložit, zkus to za chvíli."></div>
+  </section>
 
   <img class="banner" src="https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/resources/media/fanart.jpg" alt="">
 
@@ -166,6 +185,28 @@
 
   <footer>Nokturno pro Stremio __VERZE__ · anonymní statistiky, žádné účty na serveru</footer>
 </main>
+<script>
+(function () {
+  var klic = "nokturno-anketa-id", id = "";
+  try { id = localStorage.getItem(klic) || ""; } catch (e) {}
+  if (!/^[0-9a-f]{32}$/.test(id)) {
+    var b = new Uint8Array(16);
+    if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(b); else for (var i = 0; i < 16; i++) b[i] = Math.random() * 256;
+    id = Array.prototype.map.call(b, function (x) { return ("0" + x.toString(16)).slice(-2); }).join("");
+    try { localStorage.setItem(klic, id); } catch (e) {}
+  }
+  var stav = document.getElementById("anketa-stav");
+  function hlasuj(volba) {
+    document.getElementById("anketa-ano").className = volba === "ano" ? "vybrano" : "";
+    document.getElementById("anketa-ne").className = volba === "ne" ? "vybrano" : "";
+    fetch("__ZAKLAD__/anketa/hlas?v=" + id + "&volba=" + volba, { cache: "no-store" })
+      .then(function (r) { stav.textContent = r.ok ? stav.dataset.ok : stav.dataset.chyba; })
+      .catch(function () { stav.textContent = stav.dataset.chyba; });
+  }
+  document.getElementById("anketa-ano").onclick = function () { hlasuj("ano"); };
+  document.getElementById("anketa-ne").onclick = function () { hlasuj("ne"); };
+})();
+</script>
 <script>
 document.querySelectorAll("[data-kopirovat]").forEach((tl) => tl.addEventListener("click", async () => {
   const stav = document.getElementById(tl.closest("#podpora") ? "stav-podpora" : "stav");

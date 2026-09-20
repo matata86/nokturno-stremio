@@ -49,7 +49,7 @@ from .identita import Identita
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "6.5.2"
+VERZE = "6.5.3"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -679,10 +679,7 @@ class Router:
         if cesta == "/health":
             return self.health()
         if cesta == "/anketa":
-            try:
-                return Odpoved(html=self._stranka("anketa", "cs").replace("__ZAKLAD__", html_lib.escape(zaklad, quote=True)))
-            except OSError:
-                return chyba(404, "Anketa tu není.")
+            return Odpoved(status=302, location=zaklad + "/")   # anketa je nahoře na úvodní stránce
         if cesta == "/anketa/hlas":
             return self.hlasovat(urllib.parse.parse_qs(dotaz), klient)
         if cesta == "/identita/vyzva":

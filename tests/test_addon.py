@@ -1866,7 +1866,9 @@ class TestProvoz(unittest.TestCase):
         r = router()
         hlasy = []
         r.hlas = lambda *a: hlasy.append(a)
-        self.assertIn("Měli byste zájem o CZtor", r.route("/anketa", ZAKLAD).html)
+        self.assertIn("Měli byste zájem o CZtor", r.route("/", ZAKLAD).html)
+        self.assertIn("Mali by ste záujem o CZtor", r.route("/", ZAKLAD, jazyk="sk").html)
+        self.assertEqual(r.route("/anketa", ZAKLAD).status, 302)
         v = "0123456789abcdef0123456789abcdef"
         self.assertEqual(r.route(f"/anketa/hlas?v={v}&volba=ano", ZAKLAD, klient="1.2.3.4").status, 200)
         self.assertEqual(hlasy, [("cztor-stremio", v, "ano")])
