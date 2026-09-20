@@ -86,6 +86,7 @@ class Provoz:
         self.zahozeno = 0
         self._fronta = []
         self._utoky = {}
+        self._zprava = ""
         self._zamek = threading.Lock()
         self._vlakno = None
         self._konec = threading.Event()
@@ -129,6 +130,22 @@ class Provoz:
             u["ua"] = str(ua or "")[:120]
             u["has_id"] = -1 if ma_id is None else int(ma_id)
 
+    def zprava(self):
+        """Zpráva z dashboardu pro uživatele Stremia (obrazovka Zprávy); prázdné = žádná.
+        Čte se z paměti, obnovuje ji vlákno provozu — požadavek na streamy na síť nečeká."""
+        return self._zprava
+
+    def _nacti_zpravu(self):
+        adresa = self.url.rsplit("/", 1)[0] + "/traffic/message" if self.url.endswith("/traffic") else self.url + "/message"
+        req = urllib.request.Request(adresa, headers={"X-Nokturno-Token": self.token, "User-Agent": "Nokturno provoz"})
+        try:
+            with urllib.request.urlopen(req, timeout=5) as odp:
+                data = json.loads(odp.read(20000).decode("utf-8"))
+            text = data.get("text") if isinstance(data, dict) else ""
+            self._zprava = " ".join(str(text or "").split())[:300]
+        except (urllib.error.URLError, OSError, ValueError) as err:
+            _LOGGER.debug("zpráva z dashboardu se nenačetla: %s", err)   # zůstává poslední známá
+
     def start(self):
         if not self.zapnuto or self._vlakno is not None:
             return
@@ -142,6 +159,7 @@ class Provoz:
         while not self._konec.wait(self.interval):
             try:
                 self.odesli()
+                self._nacti_zpravu()
             except Exception as err:  # noqa: BLE001 – hlášení provozu nesmí nic shodit
                 _LOGGER.debug("provoz: %s", err)
 

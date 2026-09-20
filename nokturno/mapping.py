@@ -250,6 +250,11 @@ def upozorneni_nova_adresa(nova_adresa):
     return {"name": "⚠️ Nokturno", "title": text, "description": text, "externalUrl": nova_adresa}
 
 
+def zprava_z_dashboardu(text):
+    """Řádek s oznámením z dashboardu (obrazovka Zprávy) na začátku seznamu streamů."""
+    return {"name": "📢 Nokturno", "title": text, "description": text}
+
+
 def manifest_version(verze):
     """Ořízne betasufix (např. '5.2.1b1' -> '5.2.1') pro pole 'version' manifestu.
 

@@ -411,6 +411,7 @@ def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, opti
     server.pady = Pady.z_prostredi(data_dir, VERZE)
     server.pady.odesli()   # co zůstalo ve frontě z minula (server nebo síť tehdy neběžely)
     server.provoz = Provoz.z_prostredi()
+    server.router.zprava = server.provoz.zprava
     server.provoz.start()  # bez NOKTURNO_TRAFFIC_TOKEN se vlákno nespustí a nic se neměří
     threading.Thread(target=_udrzba_smycka, args=(data_dir,), daemon=True).start()
     return server, zdroje

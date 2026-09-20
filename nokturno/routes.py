@@ -48,7 +48,7 @@ from .identita import Identita
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "6.4.9"
+VERZE = "6.5.0"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -334,6 +334,7 @@ class Router:
                  blokovane=None, identita=None, blokace=None):
         self.enginy = enginy
         self.identita = identita or Identita("")
+        self.zprava = None   # volatelná: text zprávy z dashboardu (nastaví server)
         self.id_okno = Okno(*ID_LIMIT)
         self.katalogy = katalogy   # nokturno.katalogy.Katalogy, None = katalogy se nenabízejí
         self.verze = verze
@@ -759,5 +760,8 @@ class Router:
                 povysit = getattr(self.enginy, "povysit", None)
                 if povysit is not None:
                     povysit(options, verejny)   # první skutečný stream = jádro se ověřilo
+            oznameni = self.zprava() if callable(self.zprava) else ""
+            if oznameni and isinstance(odp.data, dict) and isinstance(odp.data.get("streams"), list):
+                odp.data["streams"].insert(0, mapping.zprava_z_dashboardu(oznameni))
             return odp
         return chyba(404, "Tady nic není. Doplněk se nastavuje na /configure")
