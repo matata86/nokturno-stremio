@@ -245,8 +245,8 @@ def streams_response(popisy, odkaz, primy=None):
 
 
 def upozorneni_nova_adresa(nova_adresa):
-    """První položka v seznamu streamů u adresy bez identity: kam si vyrobit novou."""
-    text = f"Aktualizuj doplněk: vyrob si novou adresu na {nova_adresa}"
+    """První položka v seznamu streamů u adresy bez identity: co má uživatel udělat."""
+    text = "Klikni na Nastavení doplňku. Pak tento doplněk odeber a přidej nový."
     return {"name": "⚠️ Nokturno", "title": text, "description": text, "externalUrl": nova_adresa}
 
 
@@ -279,7 +279,7 @@ def manifest(verze, zdroje=(), nastaveno=True, katalogy=(), nova_adresa=None):
     if zdroje:
         popis += " Nastavené zdroje: " + ", ".join(zdroje) + "."
     if nova_adresa:
-        popis += f" ⚠️ Přejdi na novou adresu na {nova_adresa} (doplněk pak odinstaluj a nainstaluj znovu)."
+        popis += " ⚠️ Klikni na Nastavení, tím se vytvoří nová adresa doplňku. Pak tento doplněk odeber a přidej nový."
     return {
         "id": "community.nokturno",
         "version": manifest_version(verze),

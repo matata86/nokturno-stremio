@@ -48,7 +48,7 @@ from .identita import Identita
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "6.4.7"
+VERZE = "6.4.8"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -713,7 +713,7 @@ class Router:
         # adresa z doby před identitou (do 6.1.0) a bez účtů (jen HellSpy): funguje dál, ale limity
         # sdílí celá IP — uživatele postrčíme na novou (popis doplňku, první položka streamů)
         stara = bool(kousek) and self.identita.zapnuta and not options.get(config.ID_KLIC) and not config.ma_ucty(options)
-        nova = f"{zaklad}/configure"
+        nova = f"{zaklad}/c/{kousek}/configure"   # formulář s jeho nastavením, vydá i identitu
         if zbytek == "/manifest.json":
             return self.manifest(options if kousek else self.enginy.vychozi_options, nastaveno=bool(kousek),
                                  nova_adresa=nova if stara else None)

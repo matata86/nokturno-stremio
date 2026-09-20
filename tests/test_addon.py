@@ -1839,8 +1839,8 @@ class TestProvoz(unittest.TestCase):
     def test_upozorneni_na_novou_adresu(self):
         from nokturno import mapping
         nova = "https://x.example/configure"
-        self.assertIn(nova, mapping.manifest("6.4.6", (), nova_adresa=nova)["description"])
-        self.assertNotIn("configure", mapping.manifest("6.4.6", ())["description"])
+        self.assertIn("Nastavení", mapping.manifest("6.4.6", (), nova_adresa=nova)["description"])
+        self.assertNotIn("⚠️", mapping.manifest("6.4.6", ())["description"])
         u = mapping.upozorneni_nova_adresa(nova)
         self.assertEqual(u["externalUrl"], nova)
         self.assertTrue(u["name"].startswith("⚠️"))
