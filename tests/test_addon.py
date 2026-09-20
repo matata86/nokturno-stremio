@@ -2009,8 +2009,72 @@ class TestStropSoubeznychSpojeni(unittest.TestCase):
             finally:
                 httpd.server_close()
 
-    def test_vychozi_strop_a_timeout_spojeni(self):
+    def test_vychozi_strop_fronta_a_timeout_spojeni(self):
         from nokturno import server as srv
-        self.assertEqual(srv.MAX_SPOJENI, 200)
+        self.assertEqual(srv.MAX_SPOJENI, 400)
         self.assertEqual(srv.Handler.timeout, 30)
+        self.assertEqual(srv.Server.request_queue_size, 128,
+                         "výchozích 5 ze socketserveru je tvrdší strop než MAX_SPOJENI")
         self.assertTrue(srv.Server.daemon_threads)
+
+    def test_odmitnuty_pozadavek_zavre_spojeni(self):
+        """Odpověď s `utok` (limit, blokace) nesmí nechat spojení viset v keep-alive —
+        držela by vlákno `Handler.timeout` sekund za odpověď, která trvá milisekundu."""
+        import http.client
+        from unittest import mock
+        from nokturno import server as srv
+        from nokturno.routes import Odpoved
+
+        with tempfile.TemporaryDirectory() as tmp:
+            httpd = self._server(50, tmp)
+            port = httpd.server_address[1]
+            try:
+                with mock.patch.object(httpd.router, "route",
+                                       return_value=Odpoved(429, text="moc dotazů",
+                                                            utok=("limit", "abcdef0123456789"))):
+                    spojeni = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+                    spojeni.request("GET", "/health")
+                    odpoved = spojeni.getresponse()
+                    self.assertEqual(odpoved.status, 429)
+                    self.assertEqual(odpoved.getheader("Connection"), "close")
+                    odpoved.read()
+                    spojeni.close()
+
+                # a naopak: běžná odpověď keep-alive drží (dva dotazy na jednom spojení)
+                spojeni = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+                spojeni.request("GET", "/health")
+                prvni = spojeni.getresponse()
+                self.assertNotEqual(prvni.getheader("Connection"), "close")
+                prvni.read()
+                spojeni.request("GET", "/health")
+                self.assertEqual(spojeni.getresponse().status, 200)
+                spojeni.close()
+            finally:
+                httpd.shutdown()
+                httpd.server_close()
+
+    def test_misto_se_vrati_i_po_odmitnutem_pozadavku(self):
+        """Uzavření spojení po odmítnutí nesmí místo v semaforu ztratit."""
+        import http.client
+        from unittest import mock
+        from nokturno import server as srv
+        from nokturno.routes import Odpoved
+
+        with tempfile.TemporaryDirectory() as tmp:
+            httpd = self._server(2, tmp)
+            port = httpd.server_address[1]
+            try:
+                with mock.patch.object(httpd.router, "route",
+                                       return_value=Odpoved(403, text="blokováno",
+                                                            utok=("blokováno", None))):
+                    for _ in range(6):
+                        spojeni = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+                        spojeni.request("GET", "/health")
+                        self.assertEqual(spojeni.getresponse().status, 403)
+                        spojeni.close()
+                        self.assertTrue(self._pockej_na_volno(httpd))
+                self.assertEqual(httpd.odmitnuta_spojeni, 0,
+                                 "šest odmítnutých požadavků za sebou nesmí vyčerpat dvě místa")
+            finally:
+                httpd.shutdown()
+                httpd.server_close()

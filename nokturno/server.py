@@ -34,8 +34,15 @@ VYCHOZI_DATA = "./data"      # cache a mezipaměť jádra; v kontejneru svazek
 # Strop souběžných spojení. `ThreadingHTTPServer` sám žádný nemá — na každé
 # otevřené spojení založí vlákno a drží ho, dokud klient nezavře nebo nevyprší
 # `Handler.timeout`. Kdo pošle hlavičku po bajtu (slowloris), obsadí tím tolik
-# vláken, kolik jich stihne otevřít. LXC 124 má jedno jádro a `TasksMax=512`.
-MAX_SPOJENI = int(os.environ.get("NOKTURNO_MAX_SPOJENI", "200"))
+# vláken, kolik jich stihne otevřít.
+#
+# Uživatelů může být kolik chce — doplněk poslouchá jen na 127.0.0.1 za Tailscale
+# Funnelem a `tailscaled` spojení na backend sdružuje, takže jich je zhruba tolik,
+# kolik je zrovna rozpracovaných požadavků (měřeno 2026-09-20: 30 souběžných
+# požadavků zvenku = 2 až 3 spojení sem). Naměřená špička souběžnosti za běžný den
+# je 54, za útočnou noc 18. → 19. 9. to bylo 146. Odtud 400: čtyřnásobek běžné
+# špičky a s rezervou nad útok. Nečinné vlákno stojí jen svůj zásobník, ne procesor.
+MAX_SPOJENI = int(os.environ.get("NOKTURNO_MAX_SPOJENI", "400"))
 
 
 _CORS_RE = re.compile(r"^(?:/c/[^/]+)?/(?:manifest\.json|health|stream/.+\.json|catalog/.+\.json|play/.+)$")
@@ -230,6 +237,13 @@ class Handler(BaseHTTPRequestHandler):
         telo, typ = odpoved.body
         self.send_response(odpoved.status)
         self._odeslano = True   # od teď už nejde poslat druhou odpověď (viz do_GET)
+        if self._utok:
+            # Odmítnutý požadavek (limit, blokace) nesmí držet keep-alive: odpověď
+            # trvá milisekundu, ale spojení by po ní zůstalo viset `Handler.timeout`
+            # sekund a držet vlákno. Kdo mlátí do limitu, obsadí tím jinak
+            # `MAX_SPOJENI` i bez jediného vyřízeného požadavku.
+            # `send_header("Connection", "close")` zároveň nastaví `close_connection`.
+            self.send_header("Connection", "close")
         if odpoved.location:
             self.send_header("Location", odpoved.location)
         self.send_header("Content-Type", typ)
@@ -317,6 +331,11 @@ class Server(ThreadingHTTPServer):
     """
 
     daemon_threads = True
+    # Fronta jádra na přijetí spojení. `socketserver` má výchozích 5, což je tvrdší
+    # strop než `MAX_SPOJENI` a při nárazu na něj narazí dřív: co se do fronty
+    # nevejde, jádro odmítne ještě před `accept()` a klient dostane spojení odmítnuto
+    # místo odpovědi 503.
+    request_queue_size = 128
 
     def __init__(self, *args, max_spojeni=None, **kwargs):
         super().__init__(*args, **kwargs)
