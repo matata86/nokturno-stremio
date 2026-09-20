@@ -48,7 +48,7 @@ from .identita import Identita
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "6.4.8"
+VERZE = "6.4.9"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -727,6 +727,12 @@ class Router:
                 return odp
             return self.katalog(casti)
 
+        if stara and casti and casti[0] in ("stream", "play"):
+            # od 6.4.9 bez skutečných streamů: sdílené nastavení bez účtů a bez identity musí
+            # přejít na novou adresu (limity by se počítaly na sdílenou IP)
+            if casti[0] == "play":
+                return chyba(410, "Tahle adresa doplňku je zastaralá. Otevři Nastavení doplňku, odeber ho a přidej nový.")
+            return Odpoved(data={"streams": [mapping.upozorneni_nova_adresa(nova)]})
         if kousek and casti and casti[0] == "stream":
             odp = self._omezit(self.stream_okno, options, klient, "streamy")
             if odp is not None:
@@ -749,8 +755,6 @@ class Router:
             return self.play(engine, casti[1], klic=config.fingerprint(options) if kousek else "vychozi")
         if casti and casti[0] == "stream" and len(casti) == 3 and casti[2].endswith(".json"):
             odp = self.streams(engine, casti[1], casti[2][:-len(".json")], zaklad, kousek, aplikace)
-            if stara and isinstance(odp.data, dict) and isinstance(odp.data.get("streams"), list):
-                odp.data["streams"].insert(0, mapping.upozorneni_nova_adresa(nova))
             if kousek and isinstance(odp.data, dict) and odp.data.get("streams"):
                 povysit = getattr(self.enginy, "povysit", None)
                 if povysit is not None:

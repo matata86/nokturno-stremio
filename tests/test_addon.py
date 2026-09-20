@@ -1845,6 +1845,17 @@ class TestProvoz(unittest.TestCase):
         self.assertEqual(u["externalUrl"], nova)
         self.assertTrue(u["name"].startswith("⚠️"))
 
+    def test_stara_adresa_dostane_jen_vyzvu(self):
+        from nokturno.identita import Identita
+        r = router()
+        r.identita = Identita("tajne")
+        st = r.route(f"/c/{KOUSEK_HS}/stream/movie/tt0133093.json", ZAKLAD)
+        self.assertEqual(len(st.data["streams"]), 1)
+        self.assertIn("Nastavení", st.data["streams"][0]["title"])
+        self.assertEqual(r.route(f"/c/{KOUSEK_HS}/play/abc", ZAKLAD).status, 410)
+        # s vlastními účty se stará adresa nechává
+        self.assertNotIn("Nastavení", str(r.route(f"/c/{KOUSEK}/stream/movie/tt0133093.json", ZAKLAD).data))
+
     def test_provoz_rozlisuje_adresu_s_identitou(self):
         from nokturno.provoz import klasifikuj
         s_id = config.encode({**NASTAVENI, config.ID_KLIC: "0123456789abcdef.0123456789abcdef"})
