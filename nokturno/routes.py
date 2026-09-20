@@ -48,7 +48,7 @@ from .identita import Identita
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "6.5.0"
+VERZE = "6.5.1"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -762,6 +762,6 @@ class Router:
                     povysit(options, verejny)   # první skutečný stream = jádro se ověřilo
             oznameni = self.zprava() if callable(self.zprava) else ""
             if oznameni and isinstance(odp.data, dict) and isinstance(odp.data.get("streams"), list):
-                odp.data["streams"].insert(0, mapping.zprava_z_dashboardu(oznameni))
+                odp.data["streams"].insert(0, mapping.zprava_z_dashboardu(oznameni, zaklad + "/"))
             return odp
         return chyba(404, "Tady nic není. Doplněk se nastavuje na /configure")

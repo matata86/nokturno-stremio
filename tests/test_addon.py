@@ -1852,6 +1852,7 @@ class TestProvoz(unittest.TestCase):
         odp = r.route(cesta, ZAKLAD)
         self.assertEqual(odp.data["streams"][0]["name"], "📢 Nokturno")
         self.assertEqual(odp.data["streams"][0]["title"], "Výpadek Sosáče, řešíme.")
+        self.assertTrue(odp.data["streams"][0]["externalUrl"].startswith("http"))   # bez odkazu Stremio stream zahodí
         r.zprava = lambda: ""
         self.assertNotIn("📢", str(r.route(cesta, ZAKLAD).data))
 

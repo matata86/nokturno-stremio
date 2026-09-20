@@ -250,9 +250,11 @@ def upozorneni_nova_adresa(nova_adresa):
     return {"name": "⚠️ Nokturno", "title": text, "description": text, "externalUrl": nova_adresa}
 
 
-def zprava_z_dashboardu(text):
-    """Řádek s oznámením z dashboardu (obrazovka Zprávy) na začátku seznamu streamů."""
-    return {"name": "📢 Nokturno", "title": text, "description": text}
+def zprava_z_dashboardu(text, odkaz):
+    """Řádek s oznámením z dashboardu (obrazovka Zprávy) na začátku seznamu streamů.
+    Stremio zahodí stream bez `url`/`infoHash`/`externalUrl`, proto `externalUrl` na úvodní
+    stránku doplňku — klik jen otevře prohlížeč, přehrávat se nic nebude."""
+    return {"name": "📢 Nokturno", "title": text, "description": text, "externalUrl": odkaz}
 
 
 def manifest_version(verze):
