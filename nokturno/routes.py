@@ -49,7 +49,7 @@ from .identita import Identita
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "6.5.3"
+VERZE = "6.5.4"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -57,10 +57,10 @@ CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut —
 # vteřiny a nafoukl cache na 400 000 souborů. 60 za 10 min člověk nepřekročí, bot ano hned.
 # Dřív se počítalo per otisk nastavení — jenže nastavení bez účtů (jen HellSpy a volby) sdílí
 # spousta lidí, takže jeden bot vyčerpal limit, respektive blokaci, všem ostatním.
-# 2026-09-20: z 60 na 120 — domácnost se dvěma zařízeními na staré adrese bez identity sdílí
-# jeden klíč (IP) a Stremio/Nuvio žádají o streamy hromadně; bot (~28/s) ho překročí stejně.
+# Od 6.4.9 bez skutečných streamů pro adresy bez identity a bez účtů, takže se limity počítají
+# jen na identitu (`id:`) nebo otisk s účty (`fp:`); adresa (IP) je jen strop nad nimi.
 STREAM_LIMIT = (120, 10 * 60)
-ID_LIMIT = (3, 3600)   # vydaných identit z jedné adresy za hodinu (formulář /configure)
+ID_LIMIT = (10, 3600)   # vydaných identit z jedné adresy za hodinu (formulář /configure)
 # Audit 2026-09-19: `/play/` neměl limit vůbec (sto tisíc rozklíčování z jedné adresy = HellSpy
 # 429 a jádro ho pak vypne všem na 10 minut), `/catalog` taky ne (každý `skip` = nový dotaz na
 # TMDB/Sosáč). A s identitou v adrese se limity počítaly **místo** IP, takže N identit z jedné
@@ -483,10 +483,9 @@ class Router:
         if not vlastni_ok or not ip_ok:
             # prohřešek dostane jen ten klíč, který limit opravdu překročil — jinak by jeden
             # uživatel s vlastním otiskem přivedl na blokaci celou domácnost za stejnou IP
-            if adresa and not vlastni_ok:
+            # blokace jen identity/otisku; adresa se nikdy neblokuje (CGNAT, domácnost), dostane jen 429
+            if adresa.startswith(("id:", "fp:")) and not vlastni_ok:
                 self.blokace.prohresek(adresa)
-            if ip and ip != adresa and not ip_ok:
-                self.blokace.prohresek(ip)
             odp = chyba(429, f"Příliš mnoho požadavků na {co} za sebou, zkus to za pár minut.")
             odp.utok = ("limit", fp)
             return odp
@@ -758,7 +757,10 @@ class Router:
         if kousek and casti and casti[0] == "stream":
             odp = self._omezit(self.stream_okno, options, klient, "streamy")
             if odp is not None:
-                return odp
+                # Stremio při 403/429 nic neukáže — uživatel dostane důvod jako jediný „stream"
+                blok = Odpoved(data={"streams": [mapping.upozorneni_blokace(odp.text or "", zaklad + "/")]})
+                blok.utok = odp.utok
+                return blok
         if kousek and casti and casti[0] == "play":
             odp = self._omezit(self.play_okno, options, klient, "přehrání")
             if odp is not None:
@@ -767,7 +769,7 @@ class Router:
             engine = self.enginy.pro(options, verejny=verejny, klient=self._klic_limitu(options, klient) if kousek else "")
         except PrilisMnohoNovych:
             adresa = self._klic_limitu(options, klient)
-            if adresa:
+            if adresa.startswith(("id:", "fp:")):
                 self.blokace.prohresek(adresa)
             odp = chyba(429, "Příliš mnoho nových nastavení z jedné adresy za hodinu, zkus to později.")
             odp.utok = ("limit", config.fingerprint(options))

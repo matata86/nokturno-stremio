@@ -250,6 +250,11 @@ def upozorneni_nova_adresa(nova_adresa):
     return {"name": "⚠️ Nokturno", "title": text, "description": text, "externalUrl": nova_adresa}
 
 
+def upozorneni_blokace(text, odkaz):
+    """První (jediná) položka místo streamů, když je adresa doplňku zablokovaná nebo přetížená."""
+    return {"name": "⛔ Nokturno", "title": text, "description": text, "externalUrl": odkaz}
+
+
 def zprava_z_dashboardu(text, odkaz):
     """Řádek s oznámením z dashboardu (obrazovka Zprávy) na začátku seznamu streamů.
     Stremio zahodí stream bez `url`/`infoHash`/`externalUrl`, proto `externalUrl` na úvodní

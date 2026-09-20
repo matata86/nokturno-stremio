@@ -387,7 +387,7 @@ class TestVerejnyPristup(unittest.TestCase):
 
     def test_s_vlastnim_nastavenim_zvenku_funguje(self):
         r = router()
-        self.assertEqual(r.route(f"/c/{KOUSEK}/stream/movie/tt1.json", ZAKLAD, verejny=True).status, 200)
+        self.assertEqual(stav(r.route(f"/c/{KOUSEK}/stream/movie/tt1.json", ZAKLAD, verejny=True)), 200)
         self.assertEqual(r.enginy_test.pozadovana_nastaveni[-1], NASTAVENI)
 
     def test_rozpoznani_verejneho_pozadavku(self):
@@ -1280,6 +1280,13 @@ class TestFormularHellSpyAJazyk(unittest.TestCase):
             self.assertIn('hodnota === "") pole.value = "ANY"', html, jmeno)
 
 
+def stav(odp):
+    """Stav jako u limitu: odmítnutý /stream jde klientovi jako 200 s upozorněním, důvod je v `utok`."""
+    if odp.utok and odp.utok[0] in ("limit", "auto-blok"):
+        return 403 if odp.utok[0] == "auto-blok" else 429
+    return odp.status
+
+
 class TestLimityAUklid(unittest.TestCase):
     def test_check_ma_limit_na_adresu(self):
         from nokturno.routes import Okno
@@ -1316,39 +1323,61 @@ class TestLimityAUklid(unittest.TestCase):
         r = router()
         r.stream_okno = routes.Okno(3, 600)
         cesta = f"/c/{KOUSEK_HS}/stream/movie/tt0133093.json"
-        self.assertEqual([r.route(cesta, ZAKLAD, klient="1.2.3.4").status for _ in range(4)],
+        self.assertEqual([stav(r.route(cesta, ZAKLAD, klient="1.2.3.4")) for _ in range(4)],
                          [200, 200, 200, 429])
         # stejné nastavení z jiné IP limit nesdílí (nastavení bez účtů má spousta lidí)
-        self.assertEqual(r.route(cesta, ZAKLAD, klient="5.6.7.8").status, 200)
+        self.assertEqual(stav(r.route(cesta, ZAKLAD, klient="5.6.7.8")), 200)
         jina = config.encode(config.from_mapping({"hs_enabled": True, "pref_lang": "SK"}))
-        self.assertEqual(r.route(f"/c/{jina}/stream/movie/tt0133093.json", ZAKLAD, klient="1.2.3.4").status, 429)
+        self.assertEqual(stav(r.route(f"/c/{jina}/stream/movie/tt0133093.json", ZAKLAD, klient="1.2.3.4")), 429)
         # vlastní účty = jedinečný otisk: limit se počítá na něj, ne na sdílenou IP
         ucty = f"/c/{KOUSEK}/stream/movie/tt0133093.json"
-        self.assertEqual([r.route(ucty, ZAKLAD, klient="1.2.3.4").status for _ in range(4)], [200, 200, 200, 429])
+        self.assertEqual([stav(r.route(ucty, ZAKLAD, klient="1.2.3.4")) for _ in range(4)], [200, 200, 200, 429])
 
     def test_limit_streamu_ipv6_po_64(self):
         from nokturno import routes
         r = router()
         r.stream_okno = routes.Okno(2, 600)
         cesta = f"/c/{KOUSEK_HS}/stream/movie/tt0133093.json"
-        stavy = [r.route(cesta, ZAKLAD, klient=f"2a09:bac1:1da0:10::{i}").status for i in range(3)]
+        stavy = [stav(r.route(cesta, ZAKLAD, klient=f"2a09:bac1:1da0:10::{i}")) for i in range(3)]
         self.assertEqual(stavy, [200, 200, 429])
-        self.assertEqual(r.route(cesta, ZAKLAD, klient="2a09:bac1:1da0:11::1").status, 200)
+        self.assertEqual(stav(r.route(cesta, ZAKLAD, klient="2a09:bac1:1da0:11::1")), 200)
 
-    def test_opakovane_narazeni_na_limit_zablokuje_adresu_na_hodinu(self):
+    def test_opakovane_narazeni_na_limit_zablokuje_ucet_ne_adresu(self):
         from nokturno import routes
         r = router()
         r.stream_okno = routes.Okno(2, 600)
         r.blokace = routes.Blokace(prah=3, okno_s=600, doba_s=3600)
-        cesta = f"/c/{KOUSEK_HS}/stream/movie/tt0133093.json"
-        stavy = [r.route(cesta, ZAKLAD, klient="1.2.3.4").status for _ in range(7)]
-        # 2× 200, pak 3× 429 a od třetího odmítnutí už rovnou 403 (blokace)
+        cesta = f"/c/{KOUSEK}/stream/movie/tt0133093.json"
+        stavy = [stav(r.route(cesta, ZAKLAD, klient="1.2.3.4")) for _ in range(7)]
+        # 2× 200, pak 3× 429 a od třetího odmítnutí už rovnou 403 (blokace otisku s účty)
         self.assertEqual(stavy, [200, 200, 429, 429, 429, 403, 403])
         odp = r.route(cesta, ZAKLAD, klient="1.2.3.4")
         self.assertEqual(odp.utok[0], "auto-blok")
-        # jiná adresa a jiné cesty téže adresy zůstávají dostupné
-        self.assertEqual(r.route(cesta, ZAKLAD, klient="5.6.7.8").status, 200)
-        self.assertEqual(r.route(f"/c/{KOUSEK_HS}/manifest.json", ZAKLAD, klient="1.2.3.4").status, 200)
+        self.assertEqual(r.route(f"/c/{KOUSEK}/manifest.json", ZAKLAD, klient="1.2.3.4").status, 200)
+
+    def test_blokovany_dostane_misto_streamu_upozorneni(self):
+        from nokturno import routes
+        r = router()
+        r.stream_okno = routes.Okno(1, 600)
+        cesta = f"/c/{KOUSEK}/stream/movie/tt0133093.json"
+        r.route(cesta, ZAKLAD, klient="1.2.3.4")
+        odp = r.route(cesta, ZAKLAD, klient="1.2.3.4")
+        self.assertEqual(odp.status, 200)
+        self.assertEqual(len(odp.data["streams"]), 1)
+        self.assertIn("Nokturno", odp.data["streams"][0]["name"])
+        self.assertTrue(odp.data["streams"][0]["externalUrl"].startswith("http"))
+        self.assertEqual(odp.utok[0], "limit")
+
+    def test_adresa_se_nikdy_neblokuje(self):
+        from nokturno import routes
+        r = router()
+        r.ip_okno = routes.Okno(2, 600)
+        r.blokace = routes.Blokace(prah=2, okno_s=600, doba_s=3600)
+        kousky = [config.encode(config.from_mapping({"ws_username": f"u{i}", "ws_password": "x"})) for i in range(8)]
+        stavy = [stav(r.route(f"/c/{k}/stream/movie/tt0133093.json", ZAKLAD, klient="1.2.3.4")) for k in kousky]
+        self.assertNotIn(403, stavy)
+        self.assertIn(429, stavy)
+        self.assertFalse(r.blokace.blokovana("1.2.3.4"))
 
     def test_blokace_vyprsi(self):
         from unittest import mock
@@ -1407,12 +1436,12 @@ class TestLimityAUklid(unittest.TestCase):
         self.assertEqual(odp.utok[0], "neplatné id")
         self.assertEqual(r.route(f"/c/{spatne}/configure", ZAKLAD, klient="1.2.3.4").status, 200)
         dobre = config.encode(config.from_mapping({**NASTAVENI, "id": r.identita.vydat()}))
-        self.assertEqual(r.route(f"/c/{dobre}/stream/movie/tt0133093.json", ZAKLAD, klient="1.2.3.4").status, 200)
+        self.assertEqual(stav(r.route(f"/c/{dobre}/stream/movie/tt0133093.json", ZAKLAD, klient="1.2.3.4")), 200)
 
     def test_bez_tajemstvi_se_identita_ignoruje(self):
         r = router()
         s = config.encode(config.from_mapping({**NASTAVENI, "id": "a" * 16 + "." + "b" * 16}))
-        self.assertEqual(r.route(f"/c/{s}/stream/movie/tt0133093.json", ZAKLAD).status, 200)
+        self.assertEqual(stav(r.route(f"/c/{s}/stream/movie/tt0133093.json", ZAKLAD)), 200)
         self.assertNotIn("id", r.enginy_test.pozadovana_nastaveni[-1])
 
     def test_limity_s_identitou_jdou_na_uzivatele_ne_na_adresu(self):
@@ -1424,10 +1453,10 @@ class TestLimityAUklid(unittest.TestCase):
         a = config.encode(config.from_mapping({**NASTAVENI, "id": r.identita.vydat()}))
         b = config.encode(config.from_mapping({**NASTAVENI, "id": r.identita.vydat()}))
         cesta = lambda k: f"/c/{k}/stream/movie/tt0133093.json"   # noqa: E731
-        self.assertEqual([r.route(cesta(a), ZAKLAD, klient="1.2.3.4").status for _ in range(3)], [200, 200, 429])
+        self.assertEqual([stav(r.route(cesta(a), ZAKLAD, klient="1.2.3.4")) for _ in range(3)], [200, 200, 429])
         # jiná identita ze stejné adresy má vlastní limit; stejná identita z jiné adresy limit sdílí
-        self.assertEqual(r.route(cesta(b), ZAKLAD, klient="1.2.3.4").status, 200)
-        self.assertEqual(r.route(cesta(a), ZAKLAD, klient="9.9.9.9").status, 429)
+        self.assertEqual(stav(r.route(cesta(b), ZAKLAD, klient="1.2.3.4")), 200)
+        self.assertEqual(stav(r.route(cesta(a), ZAKLAD, klient="9.9.9.9")), 429)
 
     def test_formular_vlozi_jen_stavajici_identitu(self):
         from nokturno.identita import Identita
@@ -1498,7 +1527,7 @@ class TestLimityAUklid(unittest.TestCase):
         novy = html.split('form.elements["id"].value = "', 1)[1].split('"', 1)[0]
         self.assertTrue(r.identita.platna(novy) and r.identita.vydana(novy) is not None)
         # starý tvar dál funguje na /stream
-        self.assertEqual(r.route(f"/c/{s}/stream/movie/tt0133093.json", ZAKLAD, klient="1.2.3.4").status, 200)
+        self.assertEqual(stav(r.route(f"/c/{s}/stream/movie/tt0133093.json", ZAKLAD, klient="1.2.3.4")), 200)
 
     def test_identita_neobejde_strop_na_adresu(self):
         """Audit 2026-09-19: N identit z jedné adresy = N × limit. Nad limitem na uživatele je
@@ -1513,11 +1542,11 @@ class TestLimityAUklid(unittest.TestCase):
         stavy = []
         for _ in range(3):
             k = config.encode(config.from_mapping({**NASTAVENI, "id": r.identita.vydat()}))
-            stavy.append(r.route(cesta(k), ZAKLAD, klient="1.2.3.4").status)
+            stavy.append(stav(r.route(cesta(k), ZAKLAD, klient="1.2.3.4")))
         self.assertEqual(stavy, [200, 200, 200])
         k = config.encode(config.from_mapping({**NASTAVENI, "id": r.identita.vydat()}))
-        self.assertEqual(r.route(cesta(k), ZAKLAD, klient="1.2.3.4").status, 429, "4. identita, strop adresy")
-        self.assertEqual(r.route(cesta(k), ZAKLAD, klient="5.6.7.8").status, 200, "jiná adresa jede")
+        self.assertEqual(stav(r.route(cesta(k), ZAKLAD, klient="1.2.3.4")), 429, "4. identita, strop adresy")
+        self.assertEqual(stav(r.route(cesta(k), ZAKLAD, klient="5.6.7.8")), 200, "jiná adresa jede")
 
     def test_play_ma_limit_a_blokaci(self):
         """Audit 2026-09-19: `/play/` neměl limit — sto tisíc rozklíčování = HellSpy 429 pro všechny."""
@@ -1526,7 +1555,7 @@ class TestLimityAUklid(unittest.TestCase):
         r.play_okno = routes.Okno(2, 600)
         r.blokace = routes.Blokace(prah=2, okno_s=600, doba_s=3600)
         cesta = f"/c/{KOUSEK}/play/{mapping.zakoduj('ws:abc')}"
-        stavy = [r.route(cesta, ZAKLAD, klient="1.2.3.4").status for _ in range(5)]
+        stavy = [stav(r.route(cesta, ZAKLAD, klient="1.2.3.4")) for _ in range(5)]
         self.assertEqual(stavy[:2], [302, 302])
         self.assertEqual(stavy[2], 429)
         self.assertEqual(stavy[-1], 403, "po prahu odmítnutí blokace i na /play/")
@@ -1546,9 +1575,9 @@ class TestLimityAUklid(unittest.TestCase):
         r.katalogy.sosac = Sosac()
         r.katalog_okno = routes.Okno(1, 600)
         cesta = "/catalog/movie/nokturno.sosac.nove.dabing.json"
-        self.assertEqual(r.route(f"/c/{KOUSEK}{cesta}", ZAKLAD, klient="1.2.3.4").status, 200)
-        self.assertEqual(r.route(f"/c/{KOUSEK}{cesta}", ZAKLAD, klient="1.2.3.4").status, 429)
-        self.assertEqual(r.route(f"/c/{KOUSEK}{cesta}", ZAKLAD, klient="5.6.7.8").status, 200, "jiná adresa jede")
+        self.assertEqual(stav(r.route(f"/c/{KOUSEK}{cesta}", ZAKLAD, klient="1.2.3.4")), 200)
+        self.assertEqual(stav(r.route(f"/c/{KOUSEK}{cesta}", ZAKLAD, klient="1.2.3.4")), 429)
+        self.assertEqual(stav(r.route(f"/c/{KOUSEK}{cesta}", ZAKLAD, klient="5.6.7.8")), 200, "jiná adresa jede")
         r.katalog_okno = routes.Okno(100, 600)
         odp = r.route(f"/c/{KOUSEK}/catalog/movie/nokturno.sosac.nove.dabing/skip={routes.MAX_SKIP + 1}.json",
                       ZAKLAD, klient="1.2.3.4")
@@ -1606,7 +1635,7 @@ class TestLimityAUklid(unittest.TestCase):
             t = r.identita.vydat()
             k = config.encode(config.from_mapping({**NASTAVENI, "id": t}))
             cesta = f"/c/{k}/stream/movie/tt0133093.json"
-            stavy = [r.route(cesta, ZAKLAD, klient="1.2.3.4").status for _ in range(9)]
+            stavy = [stav(r.route(cesta, ZAKLAD, klient="1.2.3.4")) for _ in range(9)]
             # 200, 429, 429(→1. blokace, doba 0 → hned vyprší), 429, 429(→2. blokace = odebrání), pak 403 napořád
             self.assertEqual(stavy[-1], 403)
             self.assertTrue(r.blokace.odebrana("id:" + t))
@@ -1628,7 +1657,7 @@ class TestLimityAUklid(unittest.TestCase):
         r = router()
         r.stream_okno = routes.Okno(3, 600)
         cesta = f"/c/{KOUSEK}/stream/movie/tt0133093.json"
-        self.assertEqual([r.route(cesta, ZAKLAD).status for _ in range(4)], [200, 200, 200, 429])
+        self.assertEqual([stav(r.route(cesta, ZAKLAD)) for _ in range(4)], [200, 200, 200, 429])
 
     def test_jina_adresa_blokaci_neni_dotcena(self):
         r = Router(FalesneEnginy(FalesnyEngine()), blokovane={"jiny-otisk"})

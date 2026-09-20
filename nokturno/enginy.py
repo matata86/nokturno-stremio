@@ -27,7 +27,7 @@ _LOGGER = logging.getLogger(__name__)
 # je pár set MB (kontejner má od 2026-09-17 2 GB místo 512 MB).
 LIMIT = 50
 NOVA_LIMIT = 20   # kolik jader „na zkoušku" (ještě nevrátila stream) se drží; viz `Enginy.povysit`
-NOVA_JADRA_LIMIT = (10, 3600)   # nových jader z jedné adresy za hodinu — viz `PrilisMnohoNovych`
+NOVA_JADRA_LIMIT = (30, 3600)   # nových jader z jedné adresy za hodinu — viz `PrilisMnohoNovych`
 
 
 # stropy pro procházení cizího úložiště z internetu (viz `_vytvor`)
