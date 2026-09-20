@@ -48,7 +48,7 @@ from .identita import Identita
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "6.4.2"
+VERZE = "6.4.4"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -56,7 +56,9 @@ CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut —
 # vteřiny a nafoukl cache na 400 000 souborů. 60 za 10 min člověk nepřekročí, bot ano hned.
 # Dřív se počítalo per otisk nastavení — jenže nastavení bez účtů (jen HellSpy a volby) sdílí
 # spousta lidí, takže jeden bot vyčerpal limit, respektive blokaci, všem ostatním.
-STREAM_LIMIT = (60, 10 * 60)
+# 2026-09-20: z 60 na 120 — domácnost se dvěma zařízeními na staré adrese bez identity sdílí
+# jeden klíč (IP) a Stremio/Nuvio žádají o streamy hromadně; bot (~28/s) ho překročí stejně.
+STREAM_LIMIT = (120, 10 * 60)
 ID_LIMIT = (3, 3600)   # vydaných identit z jedné adresy za hodinu (formulář /configure)
 # Audit 2026-09-19: `/play/` neměl limit vůbec (sto tisíc rozklíčování z jedné adresy = HellSpy
 # 429 a jádro ho pak vypne všem na 10 minut), `/catalog` taky ne (každý `skip` = nový dotaz na
