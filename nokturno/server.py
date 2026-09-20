@@ -31,6 +31,12 @@ _LOGGER = logging.getLogger("nokturno")
 VYCHOZI_PORT = 7127          # hned vedle Luny na 7126
 VYCHOZI_DATA = "./data"      # cache a mezipaměť jádra; v kontejneru svazek
 
+# Strop souběžných spojení. `ThreadingHTTPServer` sám žádný nemá — na každé
+# otevřené spojení založí vlákno a drží ho, dokud klient nezavře nebo nevyprší
+# `Handler.timeout`. Kdo pošle hlavičku po bajtu (slowloris), obsadí tím tolik
+# vláken, kolik jich stihne otevřít. LXC 124 má jedno jádro a `TasksMax=512`.
+MAX_SPOJENI = int(os.environ.get("NOKTURNO_MAX_SPOJENI", "200"))
+
 
 _CORS_RE = re.compile(r"^(?:/c/[^/]+)?/(?:manifest\.json|health|stream/.+\.json|catalog/.+\.json|play/.+)$")
 
@@ -131,7 +137,12 @@ class Handler(BaseHTTPRequestHandler):
     server_version = f"nokturno/{VERZE}"
     sys_version = ""                 # verze Pythonu do hlavičky Server nepatří
     protocol_version = "HTTP/1.1"    # Stremio drží spojení otevřené
-    timeout = 60                     # nečinné spojení nesmí držet vlákno navždy
+    # Nečinné spojení nesmí držet vlákno navždy. Je to socket timeout, takže platí
+    # i na čekání na další požadavek v keep-alive a na zápis odpovědi. Audit chtěl
+    # 15 s; 30 s je kompromis — odpovědi katalogů mají stovky kilobajtů a pomalé
+    # mobilní spojení by na patnácti vteřinách utnulo zápis. Proti slowlorisu drží
+    # `MAX_SPOJENI`, ne tohle.
+    timeout = 30
     _verejny = True                  # do_GET přepíše; při pochybnosti veřejný
     # měření provozu; instance handleru žije přes celé keep-alive spojení, takže
     # `_zacni()` je na začátku každé obsluhy, ne v konstruktoru
@@ -297,6 +308,59 @@ class Handler(BaseHTTPRequestHandler):
         _LOGGER.debug("%s %s", self.address_string(), bezpecna_cesta(format % args))
 
 
+class Server(ThreadingHTTPServer):
+    """`ThreadingHTTPServer` se stropem na počet souběžných spojení.
+
+    Nad strop se spojení odmítne rovnou v přijímacím vlákně: odejde holá
+    odpověď 503 a socket se zavře, žádné vlákno nevzniká. Odmítnutí se nepočítá
+    do provozu — `Handler` se pro ně vůbec nezaloží — jen do čítače a do logu.
+    """
+
+    daemon_threads = True
+
+    def __init__(self, *args, max_spojeni=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.max_spojeni = MAX_SPOJENI if max_spojeni is None else max_spojeni
+        self._volno = threading.BoundedSemaphore(self.max_spojeni)
+        self.odmitnuta_spojeni = 0
+        self._posledni_stiznost = 0.0
+
+    def process_request(self, request, client_address):
+        if not self._volno.acquire(blocking=False):
+            self._odmitni(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            # vlákno nevzniklo (typicky RuntimeError z `Thread.start`) — místo vrátit
+            self._volno.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._volno.release()
+
+    def _odmitni(self, request):
+        self.odmitnuta_spojeni += 1
+        ted = time.monotonic()
+        if ted - self._posledni_stiznost > 60:
+            self._posledni_stiznost = ted
+            _LOGGER.warning("strop souběžných spojení %d vyčerpán, odmítnuto celkem %d",
+                            self.max_spojeni, self.odmitnuta_spojeni)
+        try:
+            request.settimeout(5)
+            request.sendall(b"HTTP/1.1 503 Service Unavailable\r\n"
+                            b"Content-Length: 0\r\n"
+                            b"Retry-After: 5\r\n"
+                            b"Connection: close\r\n\r\n")
+        except OSError:
+            pass
+        finally:
+            self.shutdown_request(request)
+
+
 def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, options=None,
                   predvyplnit=None):
     """Server s připravenými jádry. Nespouští smyčku — to dělá volající.
@@ -313,8 +377,7 @@ def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, opti
     zdroje = sources_summary(enginy.pro())
     if predvyplnit is None:
         predvyplnit = os.environ.get("NOKTURNO_CONFIGURE_PREFILL", "").strip().lower() in ("1", "true", "ano", "yes")
-    server = ThreadingHTTPServer((host, port), Handler)
-    server.daemon_threads = True
+    server = Server((host, port), Handler)
     # katalogy sdílí jednu cache pro všechny adresy; TMDB jen s klíčem instance (viz katalogy.py)
     # seriály podle jazyka ověřuje výchozí (domácí) jádro s účty instance, viz katalogy.py
     katalogy = Katalogy(data_dir, os.environ.get("NOKTURNO_TMDB_KEY", ""), engine=enginy.pro)

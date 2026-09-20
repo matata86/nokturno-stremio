@@ -1874,3 +1874,143 @@ class TestProvoz(unittest.TestCase):
                 self.assertEqual((radek["service"], radek["route"], radek["status"]),
                                  ("stremio", "/health", 200))
                 self.assertGreater(radek["bytes_out"], 0)
+
+
+class TestStropSoubeznychSpojeni(unittest.TestCase):
+    """Nález 26 z auditu: `ThreadingHTTPServer` zakládá vlákno na každé otevřené
+    spojení a slowloris jich udrží, kolik stihne otevřít."""
+
+    def _server(self, max_spojeni, tmp):
+        import threading
+        from nokturno import server as srv
+        httpd, _ = srv.vytvor_server("127.0.0.1", 0, tmp, options={})
+        httpd.max_spojeni = max_spojeni
+        httpd._volno = threading.BoundedSemaphore(max_spojeni)
+        # test zavírá spojení, na kterém server čeká na další požadavek; výsledný
+        # ConnectionResetError je očekávaný a nemá zaplavovat výstup testů
+        httpd.handle_error = lambda *_: None
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        return httpd
+
+    def _pockej_na_volno(self, httpd):
+        for _ in range(100):
+            if httpd._volno.acquire(blocking=False):
+                httpd._volno.release()
+                return True
+            time.sleep(0.05)
+        return False
+
+    def test_nad_strop_prijde_503_a_spojeni_se_zavre(self):
+        import http.client
+
+        with tempfile.TemporaryDirectory() as tmp:
+            httpd = self._server(1, tmp)
+            port = httpd.server_address[1]
+            drzi = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+            try:
+                # první spojení zůstane otevřené a drží jediné povolené místo
+                drzi.request("GET", "/health")
+                self.assertEqual(drzi.getresponse().read() and 200, 200)
+
+                druhe = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+                druhe.request("GET", "/health")
+                odpoved = druhe.getresponse()
+                self.assertEqual(odpoved.status, 503)
+                self.assertEqual(odpoved.getheader("Retry-After"), "5")
+                self.assertEqual(odpoved.read(), b"")
+                self.assertEqual(httpd.odmitnuta_spojeni, 1)
+                druhe.close()
+
+                # po uvolnění prvního spojení server zase obsluhuje
+                drzi.close()
+                self.assertTrue(self._pockej_na_volno(httpd), "místo se nevrátilo")
+                dalsi = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+                dalsi.request("GET", "/health")
+                self.assertEqual(dalsi.getresponse().status, 200)
+                dalsi.close()
+                self.assertEqual(httpd.odmitnuta_spojeni, 1, "odmítá se jen nad stropem")
+            finally:
+                drzi.close()
+                httpd.shutdown()
+                httpd.server_close()
+
+    def test_odmitnute_spojeni_nezalozi_vlakno_ani_radek_provozu(self):
+        import http.client
+        import threading
+        from unittest import mock
+        from nokturno import server as srv
+
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.dict("os.environ", {"NOKTURNO_TRAFFIC_TOKEN": "t"}), \
+                mock.patch.object(srv.Provoz, "start"):        # bez odesílacího vlákna
+            httpd = self._server(1, tmp)
+            port = httpd.server_address[1]
+            drzi = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+            try:
+                drzi.request("GET", "/health")
+                drzi.getresponse().read()
+                pred = threading.active_count()
+
+                for _ in range(5):
+                    odmitnute = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+                    odmitnute.request("GET", "/health")
+                    self.assertEqual(odmitnute.getresponse().status, 503)
+                    odmitnute.close()
+
+                self.assertLessEqual(threading.active_count(), pred,
+                                     "odmítnuté spojení nesmí založit vlákno")
+                self.assertEqual(httpd.odmitnuta_spojeni, 5)
+                self.assertEqual([r["route"] for r in httpd.provoz._fronta], ["/health"],
+                                 "odmítnuté spojení se do provozu nepočítá")
+            finally:
+                drzi.close()
+                httpd.shutdown()
+                httpd.server_close()
+
+    def test_misto_se_vrati_i_kdyz_obsluha_spadne(self):
+        import threading
+        from unittest import mock
+        from nokturno import server as srv
+
+        with tempfile.TemporaryDirectory() as tmp:
+            httpd, _ = srv.vytvor_server("127.0.0.1", 0, tmp, options={})
+            try:
+                httpd.max_spojeni = 2
+                httpd._volno = threading.BoundedSemaphore(2)
+                with mock.patch.object(srv.ThreadingHTTPServer, "process_request_thread",
+                                       side_effect=RuntimeError("bum")):
+                    for _ in range(5):
+                        httpd._volno.acquire()
+                        with self.assertRaises(RuntimeError):
+                            httpd.process_request_thread(mock.Mock(), ("127.0.0.1", 1))
+                # obě místa jsou zpátky volná, i když každá obsluha spadla
+                self.assertTrue(httpd._volno.acquire(blocking=False))
+                self.assertTrue(httpd._volno.acquire(blocking=False))
+                self.assertFalse(httpd._volno.acquire(blocking=False))
+            finally:
+                httpd.server_close()
+
+    def test_misto_se_vrati_kdyz_vlakno_nejde_zalozit(self):
+        import threading
+        from unittest import mock
+        from nokturno import server as srv
+
+        with tempfile.TemporaryDirectory() as tmp:
+            httpd, _ = srv.vytvor_server("127.0.0.1", 0, tmp, options={})
+            try:
+                httpd.max_spojeni = 1
+                httpd._volno = threading.BoundedSemaphore(1)
+                with mock.patch.object(srv.ThreadingHTTPServer, "process_request",
+                                       side_effect=RuntimeError("can't start new thread")):
+                    with self.assertRaises(RuntimeError):
+                        httpd.process_request(mock.Mock(), ("127.0.0.1", 1))
+                self.assertTrue(httpd._volno.acquire(blocking=False),
+                                "po selhání `Thread.start` musí místo zůstat volné")
+            finally:
+                httpd.server_close()
+
+    def test_vychozi_strop_a_timeout_spojeni(self):
+        from nokturno import server as srv
+        self.assertEqual(srv.MAX_SPOJENI, 200)
+        self.assertEqual(srv.Handler.timeout, 30)
+        self.assertTrue(srv.Server.daemon_threads)
