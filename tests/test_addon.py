@@ -1368,6 +1368,21 @@ class TestLimityAUklid(unittest.TestCase):
         self.assertTrue(odp.data["streams"][0]["externalUrl"].startswith("http"))
         self.assertEqual(odp.utok[0], "limit")
 
+    def test_rucne_zakazana_adresa_dostane_403_na_vsechno(self):
+        import os, tempfile
+        from nokturno import routes
+        with tempfile.TemporaryDirectory() as d:
+            soubor = os.path.join(d, "zakazane.txt")
+            with open(soubor, "w") as f:
+                f.write("# bot\n2a09:bac1:1da0:10::1f:b9\n")
+            r = router()
+            r.blokace = routes.Blokace(adresy_soubor=soubor)
+            for cesta in ("/manifest.json", f"/c/{KOUSEK}/stream/movie/tt0133093.json", "/"):
+                odp = r.route(cesta, ZAKLAD, klient="2a09:bac1:1da0:10::99")
+                self.assertEqual(odp.status, 403)
+                self.assertEqual(odp.utok[0], "zakázaná adresa")
+            self.assertEqual(r.route("/manifest.json", ZAKLAD, klient="2a09:bac1:1da0:11::1").status, 200)
+
     def test_adresa_se_nikdy_neblokuje(self):
         from nokturno import routes
         r = router()

@@ -49,7 +49,7 @@ from .identita import Identita
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "6.5.6"
+VERZE = "6.5.7"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -128,7 +128,7 @@ class Blokace:
     Při přetečení `max_klicu` se vyhazují jen prošlé záznamy; blokace se nikdy nemažou naráz.
     """
 
-    def __init__(self, prah=20, okno_s=10 * 60, doba_s=3600, max_klicu=5000, soubor=None):
+    def __init__(self, prah=20, okno_s=10 * 60, doba_s=3600, max_klicu=5000, soubor=None, adresy_soubor=None):
         self.prah, self.okno_s, self.doba_s, self.max_klicu = prah, okno_s, doba_s, max_klicu
         self._odmitnuti = {}
         self._blok = {}
@@ -136,6 +136,8 @@ class Blokace:
         self._zamek = threading.Lock()
         # identity (klíč `id:…`) odebrané natrvalo — druhá blokace téže identity; soubor přežije restart
         self.soubor = soubor
+        self.adresy_soubor = adresy_soubor
+        self._adresy, self._adresy_cteno = set(), -1e9
         self.odebrane = set()
         if soubor:
             try:
@@ -143,6 +145,21 @@ class Blokace:
                     self.odebrane = {r.strip() for r in f if r.strip()}
             except OSError:
                 pass
+
+    def adresa_zakazana(self, adresa):
+        """Adresa (IPv4, IPv6 po /64) natvrdo zakázaná ručně v souboru `adresy_soubor` — jeden
+        záznam na řádek, `#` komentář. Soubor se znovu čte nejvýš jednou za 30 s (změna platí bez restartu)."""
+        if not self.adresy_soubor:
+            return False
+        now = time.monotonic()
+        if now - self._adresy_cteno > 30:
+            self._adresy_cteno = now
+            try:
+                with open(self.adresy_soubor, encoding="utf-8") as f:
+                    self._adresy = {klic_klienta(r.split("#")[0].strip()) for r in f if r.split("#")[0].strip()}
+            except OSError:
+                self._adresy = set()
+        return bool(adresa) and adresa in self._adresy
 
     def odebrana(self, klic):
         return klic in self.odebrane
@@ -668,6 +685,10 @@ class Router:
         adresa klienta pro limit na `/check`, `aplikace` appka podle User-Agentu
         (viz `klient_z_useragent`) pro statistiky u `/stream/`.
         Parametr `?lang=cs|sk` v adrese má přednost, bez obojího čeština."""
+        if self.blokace.adresa_zakazana(klic_klienta(klient)):
+            odp = chyba(403, "Tahle adresa je zakázaná.")
+            odp.utok = ("zakázaná adresa", None)
+            return odp
         cesta, _, dotaz = cesta.partition("?")
         lang = (urllib.parse.parse_qs(dotaz).get("lang") or [""])[0].strip().lower().split("-")[0]
         if lang in JAZYKY:

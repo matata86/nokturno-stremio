@@ -407,7 +407,8 @@ def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, opti
     blokovane = {o.strip() for o in os.environ.get("NOKTURNO_BLOCKED_FINGERPRINTS", "").split(",") if o.strip()}
     server.router = Router(enginy, predvyplnit=predvyplnit, statistiky=Statistiky.z_prostredi(VERZE),
                            katalogy=katalogy, blokovane=blokovane, identita=Identita.z_prostredi(),
-                           blokace=Blokace(soubor=os.path.join(data_dir, "odebrane_identity.txt")))
+                           blokace=Blokace(soubor=os.path.join(data_dir, "odebrane_identity.txt"),
+                                           adresy_soubor=os.path.join(data_dir, "zakazane_adresy.txt")))
     server.pady = Pady.z_prostredi(data_dir, VERZE)
     server.pady.odesli()   # co zůstalo ve frontě z minula (server nebo síť tehdy neběžely)
     server.provoz = Provoz.z_prostredi()
