@@ -117,7 +117,7 @@ class Provoz:
                 "dur_ms": max(0, int(doba_ms)),
             })
 
-    def zaznamenej_utok(self, ip, ua, fp, duvod, ma_id=None):
+    def zaznamenej_utok(self, ip, ua, fp, duvod, ma_id=None, cesta=None):
         """Odmítnutý požadavek → jen počítadlo, žádný řádek provozu."""
         if not self.zapnuto:
             return
@@ -132,6 +132,7 @@ class Provoz:
             u["last"] = int(time.time())
             u["ua"] = str(ua or "")[:120]
             u["has_id"] = -1 if ma_id is None else int(ma_id)
+            u["route"] = klasifikuj(cesta)[1][:80] if cesta else ""
 
     def zprava(self):
         """(text, odkaz) zprávy z dashboardu pro uživatele Stremia (obrazovka Zprávy);

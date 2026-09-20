@@ -194,7 +194,7 @@ class Handler(BaseHTTPRequestHandler):
             if self._utok:
                 # blokované a přetížené nastavení: ne do provozu, jen do přehledu útočníků
                 provoz.zaznamenej_utok(self._klient(), self.headers.get("User-Agent"), *self._utok[::-1],
-                                       ma_id=self.server.router.ma_identitu(self.path))
+                                       ma_id=self.server.router.ma_identitu(self.path), cesta=self.path)
                 return
             provoz.zaznamenej(self.path, self.command or "GET", self._stav or 499, self._zapsano,
                               int((time.monotonic() - self._zacatek) * 1000),
