@@ -87,6 +87,7 @@ class Provoz:
         self._fronta = []
         self._utoky = {}
         self._zprava = ""
+        self.na_zakazane = None   # volá se se seznamem adres zakázaných v dashboardu
         self._odkaz = ""
         self._hlasy = {}
         self._zamek = threading.Lock()
@@ -159,6 +160,20 @@ class Provoz:
         except (urllib.error.URLError, OSError, ValueError) as err:
             _LOGGER.debug("zpráva z dashboardu se nenačetla: %s", err)   # zůstává poslední známá
 
+    def _nacti_zakazane(self):
+        if not callable(self.na_zakazane):
+            return
+        adresa = self.url.rsplit("/", 1)[0] + "/traffic/blocklist" if self.url.endswith("/traffic") else self.url + "/blocklist"
+        req = urllib.request.Request(adresa, headers={"X-Nokturno-Token": self.token, "User-Agent": "Nokturno provoz"})
+        try:
+            with urllib.request.urlopen(req, timeout=5) as odp:
+                data = json.loads(odp.read(200000).decode("utf-8"))
+            ips = data.get("ips") if isinstance(data, dict) else None
+            if isinstance(ips, list):
+                self.na_zakazane([str(i) for i in ips[:5000]])
+        except (urllib.error.URLError, OSError, ValueError) as err:
+            _LOGGER.debug("zakázané adresy z dashboardu se nenačetly: %s", err)   # zůstává poslední známý seznam
+
     def start(self):
         if not self.zapnuto or self._vlakno is not None:
             return
@@ -173,6 +188,7 @@ class Provoz:
             try:
                 self.odesli()
                 self._nacti_zpravu()
+                self._nacti_zakazane()
             except Exception as err:  # noqa: BLE001 – hlášení provozu nesmí nic shodit
                 _LOGGER.debug("provoz: %s", err)
 

@@ -1383,6 +1383,14 @@ class TestLimityAUklid(unittest.TestCase):
                 self.assertEqual(odp.utok[0], "zakázaná adresa")
             self.assertEqual(r.route("/manifest.json", ZAKLAD, klient="2a09:bac1:1da0:11::1").status, 200)
 
+    def test_zakazane_adresy_z_dashboardu(self):
+        r = router()
+        r.blokace.nastav_zakazane(["2a09:bac1:1da0:10::/64", "9.9.9.9"])
+        self.assertEqual(r.route("/manifest.json", ZAKLAD, klient="2a09:bac1:1da0:10::7").status, 403)
+        self.assertEqual(r.route("/manifest.json", ZAKLAD, klient="9.9.9.9").status, 403)
+        r.blokace.nastav_zakazane([])
+        self.assertEqual(r.route("/manifest.json", ZAKLAD, klient="9.9.9.9").status, 200)
+
     def test_adresa_se_nikdy_neblokuje(self):
         from nokturno import routes
         r = router()

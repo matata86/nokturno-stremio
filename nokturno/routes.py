@@ -49,7 +49,7 @@ from .identita import Identita
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "6.5.7"
+VERZE = "6.5.8"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -138,6 +138,7 @@ class Blokace:
         self.soubor = soubor
         self.adresy_soubor = adresy_soubor
         self._adresy, self._adresy_cteno = set(), -1e9
+        self._z_dashboardu = frozenset()
         self.odebrane = set()
         if soubor:
             try:
@@ -146,9 +147,15 @@ class Blokace:
             except OSError:
                 pass
 
+    def nastav_zakazane(self, ips):
+        """Seznam z dashboardu (obrazovka Provoz); nahrazuje ten předchozí."""
+        self._z_dashboardu = frozenset(klic_klienta(i) for i in ips if i)
+
     def adresa_zakazana(self, adresa):
         """Adresa (IPv4, IPv6 po /64) natvrdo zakázaná ručně v souboru `adresy_soubor` — jeden
         záznam na řádek, `#` komentář. Soubor se znovu čte nejvýš jednou za 30 s (změna platí bez restartu)."""
+        if adresa and adresa in self._z_dashboardu:
+            return True
         if not self.adresy_soubor:
             return False
         now = time.monotonic()
