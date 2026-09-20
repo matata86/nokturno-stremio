@@ -15,6 +15,7 @@ from collections import OrderedDict
 
 from .config import fingerprint
 from .core.engine import Engine
+from .core.lib.storage_api import PUBLIC_CRAWL_DEADLINE, PUBLIC_MAX_DIRS, PUBLIC_TIMEOUT
 from . import sit
 
 _LOGGER = logging.getLogger(__name__)
@@ -27,6 +28,11 @@ _LOGGER = logging.getLogger(__name__)
 LIMIT = 50
 NOVA_LIMIT = 20   # kolik jader „na zkoušku" (ještě nevrátila stream) se drží; viz `Enginy.povysit`
 NOVA_JADRA_LIMIT = (10, 3600)   # nových jader z jedné adresy za hodinu — viz `PrilisMnohoNovych`
+
+
+# stropy pro procházení cizího úložiště z internetu (viz `_vytvor`)
+STROPY_ULOZISTE = {"crawl_deadline": PUBLIC_CRAWL_DEADLINE, "max_dirs": PUBLIC_MAX_DIRS,
+                   "timeout": PUBLIC_TIMEOUT}
 
 
 class PrilisMnohoNovych(Exception):
@@ -90,14 +96,19 @@ class Enginy:
 
     def _vytvor(self, options, otisk, verejny):
         """Vlastní složka na nastavení — cache jednoho účtu nemá plnit výsledky druhého.
-        Jádro pro požadavek z internetu dostane hlídaný opener (viz `sit`)."""
+        Jádro pro požadavek z internetu dostane hlídaný opener (viz `sit`) a stropy
+        na procházení cizího úložiště: adresa WebDAV je v nastavení doplňku, takže si
+        ji kdokoli může nasměrovat na server, který na každý PROPFIND odpovídá pomalu
+        a vrací stále nové podsložky — bez stropu by jeden požadavek na streamy držel
+        osm vláken hodiny (audit 2026-09-19, nález 5)."""
         slozka = os.path.join(self.data_dir, otisk)
         os.makedirs(slozka, exist_ok=True)
         _LOGGER.info("nové jádro pro nastavení %s%s", otisk, " (z internetu)" if verejny else "")
         if self.tmdb_key:
             # až za otiskem: klíč je pro všechna nastavení stejný, nemá tříštit cache
             options = {**options, "tmdb_api_key": self.tmdb_key}
-        return Engine(options, slozka, opener=sit.OPENER if verejny else None)
+        return Engine(options, slozka, opener=sit.OPENER if verejny else None,
+                      storage_limits=STROPY_ULOZISTE if verejny else None)
 
     def pro(self, options=None, verejny=False, klient=""):
         """Jádro pro dané nastavení; bez nastavení to výchozí z prostředí.

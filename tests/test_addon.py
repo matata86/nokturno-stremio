@@ -1094,6 +1094,23 @@ class TestVerejnaSit(unittest.TestCase):
         self.assertIs(enginy.pro(options, verejny=True), verejne)
         self.assertEqual(len(enginy), 2)
 
+    def test_verejne_jadro_ma_stropy_na_cizi_uloziste(self):
+        """Adresa WebDAV je v nastavení doplňku — kdokoli ji může nasměrovat na server,
+        který každý PROPFIND drží a vrací stále nové podsložky (audit, nález 5)."""
+        from nokturno.core.lib import storage_api
+        from nokturno.enginy import Enginy
+        enginy = Enginy(tempfile.mkdtemp(), {})
+        options = config.from_mapping({"dav1_url": "https://uloziste.example/dav/"})
+        verejne = enginy.pro(options, verejny=True)
+        domaci = enginy.pro(options)
+        self.assertEqual(verejne.storage_limits["crawl_deadline"], storage_api.PUBLIC_CRAWL_DEADLINE)
+        self.assertEqual(domaci.storage_limits, {}, "vlastní NAS doma strop nemá")
+        dav = verejne.storages[0]
+        self.assertEqual((dav.crawl_deadline, dav.max_dirs, dav.timeout),
+                         (storage_api.PUBLIC_CRAWL_DEADLINE, storage_api.PUBLIC_MAX_DIRS,
+                          storage_api.PUBLIC_TIMEOUT))
+        self.assertEqual(domaci.storages[0].max_dirs, storage_api.MAX_DIRS)
+
     def test_klic_tmdb_dostane_i_verejne_jadro(self):
         """Vědomá výjimka z „veřejný požadavek nedostane nastavení z prostředí":
         bez klíče TMDB nejde přeložit `tmdb:` id od klientů, a tím ani najít streamy
