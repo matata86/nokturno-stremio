@@ -4,19 +4,33 @@
 
 Doplněk, který k filmům a seriálům ve Stremiu (i v Nuviu a dalších klientech
 s doplňky Stremia) dohledá streamy z **WebShare**, **Sosáče**, **Sledujteto**,
-**FastShare** a **HellSpy**. Podrobný návod je ve [wiki](https://github.com/matata86/nokturno-stremio/wiki).
+**FastShare** a **HellSpy** i z **vlastního úložiště** (WebDAV). Podrobný návod je ve [wiki](https://github.com/matata86/nokturno-stremio/wiki).
 
-> **Patří k sobě:** stejné zdroje nabízí i [**Nokturno pro Kodi**](https://github.com/matata86/plugin.video.nokturno) a [**Nokturno pro Home Assistant**](https://github.com/matata86/nokturno-ha) (HACS integrace, přehrává přes Kodi doplněk). Všechny tři stojí na společném jádru [nokturno-core](https://github.com/matata86/nokturno-core).
+## Rodina Nokturno
+
+Nokturno má jeden zdroj obsahu a tři klienty, všechny stojí na společném jádru [nokturno-core](https://github.com/matata86/nokturno-core):
+
+| Klient | Co dělá | Zdroje navíc oproti Stremiu |
+|---|---|---|
+| [**Nokturno pro Kodi**](https://github.com/matata86/plugin.video.nokturno) | plnohodnotný doplněk s menu, výběrem streamu, stahováním, Traktem, TV programem a katalogy z dashboardu | Luna, torrenty, **CZtor** (párování PINem), titulky z OpenSubtitles |
+| [**Nokturno pro Home Assistant**](https://github.com/matata86/nokturno-ha) | HACS integrace, karta a služby; přehrává přes Kodi doplněk, hlídá nové díly sledovaných seriálů | Luna, torrenty, **CZtor** |
+| **Nokturno pro Stremio** (tento repozitář) | jen JSON pro Stremio, Nuvio a Streamlet, žádná instalace | — |
+
+Stremio je záměrně nejjednodušší: nemá CZtor (každé nastavení by potřebovalo vlastní párování
+a server by držel tokeny cizích placených účtů) ani Lunu (ta má vlastní oficiální doplněk).
+Kdo chce víc — stahování, titulky z OpenSubtitles, Trakt, TV program — použije Kodi.
 
 **Přidat do Stremia:** otevři **[nokturno.tailf0014.ts.net/configure](https://nokturno.tailf0014.ts.net/configure)**,
 vyplň účty a klikni na *Přidat do Stremia* nebo *Přidat do Nuvia*.
 
 ## Co umí
 
-- **Vlastní úložiště** (od 3.1.0) — až tři WebDAV složky s vlastními soubory ve formuláři (s ověřením). Soubory jsou mezi streamy první a od 5.2.26 se přehrávají **přímo ze zdroje** (`behaviorHints.proxyHeaders` nese autentizační hlavičku, žádná proxy) — úložiště musí být dosažitelné ze serveru (hledání) i ze zařízení, kde se přehrává (stahování). ⚠️ Ve webovém přehrávači Stremia se proto nepřehraje, jen v aplikaci. Veřejná instance ignoruje úložiště s adresou na server samotný nebo link-local. Podrobně ve [wiki](https://github.com/matata86/nokturno-stremio/wiki/Zdroje-a-nastaveni#vlastní-úložiště).
-Hlavně streamy: doplněk se chytá na všem, co má identifikátor IMDb, a k tomu přihodí
-své streamy. Od 5.1.0 k tomu umí **volitelné katalogy** — seznamy ze Sosáče a TMDB, každý
-se zapíná zvlášť ve formuláři. Detail titulu a díly seriálů dodá Stremio z Cinemety.
+- **Streamy ke všemu s IMDb id.** Doplněk se chytá na všem, co má identifikátor IMDb (i `tmdb:` id od klientů), a k tomu přihodí své streamy. Detail titulu a díly seriálů dodá Stremio z Cinemety.
+- **Pět zdrojů** — WebShare, Sosáč, Sledujteto, FastShare a HellSpy; žádný není povinný.
+- **Vlastní úložiště** (od 3.1.0) — až tři WebDAV složky s vlastními soubory ve formuláři (s ověřením). Soubory jsou mezi streamy první.
+- **Volitelné katalogy** (od 5.1.0) — seznamy ze Sosáče a TMDB, žebříček „Nejsledovanější tento týden" a nové seriály s CZ dabingem / titulky; každý se zapíná zvlášť ve formuláři.
+- **Přímé přehrávání** (od 5.2.26) — vlastní úložiště a FastShare se přehrávají přímo ze zdroje (`behaviorHints.proxyHeaders` nese přihlášení), žádná proxy. Úložiště proto musí být dosažitelné ze serveru (hledání) i ze zařízení, kde se přehrává. ⚠️ Ve webovém přehrávači Stremia se tyto streamy nepřehrají, jen v aplikaci. Veřejná instance ignoruje úložiště s adresou na server samotný nebo link-local. Podrobně ve [wiki](https://github.com/matata86/nokturno-stremio/wiki/Zdroje-a-nastaveni#vlastní-úložiště).
+- **Zprávy z dashboardu** — položka „📢 Nokturno" jako první stream; **jazyky** čeština, slovenština, angličtina i maďarština.
 
 | | |
 |---|---|
@@ -25,7 +39,7 @@ se zapíná zvlášť ve formuláři. Detail titulu a díly seriálů dodá Stre
 | Titulky | ano, z WebShare a Sledujteto |
 | Zvuk | jazyk, kanály a kodek — z hlavičky souboru, u Sledujteto přímo z API; u FastShare jen s neomezeným stahováním (na kredit by čtení hlaviček ubíralo kredit) |
 | Katalogy | volitelně (od 5.1.0): Sosáč — nejpopulárnější filmy a seriály, nově přidané (i filmy s CZ dabingem / titulky); nově přidané seriály s CZ dabingem / titulky (jazyk ověřuje server podle streamů); TMDB — trendy, populární, nejlépe hodnocené (jen s klíčem instance `NOKTURNO_TMDB_KEY`). Jedna cache pro všechny, obnova po 6 h |
-| Torrenty | ne, zatím jen v integraci pro Home Assistant |
+| Torrenty | ne — jen v Kodi a v integraci pro Home Assistant |
 | Popisy titulů | ne — detail k položkám katalogů i k ostatním titulům dodává Cinemeta |
 
 Streamy se řadí podle kvality a preferovaného jazyka, protože ve Stremiu je vidět
@@ -161,6 +175,8 @@ Chystá se:
 
 - **Méně falešných shod.** Fulltext HellSpy občas vrátí titul, který název jen
   obsahuje, například gameplay videa místo filmu.
+
+Aktuální verzi najdeš v [Releases](https://github.com/matata86/nokturno-stremio/releases).
 
 ## Licence
 
