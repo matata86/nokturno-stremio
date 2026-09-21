@@ -2470,3 +2470,30 @@ class TestStropSoubeznychSpojeni(unittest.TestCase):
             finally:
                 httpd.shutdown()
                 httpd.server_close()
+
+
+class TestSpolecnaCache(unittest.TestCase):
+    """Jádra sdílejí úložiště pro to, co na účtu nezávisí (`Enginy.spolecne`)."""
+
+    def test_jadra_ruznych_nastaveni_sdileji_spolecne_uloziste(self):
+        from nokturno.enginy import Enginy, SPOLECNA_SLOZKA
+        tmp = tempfile.mkdtemp()
+        s = Enginy(tmp, {})
+        a = s.pro(config.from_mapping({"ws_username": "a", "ws_password": "p"}))
+        b = s.pro(config.from_mapping({"ws_username": "b", "ws_password": "p"}))
+        self.assertIsNot(a.store, b.store)          # tokeny a streamy každý svoje
+        self.assertIs(a.shared, b.shared)           # metadata a hlavičky společné
+        self.assertIs(a.shared, s.spolecne)
+        self.assertEqual(os.path.basename(s.spolecne.dir), SPOLECNA_SLOZKA)
+        self.assertIs(a.hs.cache, s.spolecne)
+
+    def test_uklid_dat_spolecnou_slozku_nesmaze(self):
+        import time
+        from nokturno.enginy import Enginy, SPOLECNA_SLOZKA
+        from nokturno.server import uklid_dat
+        tmp = tempfile.mkdtemp()
+        Enginy(tmp, {}).pro(config.from_mapping({"ws_username": "a", "ws_password": "p"}))
+        spolecna = os.path.join(tmp, SPOLECNA_SLOZKA)
+        os.utime(spolecna, (time.time() - 400 * 86400,) * 2)
+        uklid_dat(tmp)
+        self.assertTrue(os.path.isdir(spolecna))

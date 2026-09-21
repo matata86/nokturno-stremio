@@ -16,6 +16,7 @@ from collections import OrderedDict
 from .config import fingerprint
 from .core.engine import Engine
 from .core.lib.storage_api import PUBLIC_CRAWL_DEADLINE, PUBLIC_MAX_DIRS, PUBLIC_TIMEOUT
+from .core.lib.store import Store
 from . import sit
 
 _LOGGER = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ _LOGGER = logging.getLogger(__name__)
 LIMIT = 50
 NOVA_LIMIT = 20   # kolik jader „na zkoušku" (ještě nevrátila stream) se drží; viz `Enginy.povysit`
 NOVA_JADRA_LIMIT = (30, 3600)   # nových jader z jedné adresy za hodinu — viz `PrilisMnohoNovych`
+SPOLECNA_SLOZKA = "_spolecne"   # cache společná všem jádrům, viz `Enginy.spolecne`
 
 
 # stropy pro procházení cizího úložiště z internetu (viz `_vytvor`)
@@ -98,9 +100,30 @@ class Enginy:
         self._cache = OrderedDict()   # ověřená
         self._nova = OrderedDict()    # na zkoušku
         self._zamek = threading.Lock()
+        # Společné úložiště všech jader — jen pro to, co na účtu nezávisí (TMDB, Cinemeta,
+        # katalog Sosáče, hledání na HellSpy, hlavičky souborů z WebShare/HellSpy/FastShare;
+        # co přesně, rozhoduje jádro, viz `Engine.shared`). Měřeno 2026-09-21 na LXC 124:
+        # ze 42 000 souborů cache za den bylo 60 % kopií téhož v jiné složce — index Sosáče
+        # (413 MB) se stahoval 50× denně, detail z TMDB dvakrát na každý titul a hlavičky
+        # souborů se četly znovu pro každé nastavení, i když jsou vlastností souboru.
+        # Název složky se schválně nedá splést s otiskem nastavení (16 hex znaků), aby ji
+        # nesmazal `server.uklid_dat`. Zakládá se až s prvním jádrem — manifest bez
+        # nastavení nemá na disku zanechat nic (viz `test_manifest_nezaklada_jadro`).
+        self._spolecne = None
+
+    @property
+    def spolecne(self):
+        # bez `self._zamek`: `_vytvor` sem chodí už pod ním z `pro()` a `Lock` není
+        # reentrantní — první verze se tu zasekla navždy. Založení je idempotentní
+        # (tatáž složka), souběh nanejvýš vyrobí dva objekty nad stejnými soubory.
+        if self._spolecne is None:
+            self._spolecne = Store(os.path.join(self.data_dir, SPOLECNA_SLOZKA))
+        return self._spolecne
 
     def _vytvor(self, options, otisk, verejny):
-        """Vlastní složka na nastavení — cache jednoho účtu nemá plnit výsledky druhého.
+        """Vlastní složka na nastavení — cache jednoho účtu nemá plnit výsledky druhého
+        (tokeny, podepsané odkazy, sloučené streamy, vlastní úložiště); co je pro všechny
+        stejné, jde do `self.spolecne`.
         Jádro pro požadavek z internetu dostane hlídaný opener (viz `sit`) a stropy
         na procházení cizího úložiště: adresa WebDAV je v nastavení doplňku, takže si
         ji kdokoli může nasměrovat na server, který na každý PROPFIND odpovídá pomalu
@@ -113,7 +136,8 @@ class Enginy:
             # až za otiskem: klíč je pro všechna nastavení stejný, nemá tříštit cache
             options = {**options, "tmdb_api_key": self.tmdb_key}
         return Engine(options, slozka, opener=sit.OPENER if verejny else None,
-                      storage_limits=STROPY_ULOZISTE if verejny else None)
+                      storage_limits=STROPY_ULOZISTE if verejny else None,
+                      shared_store=self.spolecne)
 
     def pro(self, options=None, verejny=False, klient=""):
         """Jádro pro dané nastavení; bez nastavení to výchozí z prostředí.
