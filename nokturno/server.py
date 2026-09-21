@@ -413,6 +413,8 @@ def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, opti
     server.pady.odesli()   # co zůstalo ve frontě z minula (server nebo síť tehdy neběžely)
     server.provoz = Provoz.z_prostredi()
     server.router.zprava = server.provoz.zprava
+    server.router.zobrazeni = server.provoz.zaznamenej_zobrazeni
+    server.router.klik = server.provoz.zaznamenej_klik
     server.router.hlas = server.provoz.zaznamenej_hlas
     server.provoz.na_zakazane = server.router.blokace.nastav_zakazane
     server.provoz.start()  # bez NOKTURNO_TRAFFIC_TOKEN se vlákno nespustí a nic se neměří

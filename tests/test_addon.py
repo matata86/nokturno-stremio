@@ -6,6 +6,7 @@ Jádro má vlastní testy v repu `nokturno-core`. Tady se ověřuje jen to, co j
 vlastní doplňku: převod streamů do podoby pro Stremio, rozcestník a odmítání
 odkazů, které by se neměly přehrát.
 """
+import json
 import logging
 import os
 import pathlib
@@ -1931,7 +1932,7 @@ class TestProvoz(unittest.TestCase):
         p.zaznamenej_utok("2001:db8::2", None, None, "blokováno")
         self.assertEqual(p._fronta, [])
         poslano = []
-        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None, h=None: poslano.append((d, u)) or True):
+        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None, h=None, z=None: poslano.append((d, u)) or True):
             p.odesli()
         [(davka, utoky)] = poslano
         self.assertEqual(davka, [])
@@ -1947,7 +1948,7 @@ class TestProvoz(unittest.TestCase):
         p.zaznamenej_utok("b", "x", "fp", "limit", ma_id=False)
         p.zaznamenej_utok("c", "x", "fp", "limit")
         poslano = []
-        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None, h=None: poslano.append(u) or True):
+        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None, h=None, z=None: poslano.append(u) or True):
             p.odesli()
         self.assertEqual({u["ip"]: u["has_id"] for u in poslano[0]}, {"a": 1, "b": 0, "c": -1})
 
@@ -1962,7 +1963,7 @@ class TestProvoz(unittest.TestCase):
 
     def test_zprava_z_dashboardu_je_prvni_stream(self):
         r = router()
-        r.zprava = lambda: [("Výpadek Sosáče, řešíme.", "")]
+        r.zprava = lambda: [(0, "Výpadek Sosáče, řešíme.", "")]
         cesta = f"/c/{KOUSEK}/stream/movie/tt0133093.json"
         odp = r.route(cesta, ZAKLAD)
         self.assertEqual(odp.data["streams"][0]["name"], "📢 Nokturno")
@@ -1975,15 +1976,73 @@ class TestProvoz(unittest.TestCase):
         """Dvě aktivní zprávy = dva řádky, od nejnovější. Slít je do jednoho streamu nejde:
         delší text klienti ořezávají (hlášeno 2026-09-21 ze Stremia na mobilu)."""
         r = router()
-        r.zprava = lambda: [("Novinka", "/a"), ("Starší", "")]
+        r.zprava = lambda: [(0, "Novinka", "/a"), (0, "Starší", "")]
         streamy = r.route(f"/c/{KOUSEK}/stream/movie/tt0133093.json", ZAKLAD).data["streams"]
         self.assertEqual([s["title"] for s in streamy[:2]], ["Novinka", "Starší"])
         self.assertEqual(streamy[0]["externalUrl"], ZAKLAD + "/a")
         self.assertTrue(streamy[2]["name"].startswith("Nokturno"))   # pod nimi normální streamy
 
+    def test_zprava_se_zname_id_se_pocita_a_vede_pres_z(self):
+        """Se známým id vede řádek přes `/z/<id>`, aby šel spočítat proklik; zobrazení se
+        započte při každém vložení, s klíčem uživatele kvůli počtu unikátních."""
+        r = router()
+        r.zprava = lambda: [(12, "Novinka", "/anketa")]
+        videno, kliky = [], []
+        r.zobrazeni = lambda i, k="": videno.append((i, k))
+        r.klik = lambda i: kliky.append(i)
+        s = r.route(f"/c/{KOUSEK}/stream/movie/tt0133093.json", ZAKLAD, klient="1.2.3.4").data["streams"][0]
+        self.assertEqual(s["externalUrl"], ZAKLAD + "/z/12")
+        self.assertEqual(len(videno), 1)
+        self.assertEqual(videno[0][0], 12)
+        self.assertTrue(videno[0][1])   # klíč uživatele (otisk s účty) — ven nikdy nejde
+        odp = r.route("/z/12", ZAKLAD, klient="1.2.3.4")
+        self.assertEqual((odp.status, odp.location), (302, ZAKLAD + "/anketa"))
+        self.assertEqual(kliky, [12])
+        self.assertEqual(r.route("/z/999", ZAKLAD, klient="1.2.3.4").location, ZAKLAD + "/")   # neznámá → úvod
+        self.assertEqual(r.route("/z/abc", ZAKLAD, klient="1.2.3.4").status, 404)
+
+    def test_proklik_nad_limit_presmeruje_ale_nepocita(self):
+        r = router()
+        r.zprava = lambda: [(12, "Novinka", "")]
+        kliky = []
+        r.klik = lambda i: kliky.append(i)
+        for _ in range(70):
+            odp = r.route("/z/12", ZAKLAD, klient="9.9.9.9")
+            self.assertEqual(odp.status, 302)   # cíl dostane uživatel vždycky
+        self.assertEqual(len(kliky), 60)        # klik_okno = 60 / 10 min
+
+    def test_zprava_bez_id_vede_na_puvodni_odkaz(self):
+        # starší dashboard id neposílá — měření odpadá, chování zůstane jako dřív
+        r = router()
+        r.zprava = lambda: [(0, "Novinka", "/anketa")]
+        r.zobrazeni = lambda i, k="": self.fail("bez id se nic nepočítá")
+        s = r.route(f"/c/{KOUSEK}/stream/movie/tt0133093.json", ZAKLAD).data["streams"][0]
+        self.assertEqual(s["externalUrl"], ZAKLAD + "/anketa")
+
+    def test_provoz_pocita_zobrazeni_a_kliky(self):
+        from unittest import mock
+        from nokturno.provoz import Provoz
+        p = Provoz(token="t")
+        p.zaznamenej_zobrazeni(12, "fp:aaa")
+        p.zaznamenej_zobrazeni(12, "fp:aaa")   # týž uživatel podruhé: views 2, uniq 1
+        p.zaznamenej_zobrazeni(12, "fp:bbb")
+        p.zaznamenej_klik(12)
+        poslano = []
+        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None, h=None, z=None: poslano.append(z) or True):
+            p.odesli()
+        self.assertEqual(poslano, [[{"id": 12, "views": 3, "uniq": 2, "clicks": 1}]])
+        # klíče uživatelů zůstávají v paměti procesu, ven jde jen počet
+        self.assertNotIn("fp:aaa", json.dumps(poslano))
+        poslano.clear()
+        p.zaznamenej_zobrazeni(12, "fp:ccc")
+        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None, h=None, z=None: poslano.append(z) or True):
+            p.odesli()
+        # views je přírůstek od minulé dávky, uniq stav od startu procesu
+        self.assertEqual(poslano, [[{"id": 12, "views": 1, "uniq": 3, "clicks": 0}]])
+
     def test_zprava_s_odkazem_na_anketu(self):
         r = router()
-        r.zprava = lambda: [("Hlasuj", "/anketa")]
+        r.zprava = lambda: [(0, "Hlasuj", "/anketa")]
         s = r.route(f"/c/{KOUSEK}/stream/movie/tt0133093.json", ZAKLAD).data["streams"][0]
         self.assertEqual(s["externalUrl"], ZAKLAD + "/anketa")
 
@@ -2008,7 +2067,7 @@ class TestProvoz(unittest.TestCase):
         p.zaznamenej_hlas("cztor-stremio", "a" * 32, "ne")
         p.zaznamenej_hlas("cztor-stremio", "a" * 32, "ano")   # poslední hlas platí
         poslano = []
-        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None, h=None: poslano.append(h) or True):
+        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None, h=None, z=None: poslano.append(h) or True):
             p.odesli()
         self.assertEqual(poslano, [[{"poll": "cztor-stremio", "voter": "a" * 32, "choice": "ano"}]])
 
@@ -2020,11 +2079,11 @@ class TestProvoz(unittest.TestCase):
         odpoved.__enter__.return_value.read.return_value = '{"text": "Ahoj   světe\\n"}'.encode()
         with mock.patch("urllib.request.urlopen", return_value=odpoved) as uo:
             p._nacti_zpravu()
-        self.assertEqual(p.zprava(), [("Ahoj světe", "")])   # starý tvar odpovědi dashboardu
+        self.assertEqual(p.zprava(), [(0, "Ahoj světe", "")])   # starý dashboard bez id → bez měření
         self.assertTrue(uo.call_args[0][0].full_url.endswith("/traffic/message"))
         with mock.patch("urllib.request.urlopen", side_effect=OSError("dole")):
             p._nacti_zpravu()
-        self.assertEqual(p.zprava(), [("Ahoj světe", "")])   # výpadek nechá poslední známou
+        self.assertEqual(p.zprava(), [(0, "Ahoj světe", "")])   # výpadek nechá poslední známou
 
     def test_provoz_nacte_vic_zprav_a_nechá_odradkovani(self):
         from unittest import mock
@@ -2033,11 +2092,11 @@ class TestProvoz(unittest.TestCase):
         odpoved = mock.MagicMock()
         odpoved.__enter__.return_value.read.return_value = (
             '{"text": "Nova", "link": "/a", "messages": ['
-            '{"text": "Nova\\n\\n\\nDruhy  odstavec ", "link": "/a"},'
-            '{"text": "Starsi", "link": ""}]}').encode()
+            '{"id": 12, "text": "Nova\\n\\n\\nDruhy  odstavec ", "link": "/a"},'
+            '{"id": 11, "text": "Starsi", "link": ""}]}').encode()
         with mock.patch("urllib.request.urlopen", return_value=odpoved):
             p._nacti_zpravu()
-        self.assertEqual(p.zprava(), [("Nova\n\nDruhy odstavec", "/a"), ("Starsi", "")])
+        self.assertEqual(p.zprava(), [(12, "Nova\n\nDruhy odstavec", "/a"), (11, "Starsi", "")])
 
     def test_uprav_text_zachova_radky(self):
         from nokturno.provoz import uprav_text, MAX_ZPRAVA

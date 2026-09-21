@@ -50,7 +50,7 @@ from .identita import Identita
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "7.2.1"
+VERZE = "7.2.2"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -360,9 +360,12 @@ class Router:
                  blokovane=None, identita=None, blokace=None):
         self.enginy = enginy
         self.identita = identita or Identita("")
-        self.zprava = None   # volatelná → (text, odkaz) zprávy z dashboardu (nastaví server)
+        self.zprava = None   # volatelná → [(id, text, odkaz)] zpráv z dashboardu (nastaví server)
+        self.zobrazeni = None   # volatelná (id, klíč uživatele) → započítá zobrazení zprávy
+        self.klik = None     # volatelná (id) → započítá proklik zprávy (viz `/z/<id>`)
         self.hlas = None     # volatelná (anketa, hlasující, volba) → hlas do dashboardu (nastaví server)
         self.hlas_okno = Okno(30, 3600)   # hlasů z jedné adresy za hodinu
+        self.klik_okno = Okno(60, 10 * 60)   # prokliků zpráv z jedné adresy za 10 min
         self.id_okno = Okno(*ID_LIMIT)
         self.katalogy = katalogy   # nokturno.katalogy.Katalogy, None = katalogy se nenabízejí
         self.verze = verze
@@ -606,6 +609,22 @@ class Router:
             self.hlas(self.ANKETA, hlasujici, volba)
         return Odpoved(data={"ok": True})
 
+    def proklik(self, kus, zaklad, klient):
+        """Klik na řádek se zprávou (`externalUrl` = `/z/<id>`): započítá se a přesměruje
+        tam, kam zpráva mířila. Limit na adresu, ať čísla nejde nafouknout; nad limit se
+        jen nepočítá, přesměrování zůstane — uživatel o cíl nesmí přijít."""
+        if not kus.isdigit() or len(kus) > 12:
+            return chyba(404, "Neznámá zpráva")
+        id_zpravy = int(kus)
+        cil = zaklad + "/"
+        for zid, _text, odkaz in (self.zprava() if callable(self.zprava) else []):
+            if zid == id_zpravy and odkaz:
+                cil = odkaz if odkaz.startswith("https://") else zaklad + (odkaz if odkaz.startswith("/") else "/")
+                break
+        if callable(self.klik) and self.klik_okno.povolit(klic_klienta(klient) or "?"):
+            self.klik(id_zpravy)
+        return Odpoved(status=302, location=cil)
+
     def uvod(self, zaklad, jazyk="cs"):
         """Úvodní stránka a rozcestník celé rodiny Nokturna — nic o nastavení instance neprozradí."""
         try:
@@ -721,6 +740,8 @@ class Router:
             return Odpoved(status=302, location=zaklad + "/")   # anketa je nahoře na úvodní stránce
         if cesta == "/anketa/hlas":
             return self.hlasovat(urllib.parse.parse_qs(dotaz), klient)
+        if cesta.startswith("/z/"):
+            return self.proklik(cesta[len("/z/"):], zaklad, klient)
         if cesta == "/identita/vyzva":
             return Odpoved(data={"vyzva": self.identita.vyzva(klic_klienta(klient)), "bity": self.identita.bity})
         if cesta == "/identita":
@@ -832,8 +853,15 @@ class Router:
             if zpravy and isinstance(odp.data, dict) and isinstance(odp.data.get("streams"), list):
                 # od nejnovější, každá jako vlastní řádek — víc aktivních zpráv se nesmí
                 # slít do jedné položky (delší text klienti ořezávají)
-                for oznameni, odkaz in reversed(zpravy):
-                    cil = odkaz if odkaz.startswith("https://") else zaklad + (odkaz if odkaz.startswith("/") else "/")
+                uzivatel = self._klic_limitu(options, klient) if kousek else ""
+                for id_zpravy, oznameni, odkaz in reversed(zpravy):
+                    # se známým id vede řádek přes `/z/<id>`, ať jde spočítat proklik
+                    if id_zpravy:
+                        cil = zaklad + "/z/" + str(id_zpravy)
+                    else:
+                        cil = odkaz if odkaz.startswith("https://") else zaklad + (odkaz if odkaz.startswith("/") else "/")
                     odp.data["streams"].insert(0, mapping.zprava_z_dashboardu(oznameni, cil))
+                    if id_zpravy and callable(self.zobrazeni):
+                        self.zobrazeni(id_zpravy, uzivatel)
             return odp
         return chyba(404, "Tady nic není. Doplněk se nastavuje na /configure")
