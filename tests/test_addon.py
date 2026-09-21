@@ -280,15 +280,21 @@ class TestPrehrajto(unittest.TestCase):
         self.assertIn("Přehraj.to", config.sources_from_options({"pt_email": "u@example.com"}))
         self.assertNotIn("Přehraj.to", config.sources_from_options({}))
 
+    @staticmethod
+    def _nastavene_zdroje(data):
+        # obecný popis vyjmenovává zdroje doplňku vždy; sem patří jen ty nastavené
+        return data["description"].split("Nastavené zdroje:")[-1]
+
     def test_manifest_nabidne_prehrajto_pri_uctu(self):
         kousek = config.encode(config.from_mapping(
             {"pt_email": "u@example.com", "pt_password": "tajne"}))
         data = router().route(f"/c/{kousek}/manifest.json", ZAKLAD).data
-        self.assertIn("Přehraj.to", data["description"])
+        self.assertIn("Přehraj.to", self._nastavene_zdroje(data))
 
     def test_manifest_bez_uctu_prehrajto_nema(self):
         data = router().route(f"/c/{KOUSEK}/manifest.json", ZAKLAD).data
-        self.assertNotIn("Přehraj.to", data["description"])
+        self.assertIn("Nastavené zdroje:", data["description"])
+        self.assertNotIn("Přehraj.to", self._nastavene_zdroje(data))
 
     def test_ma_ucty_bere_pt_email(self):
         # účet dělá otisk jedinečný → limity na uživatele místo sdílené IP
