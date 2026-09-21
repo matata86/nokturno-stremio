@@ -50,7 +50,7 @@ from .identita import Identita
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "7.2.0"
+VERZE = "7.2.1"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -828,9 +828,12 @@ class Router:
                 povysit = getattr(self.enginy, "povysit", None)
                 if povysit is not None:
                     povysit(options, verejny)   # první skutečný stream = jádro se ověřilo
-            oznameni, odkaz = self.zprava() if callable(self.zprava) else ("", "")
-            if oznameni and isinstance(odp.data, dict) and isinstance(odp.data.get("streams"), list):
-                cil = odkaz if odkaz.startswith("https://") else zaklad + (odkaz if odkaz.startswith("/") else "/")
-                odp.data["streams"].insert(0, mapping.zprava_z_dashboardu(oznameni, cil))
+            zpravy = self.zprava() if callable(self.zprava) else []
+            if zpravy and isinstance(odp.data, dict) and isinstance(odp.data.get("streams"), list):
+                # od nejnovější, každá jako vlastní řádek — víc aktivních zpráv se nesmí
+                # slít do jedné položky (delší text klienti ořezávají)
+                for oznameni, odkaz in reversed(zpravy):
+                    cil = odkaz if odkaz.startswith("https://") else zaklad + (odkaz if odkaz.startswith("/") else "/")
+                    odp.data["streams"].insert(0, mapping.zprava_z_dashboardu(oznameni, cil))
             return odp
         return chyba(404, "Tady nic není. Doplněk se nastavuje na /configure")

@@ -1962,18 +1962,28 @@ class TestProvoz(unittest.TestCase):
 
     def test_zprava_z_dashboardu_je_prvni_stream(self):
         r = router()
-        r.zprava = lambda: ("Výpadek Sosáče, řešíme.", "")
+        r.zprava = lambda: [("Výpadek Sosáče, řešíme.", "")]
         cesta = f"/c/{KOUSEK}/stream/movie/tt0133093.json"
         odp = r.route(cesta, ZAKLAD)
         self.assertEqual(odp.data["streams"][0]["name"], "📢 Nokturno")
         self.assertEqual(odp.data["streams"][0]["title"], "Výpadek Sosáče, řešíme.")
         self.assertTrue(odp.data["streams"][0]["externalUrl"].startswith("http"))   # bez odkazu Stremio stream zahodí
-        r.zprava = lambda: ("", "")
+        r.zprava = lambda: []
         self.assertNotIn("📢", str(r.route(cesta, ZAKLAD).data))
+
+    def test_vic_zprav_je_vic_radku(self):
+        """Dvě aktivní zprávy = dva řádky, od nejnovější. Slít je do jednoho streamu nejde:
+        delší text klienti ořezávají (hlášeno 2026-09-21 ze Stremia na mobilu)."""
+        r = router()
+        r.zprava = lambda: [("Novinka", "/a"), ("Starší", "")]
+        streamy = r.route(f"/c/{KOUSEK}/stream/movie/tt0133093.json", ZAKLAD).data["streams"]
+        self.assertEqual([s["title"] for s in streamy[:2]], ["Novinka", "Starší"])
+        self.assertEqual(streamy[0]["externalUrl"], ZAKLAD + "/a")
+        self.assertTrue(streamy[2]["name"].startswith("Nokturno"))   # pod nimi normální streamy
 
     def test_zprava_s_odkazem_na_anketu(self):
         r = router()
-        r.zprava = lambda: ("Hlasuj", "/anketa")
+        r.zprava = lambda: [("Hlasuj", "/anketa")]
         s = r.route(f"/c/{KOUSEK}/stream/movie/tt0133093.json", ZAKLAD).data["streams"][0]
         self.assertEqual(s["externalUrl"], ZAKLAD + "/anketa")
 
@@ -2010,11 +2020,32 @@ class TestProvoz(unittest.TestCase):
         odpoved.__enter__.return_value.read.return_value = '{"text": "Ahoj   světe\\n"}'.encode()
         with mock.patch("urllib.request.urlopen", return_value=odpoved) as uo:
             p._nacti_zpravu()
-        self.assertEqual(p.zprava(), ("Ahoj světe", ""))
+        self.assertEqual(p.zprava(), [("Ahoj světe", "")])   # starý tvar odpovědi dashboardu
         self.assertTrue(uo.call_args[0][0].full_url.endswith("/traffic/message"))
         with mock.patch("urllib.request.urlopen", side_effect=OSError("dole")):
             p._nacti_zpravu()
-        self.assertEqual(p.zprava(), ("Ahoj světe", ""))   # výpadek nechá poslední známou
+        self.assertEqual(p.zprava(), [("Ahoj světe", "")])   # výpadek nechá poslední známou
+
+    def test_provoz_nacte_vic_zprav_a_nechá_odradkovani(self):
+        from unittest import mock
+        from nokturno.provoz import Provoz
+        p = Provoz(token="t")
+        odpoved = mock.MagicMock()
+        odpoved.__enter__.return_value.read.return_value = (
+            '{"text": "Nova", "link": "/a", "messages": ['
+            '{"text": "Nova\\n\\n\\nDruhy  odstavec ", "link": "/a"},'
+            '{"text": "Starsi", "link": ""}]}').encode()
+        with mock.patch("urllib.request.urlopen", return_value=odpoved):
+            p._nacti_zpravu()
+        self.assertEqual(p.zprava(), [("Nova\n\nDruhy odstavec", "/a"), ("Starsi", "")])
+
+    def test_uprav_text_zachova_radky(self):
+        from nokturno.provoz import uprav_text, MAX_ZPRAVA
+        self.assertEqual(uprav_text("  Prvni \r\n\r\n  Druhy   radek  "), "Prvni\n\nDruhy radek")
+        self.assertEqual(uprav_text("a\n\n\n\n\nb"), "a\n\nb")   # nejvýš jeden prázdný řádek
+        self.assertEqual(uprav_text("a\x07b"), "ab")                # řídicí znaky pryč
+        self.assertEqual(len(uprav_text("x" * 5000)), MAX_ZPRAVA)
+        self.assertEqual(uprav_text(None), "")
 
     def test_stara_adresa_dostane_jen_vyzvu(self):
         from nokturno.identita import Identita

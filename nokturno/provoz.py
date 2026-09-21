@@ -37,6 +37,25 @@ INTERVAL = 30           # jak často se fronta odesílá (s)
 STROP = 5000            # víc řádků než tohle se zahazuje (dashboard neodpovídá)
 DAVKA = 1000            # nejvíc řádků v jednom požadavku
 STROP_UTOKU = 500       # nejvíc různých (adresa, nastavení, důvod) ve frontě
+MAX_ZPRAV = 5           # kolik zpráv z dashboardu se najednou vloží mezi streamy
+MAX_ZPRAVA = 1000       # nejvíc znaků jedné zprávy
+
+
+def uprav_text(text):
+    """Text zprávy z dashboardu do podoby, která smí ven ke klientovi.
+
+    **Odřádkování se zachovává** — text píše člověk v dashboardu do několika odstavců
+    a do 7.2.0 se celý slil do jednoho (`" ".join(text.split())`). Čistí se jen to, co
+    by rozbilo výpis: mezery na okrajích řádků, víc mezer za sebou, víc než jeden
+    prázdný řádek a řídicí znaky kromě `\\n`.
+    """
+    radky = [" ".join(r.split()) for r in str(text or "").replace("\r\n", "\n").replace("\r", "\n").split("\n")]
+    radky = ["".join(z for z in r if z == " " or z.isprintable()) for r in radky]
+    ciste = []
+    for r in radky:
+        if r or (ciste and ciste[-1]):   # nejvýš jeden prázdný řádek za sebou
+            ciste.append(r)
+    return "\n".join(ciste).strip()[:MAX_ZPRAVA]
 
 
 def klasifikuj(cesta):
@@ -86,9 +105,8 @@ class Provoz:
         self.zahozeno = 0
         self._fronta = []
         self._utoky = {}
-        self._zprava = ""
+        self._zpravy = []   # [(text, odkaz)] z dashboardu, od nejnovější
         self.na_zakazane = None   # volá se se seznamem adres zakázaných v dashboardu
-        self._odkaz = ""
         self._hlasy = {}
         self._zamek = threading.Lock()
         self._vlakno = None
@@ -135,10 +153,10 @@ class Provoz:
             u["route"] = klasifikuj(cesta)[1][:80] if cesta else ""
 
     def zprava(self):
-        """(text, odkaz) zprávy z dashboardu pro uživatele Stremia (obrazovka Zprávy);
-        text prázdný = žádná. Čte se z paměti, obnovuje ji vlákno provozu — požadavek
-        na streamy na síť nečeká."""
-        return self._zprava, self._odkaz
+        """Zprávy z dashboardu pro uživatele Stremia (obrazovka Zprávy) jako
+        `[(text, odkaz), …]` od nejnovější; prázdný seznam = žádná. Čte se z paměti,
+        obnovuje ji vlákno provozu — požadavek na streamy na síť nečeká."""
+        return list(self._zpravy)
 
     def zaznamenej_hlas(self, anketa, hlasujici, volba):
         """Hlas v anketě → dávka pro dashboard (poslední hlas hlasujícího platí)."""
@@ -154,10 +172,20 @@ class Provoz:
         try:
             with urllib.request.urlopen(req, timeout=5) as odp:
                 data = json.loads(odp.read(20000).decode("utf-8"))
-            text = data.get("text") if isinstance(data, dict) else ""
-            self._zprava = " ".join(str(text or "").split())[:300]
-            odkaz = data.get("link") if isinstance(data, dict) else ""
-            self._odkaz = str(odkaz or "")[:200]
+            if not isinstance(data, dict):
+                return
+            polozky = data.get("messages")
+            if not isinstance(polozky, list):
+                # dashboard do 2026-09-21 posílal jen jednu zprávu jako `text`/`link`
+                polozky = [{"text": data.get("text"), "link": data.get("link")}]
+            zpravy = []
+            for p in polozky[:MAX_ZPRAV]:
+                if not isinstance(p, dict):
+                    continue
+                text = uprav_text(p.get("text"))
+                if text:
+                    zpravy.append((text, str(p.get("link") or "")[:200]))
+            self._zpravy = zpravy
         except (urllib.error.URLError, OSError, ValueError) as err:
             _LOGGER.debug("zpráva z dashboardu se nenačetla: %s", err)   # zůstává poslední známá
 
