@@ -6,6 +6,15 @@ Doplněk, který k filmům a seriálům ve Stremiu (i v Nuviu a dalších klient
 s doplňky Stremia) dohledá streamy z **WebShare**, **Sosáče**, **Sledujteto**,
 **FastShare** a **HellSpy** i z **vlastního úložiště** (WebDAV). Podrobný návod je ve [wiki](https://github.com/matata86/nokturno-stremio/wiki).
 
+## Jak přidat
+
+1. Otevři **[nokturno.tailf0014.ts.net/configure](https://nokturno.tailf0014.ts.net/configure)**.
+2. Vyplň účty ke zdrojům, které používáš (žádný není povinný) a klikni na **Přidat do Stremia** nebo **Přidat do Nuvia**.
+3. Do Streamletu se adresa vkládá ručně (*Zkopírovat adresu*).
+
+Nic se neinstaluje a nespouští — server běží u nás. Adresu, kterou formulář vydá, si uschovej:
+je v ní tvoje nastavení a nikomu ji neposílej. Postup s obrázky je ve [wiki](https://github.com/matata86/nokturno-stremio/wiki/Instalace).
+
 ## Rodina Nokturno
 
 Nokturno má jeden zdroj obsahu a tři klienty, všechny stojí na společném jádru [nokturno-core](https://github.com/matata86/nokturno-core):
@@ -46,7 +55,47 @@ Streamy se řadí podle kvality a preferovaného jazyka, protože ve Stremiu je 
 jen několik prvních řádků. Kvalitu, velikost, bitrate, jazyky zvuku i titulky
 odhaduje jádro a co neví ze zdroje, přiznaně označí vlnkou (`~Full HD`).
 
-## Spuštění
+## Anonymní statistiky
+
+Doplněk posílá anonymní statistiky na stejný sběrný bod jako Nokturno pro Kodi
+a Home Assistant: náhodný identifikátor nastavení, verzi, které zdroje jsou
+zapnuté a u kterých titulů se otevřely streamy — nejvýš jednou za 6 hodin.
+Jedna „instalace" je jedno nastavení doplňku (vlastní adresa), ne celý server.
+Účty ani adresa doplňku se neposílají. Vypnutí: `NOKTURNO_STATS=0`. I po vypnutí se nejvýš jednou za 6 hodin pošle jen náhodný identifikátor a verze, aby bylo vidět, že nastavení žije — žádné tituly ani zdroje.
+
+## Hlášení o pádech
+
+Když při obsluze požadavku nastane neošetřená chyba v kódu (ne výpadek zdroje),
+služba pošle na stejný server krátké hlášení: typ chyby, místo v kódu, verzi
+a posledních pár řádků vlastního logu. Adresy, účty, IP a nastavení z adresy
+doplňku se předem vymažou. Stejná chyba odejde nejvýš jednou za verzi. Id je
+náhodné, jedno na server (`<data>/pady/id`). Vypnutí: `NOKTURNO_CRASH_REPORTS=0`.
+
+## Stav a co dál
+
+Stabilní 5.5.0, v provozu na vlastní instanci, veřejně přes Tailscale Funnel na
+[nokturno.tailf0014.ts.net](https://nokturno.tailf0014.ts.net/). Nastavení s návody je na
+`/configure`, včetně ověření účtů WebShare, Sledujteto a FastShare i vlastních úložišť.
+
+Veřejná instance je chráněná: ověřování účtů má limit požadavků na jedno nastavení,
+úložiště s adresou na server samotný nebo link-local se ignoruje, `/play/` přijímá jen
+odkazy známých zdrojů, stránky mají CSP hlavičky a účty se nezapisují do logu. Od 5.2.26
+vlastní úložiště a FastShare netečou přes server vůbec (viz Co umí výš), takže proxy limit
+odpadl. Server má poslouchat jen na `127.0.0.1` (`NOKTURNO_HOST`).
+
+Chystá se:
+
+- **Méně falešných shod.** Fulltext HellSpy občas vrátí titul, který název jen
+  obsahuje, například gameplay videa místo filmu.
+
+Aktuální verzi najdeš v [Releases](https://github.com/matata86/nokturno-stremio/releases).
+
+## Vlastní instance (pro vývojáře a pokročilé)
+
+**Běžný uživatel tuhle část nepotřebuje** — stačí [Jak přidat](#jak-přidat). Níže je návod
+pro toho, kdo chce doplněk provozovat na vlastním serveru.
+
+### Spuštění
 
 ```bash
 cp .env.example .env      # vyplň účty
@@ -63,7 +112,7 @@ Bez Dockeru to jde taky, závislosti žádné nejsou:
 python3 -m nokturno.server --port 7127
 ```
 
-## Účty jsou v adrese, ne na serveru
+### Účty jsou v adrese, ne na serveru
 
 Stremio nemá soubor nastavení. Účty se nosí **zakódované v adrese doplňku**, takže
 každý, kdo si ho přidá, má vlastní a hledá pod sebou. Server si nic nepamatuje.
@@ -101,7 +150,7 @@ Hodnoty jsou stejné jako v doplňku pro Kodi, takže se dají opsat z jeho
 
 Žádný zdroj není povinný. Bez nastavení běží doplněk jen s HellSpy.
 
-## Jak to funguje
+### Jak to funguje
 
 ```
 Stremio ──▶ /stream/movie/tt0133093.json ──▶ Engine.streams() ──▶ WebShare, Sosáč, HellSpy, Sledujteto, FastShare
@@ -117,14 +166,14 @@ vybere, by vyhasly. Endpoint `/play/` proto soubor rozklíčuje až ve chvíli, 
 na něj přehrávač skutečně obrátí. Přijímá jen odkazy se známým schématem, jinak by
 z něj šlo udělat otevřené přesměrování.
 
-### Proč bez závislostí
+#### Proč bez závislostí
 
 Jádro je čistý Python bez vazby na hostitele a jeho volání jsou blokující. HTTP
 vrstva proto stojí na `http.server` ze standardní knihovny; `ThreadingHTTPServer`
 obslouží každý požadavek ve vlákně, takže dlouhé hledání na WebShare nezablokuje
 ostatní dotazy. Nasazení je tím jen zkopírování zdrojáků, bez `pip install`.
 
-### Jádro se needituje tady
+#### Jádro se needituje tady
 
 `nokturno/core/` je **vysypaná kopie** z repa `nokturno-core`. Oprava udělaná tady
 se při příštím rozeslání přepíše. Patří do jádra:
@@ -135,48 +184,13 @@ python3 tools/sync_core.py --check --diff stremio
 python3 tools/sync_core.py stremio
 ```
 
-## Anonymní statistiky
-
-Doplněk posílá anonymní statistiky na stejný sběrný bod jako Nokturno pro Kodi
-a Home Assistant: náhodný identifikátor nastavení, verzi, které zdroje jsou
-zapnuté a u kterých titulů se otevřely streamy — nejvýš jednou za 6 hodin.
-Jedna „instalace" je jedno nastavení doplňku (vlastní adresa), ne celý server.
-Účty ani adresa doplňku se neposílají. Vypnutí: `NOKTURNO_STATS=0`. I po vypnutí se nejvýš jednou za 6 hodin pošle jen náhodný identifikátor a verze, aby bylo vidět, že nastavení žije — žádné tituly ani zdroje.
-
-## Hlášení o pádech
-
-Když při obsluze požadavku nastane neošetřená chyba v kódu (ne výpadek zdroje),
-služba pošle na stejný server krátké hlášení: typ chyby, místo v kódu, verzi
-a posledních pár řádků vlastního logu. Adresy, účty, IP a nastavení z adresy
-doplňku se předem vymažou. Stejná chyba odejde nejvýš jednou za verzi. Id je
-náhodné, jedno na server (`<data>/pady/id`). Vypnutí: `NOKTURNO_CRASH_REPORTS=0`.
-
-## Testy
+### Testy
 
 ```bash
 python3 -m unittest discover -s tests -v
 ```
 
 Nesahají na síť a nepotřebují účty. Jádro má vlastní testy ve svém repu.
-
-## Stav a co dál
-
-Stabilní 5.5.0, v provozu na vlastní instanci, veřejně přes Tailscale Funnel na
-[nokturno.tailf0014.ts.net](https://nokturno.tailf0014.ts.net/). Nastavení s návody je na
-`/configure`, včetně ověření účtů WebShare, Sledujteto a FastShare i vlastních úložišť.
-
-Veřejná instance je chráněná: ověřování účtů má limit požadavků na jedno nastavení,
-úložiště s adresou na server samotný nebo link-local se ignoruje, `/play/` přijímá jen
-odkazy známých zdrojů, stránky mají CSP hlavičky a účty se nezapisují do logu. Od 5.2.26
-vlastní úložiště a FastShare netečou přes server vůbec (viz Co umí výš), takže proxy limit
-odpadl. Server má poslouchat jen na `127.0.0.1` (`NOKTURNO_HOST`).
-
-Chystá se:
-
-- **Méně falešných shod.** Fulltext HellSpy občas vrátí titul, který název jen
-  obsahuje, například gameplay videa místo filmu.
-
-Aktuální verzi najdeš v [Releases](https://github.com/matata86/nokturno-stremio/releases).
 
 ## Licence
 
