@@ -325,6 +325,36 @@
         </details>
       </div>
 
+      <!-- Přehraj.to -->
+      <div class="karta">
+        <div class="karta-hlava">
+          <h3>Přehraj.to</h3>
+          <span class="stitek">Voliteľné · účet nutný</span>
+        </div>
+        <p>Česká úschovňa s veľkým výberom. V Stremiu potrebuje <strong>účet</strong> (na rozdiel od Kodi, kde ide aj bez neho) — server je jedna IP a bez prihlásenia by ho Přehraj.to hneď obmedzil. S Premium účtom sa hrá pôvodný súbor vrátane 4K, inak prekódovaná verzia v 1080p. <strong>Hrá aj vo webovom prehrávači</strong> (priama adresa na CDN, žiadna proxy).</p>
+        <div class="dvojice">
+          <label class="pole"><span>E-mail</span>
+            <input type="text" name="pt_email" autocapitalize="off" spellcheck="false"></label>
+          <label class="pole"><span>Heslo</span>
+            <span class="heslo"><input type="password" name="pt_password" spellcheck="false">
+              <button type="button" class="ukazat" aria-label="Ukázať heslo">ukázať</button></span></label>
+        </div>
+        <div class="overeni">
+          <button type="button" class="male" id="overit-pt">Overiť účet</button>
+          <span class="vysledek" id="vysledek-pt"></span>
+        </div>
+        <details class="navod">
+          <summary>Ako na to — účet Přehraj.to</summary>
+          <div class="obsah">
+            <ol>
+              <li>Zaregistruj sa na <a href="https://prehraj.to/" target="_blank" rel="noopener">prehraj.to</a>.</li>
+              <li>Pre pôvodné súbory a plnú kvalitu si aktivuj <strong>Premium</strong>. Bez neho sa prehráva prekódovaná verzia v 1080p.</li>
+              <li>Sem vyplň e-mail a heslo, ktorým sa prihlasuješ na web, a klikni na <strong>Overiť účet</strong>.</li>
+            </ol>
+          </div>
+        </details>
+      </div>
+
       <!-- HellSpy -->
       <div class="karta">
         <div class="karta-hlava">
@@ -605,7 +635,7 @@
           <li><strong>Sledujteto</strong> — české úložisko s veľkým výberom, hľadá cez tvoj účet a prehráva s Premium.</li>
           <li><strong>FastShare</strong> — české úložisko s veľkým výberom, hľadá aj bez účtu, prehráva z kreditu alebo s neobmedzeným sťahovaním. Len v aplikácii Stremio, nie v prehliadači.</li>
           <li><strong>HellSpy</strong> — verejné súbory zadarmo, bez účtu. Menší výber, ale nič nestojí.</li>
-          <li><strong>Přehraj.to</strong> — pridáva táto inštancia cez svoj Premium účet, nemusíš nič nastavovať. Hrá v prehliadači aj v aplikácii.</li>
+          <li><strong>Přehraj.to</strong> — česká úschovňa, v Stremiu potrebuje účet (server je jedna IP, bez prihlásenia by ho Přehraj.to obmedzil). S Premium hrá pôvodný súbor, inak prekódovanú verziu. Hrá aj v prehliadači.</li>
         </ul>
       </div>
     </details>
@@ -752,6 +782,7 @@ function zdroje(n = nastaveni()) {
   if (n.streamuj_username) out.push("Sosáč");
   if (n.st_email) out.push("Sledujteto");
   if (n.fs_username) out.push("FastShare");
+  if (n.pt_email) out.push("Přehraj.to");
   if (n.hs_enabled) out.push("HellSpy");
   const uloziste = [1, 2, 3].filter((i) => n["dav" + i + "_url"]);
   if (uloziste.length) out.push(uloziste.length === 1 ? "vlastné úložisko" : uloziste.length + " vlastné úložiská");
@@ -768,6 +799,8 @@ function problem(n = nastaveni()) {
   if (!n.st_email && n.st_password) return "U Sledujteto chýba e-mail.";
   if (n.fs_username && !n.fs_password) return "U FastShare chýba heslo.";
   if (!n.fs_username && n.fs_password) return "U FastShare chýba používateľské meno.";
+  if (n.pt_email && !n.pt_password) return "U Přehraj.to chýba heslo.";
+  if (!n.pt_email && n.pt_password) return "U Přehraj.to chýba e-mail.";
   for (const i of [1, 2, 3]) {
     const url = n["dav" + i + "_url"];
     if (!url && (n["dav" + i + "_username"] || n["dav" + i + "_password"])) return "Pri úložisku " + i + " chýba adresa.";
@@ -795,6 +828,7 @@ form.addEventListener("input", (e) => {
   if (["streamuj_username", "streamuj_password"].includes(e.target.name)) vysledek("su", "", "");
   if (["st_email", "st_password"].includes(e.target.name)) vysledek("st", "", "");
   if (["fs_username", "fs_password"].includes(e.target.name)) vysledek("fs", "", "");
+  if (["pt_email", "pt_password"].includes(e.target.name)) vysledek("pt", "", "");
   if (/^dav\d_/.test(e.target.name || "")) vysledek("dav", "", "");
 });
 prekresli();
@@ -887,6 +921,28 @@ $("overit-fs").addEventListener("click", async () => {
     else vysledek("fs", "pozor", "Prihlásené, ale bez kreditu — streamy sa zobrazia, prehrať nepôjdu.");
   } catch (err) {
     vysledek("fs", "chyba", "Overenie sa nepodarilo (" + err.message + "). Skús to o chvíľu.");
+  } finally {
+    tl.disabled = false;
+  }
+});
+
+$("overit-pt").addEventListener("click", async () => {
+  const n = nastaveni();
+  if (!n.pt_email || !n.pt_password) {
+    vysledek("pt", "pozor", "Vyplň e-mail aj heslo.");
+    return;
+  }
+  const tl = $("overit-pt");
+  tl.disabled = true;
+  vysledek("pt", "info", "Prihlasujem sa na Přehraj.to…");
+  try {
+    const pt = (await overit()).prehrajto;
+    if (!pt) vysledek("pt", "pozor", "Účet nie je vyplnený.");
+    else if (!pt.ok) vysledek("pt", "chyba", "Prihlásenie neprešlo — skontroluj e-mail a heslo.");
+    else if (pt.premium) vysledek("pt", "ok", "✓ Prihlásené · Premium ešte " + pt.days + " " + dny(pt.days));
+    else vysledek("pt", "ok", "✓ Prihlásené · bez Premium (prehrá sa prekódovaná verzia v 1080p)");
+  } catch (err) {
+    vysledek("pt", "chyba", "Overenie sa nepodarilo (" + err.message + "). Skús to o chvíľu.");
   } finally {
     tl.disabled = false;
   }

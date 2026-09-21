@@ -35,7 +35,7 @@ vyplň účty a klikni na *Přidat do Stremia* nebo *Přidat do Nuvia*.
 ## Co umí
 
 - **Streamy ke všemu s IMDb id.** Doplněk se chytá na všem, co má identifikátor IMDb (i `tmdb:` id od klientů), a k tomu přihodí své streamy. Detail titulu a díly seriálů dodá Stremio z Cinemety.
-- **Šest zdrojů** — WebShare, Sosáč, Sledujteto, FastShare, HellSpy a Přehraj.to; žádný není povinný. Přehraj.to přidává instance přes svůj Premium účet (od 7.0.4, `NOKTURNO_PT_EMAIL`/`NOKTURNO_PT_PASSWORD`), uživatel ho nenastavuje.
+- **Šest zdrojů** — WebShare, Sosáč, Sledujteto, FastShare, HellSpy a Přehraj.to; žádný není povinný. Přehraj.to (od 7.0.4) chce ve formuláři vlastní účet jako WebShare nebo Sledujteto: bez přihlášení API nevydá token a HTML z jedné serverové adresy dostane HTTP 429.
 - **Vlastní úložiště** (od 3.1.0) — až tři WebDAV složky s vlastními soubory ve formuláři (s ověřením). Soubory jsou mezi streamy první.
 - **Volitelné katalogy** (od 5.1.0) — seznamy ze Sosáče a TMDB, žebříček „Nejsledovanější tento týden" a nové seriály s CZ dabingem / titulky; každý se zapíná zvlášť ve formuláři.
 - **Přímé přehrávání** (od 5.2.26) — vlastní úložiště a FastShare se přehrávají přímo ze zdroje (`behaviorHints.proxyHeaders` nese přihlášení), žádná proxy. Úložiště proto musí být dosažitelné ze serveru (hledání) i ze zařízení, kde se přehrává. ⚠️ Ve webovém přehrávači Stremia se tyto streamy nepřehrají, jen v aplikaci. Veřejná instance ignoruje úložiště s adresou na server samotný nebo link-local. Podrobně ve [wiki](https://github.com/matata86/nokturno-stremio/wiki/Zdroje-a-nastaveni#vlastní-úložiště).
@@ -140,7 +140,7 @@ Hodnoty jsou stejné jako v doplňku pro Kodi, takže se dají opsat z jeho
 | ~~`NOKTURNO_LUNA_URL`, `NOKTURNO_LUNA_TOKEN`~~ | od 0.2.5 se nečtou — Luna má vlastní doplněk do Stremia |
 | `NOKTURNO_ST_EMAIL`, `NOKTURNO_ST_PASSWORD` | Sledujteto — hledání chce účet, přehrávání Premium |
 | `NOKTURNO_FS_USERNAME`, `NOKTURNO_FS_PASSWORD` | FastShare (od 5.1.0) — hledá se i bez účtu, přehrání jde z kreditu nebo neomezeného tarifu a soubor teče přes doplněk (přehrávač cookie z přihlášení neumí poslat) |
-| `NOKTURNO_PT_EMAIL`, `NOKTURNO_PT_PASSWORD` | Přehraj.to (od 7.0.4) — jeden Premium účet instance, sdílený všem nastavením (jedna relace, sdílená cache). Bez účtu se Přehraj.to nenabízí: API bez přihlášení nevydá token a HTML scraping z jedné IP by dostal 429. Ve formuláři se nezadává |
+| `NOKTURNO_PT_EMAIL`, `NOKTURNO_PT_PASSWORD` | Přehraj.to (od 7.0.4) — s Premium účtem přijde původní soubor, bez něj jen překódovaný. Na veřejné instanci se nenastavuje: účet je per-uživatel ve formuláři, jako u ostatních zdrojů |
 | `NOKTURNO_TMDB_KEY` | klíč TMDB instance pro katalogy TMDB (od 5.1.0); bez něj se nabízejí jen katalogy Sosáče. Ve formuláři se nezadává |
 | `NOKTURNO_HS_ENABLED` | HellSpy je veřejný, stačí přepínač; zapnutý ve výchozím stavu |
 | `NOKTURNO_PREF_LANG`, `NOKTURNO_SORT`, `NOKTURNO_HIDE_SD` | předvolby řazení a filtrování |

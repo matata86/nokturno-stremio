@@ -256,7 +256,9 @@ class TestPrehrani(unittest.TestCase):
 
 
 class TestPrehrajto(unittest.TestCase):
-    """Přehraj.to je ve Stremiu instanční — jeden Premium účet z prostředí, sdílený všem."""
+    """Přehraj.to je ve Stremiu **per-uživatel** jako WebShare/Sledujteto: každý zadá
+    svůj účet ve formuláři, ne jeden sdílený z prostředí. Bez účtu se zdroj nenabízí —
+    anonymní HTML z jedné serverové IP by dostalo 429."""
 
     def test_odkaz_pt_projde_pres_play(self):
         """`pt:` je vnitřní schéma (viz mapping.SCHEMATA) — `/play/` ho smí rozklíčovat."""
@@ -265,32 +267,48 @@ class TestPrehrajto(unittest.TestCase):
         self.assertEqual(odpoved.status, 302)
         self.assertEqual(odpoved.location, "https://premiumcdn.example/orig.mkv")
 
-    def test_manifest_nabidne_prehrajto_s_instance_uctem(self):
-        r = router()
-        r.enginy_test.pt_ucet = True
-        data = r.route(f"/c/{KOUSEK}/manifest.json", ZAKLAD).data
+    def test_from_mapping_odvodi_pt_enabled_z_uctu(self):
+        o = config.from_mapping({"pt_email": "u@example.com", "pt_password": "tajne"})
+        self.assertTrue(o.get("pt_enabled"))
+
+    def test_from_mapping_bez_hesla_pt_enabled_neni(self):
+        # jen když je e-mail i heslo; jinak klíč vůbec není (čistý otisk)
+        self.assertNotIn("pt_enabled", config.from_mapping({"pt_email": "u@example.com"}))
+        self.assertNotIn("pt_enabled", config.from_mapping({}))
+
+    def test_sources_from_options_ma_prehrajto_pri_uctu(self):
+        self.assertIn("Přehraj.to", config.sources_from_options({"pt_email": "u@example.com"}))
+        self.assertNotIn("Přehraj.to", config.sources_from_options({}))
+
+    def test_manifest_nabidne_prehrajto_pri_uctu(self):
+        kousek = config.encode(config.from_mapping(
+            {"pt_email": "u@example.com", "pt_password": "tajne"}))
+        data = router().route(f"/c/{kousek}/manifest.json", ZAKLAD).data
         self.assertIn("Přehraj.to", data["description"])
 
-    def test_manifest_bez_instance_uctu_prehrajto_nema(self):
+    def test_manifest_bez_uctu_prehrajto_nema(self):
         data = router().route(f"/c/{KOUSEK}/manifest.json", ZAKLAD).data
         self.assertNotIn("Přehraj.to", data["description"])
 
-    def test_enginy_postavi_sdilene_jadro_pri_uctu(self):
+    def test_ma_ucty_bere_pt_email(self):
+        # účet dělá otisk jedinečný → limity na uživatele místo sdílené IP
+        self.assertTrue(config.ma_ucty({"pt_email": "u@example.com"}))
+
+    def test_enginy_postavi_pt_per_uzivatel(self):
         from nokturno.enginy import Enginy
         tmp = tempfile.mkdtemp()
-        s = Enginy(tmp, {}, pt_email="u@example.com", pt_password="tajne")
-        self.assertTrue(s.pt_ucet)
-        self.assertIsNotNone(s.pt_api)
-        # totéž jádro pro všechna nastavení — ne per-uživatel (jinak by každé nastavení
-        # dělalo vlastní login a přeteklo správu přihlášených zařízení účtu)
-        self.assertIs(s.pro({"ws_username": "a"}).pt, s.pro({"ws_username": "b"}).pt)
+        s = Enginy(tmp, {})
+        # každé nastavení má vlastní účet, tedy vlastní PrehrajtoApi (ne sdílené)
+        a = s.pro(config.from_mapping({"pt_email": "a@example.com", "pt_password": "p"}))
+        b = s.pro(config.from_mapping({"pt_email": "b@example.com", "pt_password": "p"}))
+        self.assertTrue(a.sources()["prehrajto"])
+        self.assertTrue(b.sources()["prehrajto"])
+        self.assertIsNot(a.pt, b.pt)
 
     def test_enginy_bez_uctu_prehrajto_vypnute(self):
         from nokturno.enginy import Enginy
         tmp = tempfile.mkdtemp()
         s = Enginy(tmp, {})
-        self.assertFalse(s.pt_ucet)
-        self.assertIsNone(s.pt_api)
         self.assertFalse(s.pro({"ws_username": "a"}).sources()["prehrajto"])
 
 

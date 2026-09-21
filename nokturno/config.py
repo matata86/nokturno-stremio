@@ -45,6 +45,8 @@ PROSTREDI = {
     "NOKTURNO_ST_PASSWORD": "st_password",
     "NOKTURNO_FS_USERNAME": "fs_username",
     "NOKTURNO_FS_PASSWORD": "fs_password",
+    "NOKTURNO_PT_EMAIL": "pt_email",
+    "NOKTURNO_PT_PASSWORD": "pt_password",
     # zapnuté katalogy, klíče oddělené čárkou — viz nokturno/katalogy.py
     "NOKTURNO_KATALOGY": "katalogy",
     "NOKTURNO_PREF_LANG": "pref_lang",
@@ -110,6 +112,12 @@ def from_mapping(raw):
         options["pref_lang"] = ""
     if options.get("sort_streams") not in SORT_ORDERS:
         options["sort_streams"] = VYCHOZI["sort_streams"]
+    # Přehraj.to je ve Stremiu per-uživatel jako ostatní zdroje — účet z adresy/prostředí.
+    # Jádro zapíná zdroj přepínačem `pt_enabled`; ten se ve Stremiu odvodí z vyplněného
+    # účtu (bez účtu API nevydá token a HTML z jedné serverové IP by dostalo 429, takže
+    # anonymní režim jako v Kodi tu nedává smysl — nutný účet, stejně jako u Sledujteto).
+    if str(options.get("pt_email") or "").strip() and str(options.get("pt_password") or "").strip():
+        options["pt_enabled"] = True   # jen když je účet; jinak klíč vůbec není (čistý otisk)
     return options
 
 
@@ -210,7 +218,8 @@ def ma_ucty(options):
     Nastavení jen s HellSpy a volbami sdílí spousta lidí — to takové není."""
     o = options or {}
     return any(str(o.get(k) or "").strip() for k in (
-        "ws_username", "streamuj_username", "st_email", "fs_username", "dav1_url", "dav2_url", "dav3_url"))
+        "ws_username", "streamuj_username", "st_email", "fs_username", "pt_email",
+        "dav1_url", "dav2_url", "dav3_url"))
 
 
 def sources_from_options(options):
@@ -224,6 +233,7 @@ def sources_from_options(options):
         "hellspy": bool(o.get("hs_enabled")),
         "sledujteto": bool(str(o.get("st_email") or "").strip()),
         "fastshare": bool(str(o.get("fs_username") or "").strip()),
+        "prehrajto": bool(str(o.get("pt_email") or "").strip()),
         "storage": any(str(o.get(f"dav{n}_url") or "").strip() for n in (1, 2, 3)),
     }
     return [NAZVY_ZDROJU[k] for k, v in zapnuto.items() if v]

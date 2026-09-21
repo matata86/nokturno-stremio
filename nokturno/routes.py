@@ -42,6 +42,7 @@ from .core.engine import NokturnoError, is_sosac_id, split_episode_id
 from .core.lib.webshare_api import WebshareApi, WebshareError
 from .core.lib.sledujteto_api import SledujtetoApi
 from .core.lib.fastshare_api import FastshareApi
+from .core.lib.prehrajto_api import PrehrajtoApi
 from .core.lib.storage_api import SLOTS, StorageApi
 from . import config, mapping, sit
 from .enginy import PrilisMnohoNovych
@@ -49,7 +50,7 @@ from .identita import Identita
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "7.0.4"
+VERZE = "7.2.0"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -372,6 +373,7 @@ class Router:
         self.ws_api = WebshareApi   # testy podstrčí falešné, aby nešly na síť
         self.st_api = SledujtetoApi
         self.fs_api = FastshareApi
+        self.pt_api = PrehrajtoApi
         self.dav_api = StorageApi
         self.check_okno = Okno(*CHECK_LIMIT)
         self.stream_okno = Okno(*STREAM_LIMIT)
@@ -421,10 +423,6 @@ class Router:
     def manifest(self, options, nastaveno, nova_adresa=None):
         """Jen z nastavení — jádro se kvůli manifestu nezakládá (viz `sources_from_options`)."""
         zdroje = config.sources_from_options(options)
-        # Přehraj.to je instanční (Premium účet z .env, sdílený všem), ne per-uživatel —
-        # v `options` proto není; nabídne se každému, kdo má instance účet nastavený
-        if getattr(self.enginy, "pt_ucet", False):
-            zdroje = zdroje + ["Přehraj.to"]
         katalogy = self.katalogy.manifest(options) if self.katalogy else []
         data = mapping.manifest(self.verze, zdroje, nastaveno=bool(zdroje), katalogy=katalogy, nova_adresa=nova_adresa)
         data["behaviorHints"]["configurable"] = True
@@ -567,6 +565,16 @@ class Router:
             except Exception as err:  # noqa: BLE001 – pro uživatele je každé selhání totéž
                 _LOGGER.info("ověření FastShare %s: %s", fs_user[:3] + "…", err)
                 out["fastshare"] = {"ok": False, "chyba": str(err) or "přihlášení selhalo"}
+        pt_email = (options.get("pt_email") or "").strip()
+        if pt_email:
+            # Přehraj.to: přihlášení a jestli je Premium (jinak jen překódované soubory)
+            try:
+                ucet = self.pt_api(pt_email, options.get("pt_password") or "").me()
+                out["prehrajto"] = {"ok": True, "premium": bool(ucet.get("premium")),
+                                    "days": int(ucet.get("days") or 0)}
+            except Exception as err:  # noqa: BLE001 – pro uživatele je každé selhání totéž
+                _LOGGER.info("ověření Přehraj.to %s: %s", pt_email[:3] + "…", err)
+                out["prehrajto"] = {"ok": False, "chyba": str(err) or "přihlášení selhalo"}
         out["uloziste"] = []
         for n in range(1, SLOTS + 1):
             url = (options.get(f"dav{n}_url") or "").strip()

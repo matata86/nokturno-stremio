@@ -393,11 +393,7 @@ def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, opti
     if smazano:
         _LOGGER.info("úklid: %d složek jader bez použití přes 30 dní", smazano)
     vychozi = options if options is not None else from_environ()
-    # Přehraj.to: jeden Premium účet instance z prostředí (jako klíč TMDB), sdílený
-    # všem jádrům. Bez něj se zdroj nenabídne — anonymně API token nevydá.
-    enginy = Enginy(data_dir, vychozi, tmdb_key=os.environ.get("NOKTURNO_TMDB_KEY", "").strip(),
-                    pt_email=os.environ.get("NOKTURNO_PT_EMAIL", "").strip(),
-                    pt_password=os.environ.get("NOKTURNO_PT_PASSWORD", "").strip())
+    enginy = Enginy(data_dir, vychozi, tmdb_key=os.environ.get("NOKTURNO_TMDB_KEY", "").strip())
     zdroje = sources_summary(enginy.pro())
     if predvyplnit is None:
         predvyplnit = os.environ.get("NOKTURNO_CONFIGURE_PREFILL", "").strip().lower() in ("1", "true", "ano", "yes")
