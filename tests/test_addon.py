@@ -1991,15 +1991,80 @@ class TestProvoz(unittest.TestCase):
         r.zobrazeni = lambda i, k="": videno.append((i, k))
         r.klik = lambda i: kliky.append(i)
         s = r.route(f"/c/{KOUSEK}/stream/movie/tt0133093.json", ZAKLAD, klient="1.2.3.4").data["streams"][0]
-        self.assertEqual(s["externalUrl"], ZAKLAD + "/z/12")
+        self.assertTrue(s["externalUrl"].startswith(ZAKLAD + "/z/12/"))   # za id je značka uživatele
         self.assertEqual(len(videno), 1)
         self.assertEqual(videno[0][0], 12)
         self.assertTrue(videno[0][1])   # klíč uživatele (otisk s účty) — ven nikdy nejde
-        odp = r.route("/z/12", ZAKLAD, klient="1.2.3.4")
+        odp = r.route(s["externalUrl"][len(ZAKLAD):], ZAKLAD, klient="1.2.3.4")
         self.assertEqual((odp.status, odp.location), (302, ZAKLAD + "/anketa"))
         self.assertEqual(kliky, [12])
         self.assertEqual(r.route("/z/999", ZAKLAD, klient="1.2.3.4").location, ZAKLAD + "/")   # neznámá → úvod
         self.assertEqual(r.route("/z/abc", ZAKLAD, klient="1.2.3.4").status, 404)
+        self.assertEqual(r.route("/z/12/XXX", ZAKLAD, klient="1.2.3.4").status, 404)   # nesmyslná značka
+
+    def _zpravy_ve_vypisu(self, r, kousek=None):
+        cesta = f"/c/{kousek or KOUSEK}/stream/movie/tt0133093.json"
+        return [s for s in r.route(cesta, ZAKLAD, klient="1.2.3.4").data["streams"] if s["name"].startswith("📢")]
+
+    def test_po_kliknuti_se_zprava_uz_neukazuje(self):
+        """Kdo na zprávu klikl, ten ji podruhé nedostane — jeho a jen jeho.
+        Server pozná uživatele podle značky v odkazu, ne podle adresy."""
+        from nokturno.kliky import Kliky
+        r = router()
+        r.zprava = lambda: [(12, "Novinka", "/anketa"), (11, "Druhá", "")]
+        r.kliky = Kliky(tajemstvi="t")
+        prvni = self._zpravy_ve_vypisu(r)
+        self.assertEqual(len(prvni), 2)
+        r.route(prvni[0]["externalUrl"][len(ZAKLAD):], ZAKLAD, klient="1.2.3.4")
+        zbylo = self._zpravy_ve_vypisu(r)
+        self.assertEqual([s["title"] for s in zbylo], ["Druhá"])   # odkliknutá zmizela, druhá zůstala
+        # jiné nastavení = jiná značka, tomu se ukazují dál obě
+        jine = config.encode(config.from_mapping({"ws_username": "nekdo-jiny", "ws_password": "x"}))
+        self.assertEqual(len(self._zpravy_ve_vypisu(r, jine)), 2)
+
+    def test_klik_prezije_restart(self):
+        from nokturno.kliky import Kliky
+        soubor = os.path.join(tempfile.mkdtemp(), "kliky.txt")
+        k = Kliky(soubor=soubor, tajemstvi="t")
+        k.oznac(12, k.znacka("fp:abc"))
+        k.oznac(12, k.znacka("fp:abc"))   # druhý klik nic nepřidá
+        self.assertEqual(len(k), 1)
+        po_restartu = Kliky(soubor=soubor, tajemstvi="t")
+        self.assertTrue(po_restartu.videl(12, "fp:abc"))
+        self.assertFalse(po_restartu.videl(12, "fp:jiny"))
+        self.assertFalse(po_restartu.videl(11, "fp:abc"))
+        self.assertFalse(po_restartu.videl(12, ""))   # bez klíče se nepozná nikdo
+
+    def test_znacka_neprozradi_klic(self):
+        from nokturno.kliky import Kliky
+        k = Kliky(tajemstvi="tajne")
+        znacka = k.znacka("fp:0123456789abcdef")
+        self.assertRegex(znacka, r"^[0-9a-f]{16}$")
+        self.assertNotIn("0123456789abcdef", znacka)
+        self.assertEqual(k.znacka(""), "")   # bez klíče není značka
+        self.assertNotEqual(znacka, Kliky(tajemstvi="jine").znacka("fp:0123456789abcdef"))
+
+    def test_kliky_nad_strop_nechaji_aktivni_zpravy(self):
+        from nokturno.kliky import Kliky
+        soubor = os.path.join(tempfile.mkdtemp(), "kliky.txt")
+        k = Kliky(soubor=soubor, tajemstvi="t", na_aktivni=lambda: {12}, max_zaznamu=3)
+        for i, zprava in enumerate((11, 11, 12)):
+            k.oznac(zprava, k.znacka(f"fp:{i}"))
+        k.oznac(12, k.znacka("fp:novy"))   # strop → staré neaktivní zprávy vypadnou
+        self.assertTrue(k.videl(12, "fp:novy"))
+        self.assertTrue(k.videl(12, "fp:2"))
+        self.assertFalse(k.videl(11, "fp:0"))
+        self.assertTrue(Kliky(soubor=soubor, tajemstvi="t").videl(12, "fp:novy"))   # soubor přepsán
+
+    def test_kliky_bez_seznamu_aktivnich_nic_nemazou(self):
+        # radši přestat zapisovat než vrátit zprávu lidem, kteří ji odklikli
+        from nokturno.kliky import Kliky
+        k = Kliky(tajemstvi="t", max_zaznamu=2)
+        k.oznac(11, k.znacka("fp:a"))
+        k.oznac(11, k.znacka("fp:b"))
+        k.oznac(11, k.znacka("fp:c"))
+        self.assertEqual(len(k), 2)
+        self.assertTrue(k.videl(11, "fp:a"))
 
     def test_proklik_nad_limit_presmeruje_ale_nepocita(self):
         r = router()

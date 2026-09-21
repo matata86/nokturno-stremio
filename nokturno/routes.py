@@ -47,10 +47,11 @@ from .core.lib.storage_api import SLOTS, StorageApi
 from . import config, mapping, sit
 from .enginy import PrilisMnohoNovych
 from .identita import Identita
+from .kliky import Kliky
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "7.2.2"
+VERZE = "7.3.0"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -363,6 +364,7 @@ class Router:
         self.zprava = None   # volatelná → [(id, text, odkaz)] zpráv z dashboardu (nastaví server)
         self.zobrazeni = None   # volatelná (id, klíč uživatele) → započítá zobrazení zprávy
         self.klik = None     # volatelná (id) → započítá proklik zprávy (viz `/z/<id>`)
+        self.kliky = Kliky()   # komu se zpráva už neukazuje, protože na ni klikl
         self.hlas = None     # volatelná (anketa, hlasující, volba) → hlas do dashboardu (nastaví server)
         self.hlas_okno = Okno(30, 3600)   # hlasů z jedné adresy za hodinu
         self.klik_okno = Okno(60, 10 * 60)   # prokliků zpráv z jedné adresy za 10 min
@@ -610,12 +612,18 @@ class Router:
         return Odpoved(data={"ok": True})
 
     def proklik(self, kus, zaklad, klient):
-        """Klik na řádek se zprávou (`externalUrl` = `/z/<id>`): započítá se a přesměruje
-        tam, kam zpráva mířila. Limit na adresu, ať čísla nejde nafouknout; nad limit se
-        jen nepočítá, přesměrování zůstane — uživatel o cíl nesmí přijít."""
-        if not kus.isdigit() or len(kus) > 12:
+        """Klik na řádek se zprávou (`externalUrl` = `/z/<id>/<značka>`): započítá se,
+        uživateli se zpráva přestane ukazovat a odpověď přesměruje tam, kam zpráva mířila.
+
+        Limit na adresu platí **jen na počítání**, ať čísla nejde nafouknout; skrytí i
+        přesměrování se dělají vždy — o cíl uživatel přijít nesmí a skrytí je jen zápis
+        jedné dvojice navíc. Značka je jednosměrná (viz `kliky.py`), klíč uživatele
+        z ní server neodvodí a ani ho k ničemu nepotřebuje."""
+        kus, _, znacka = kus.partition("/")
+        if not kus.isdigit() or len(kus) > 12 or not re.fullmatch(r"[0-9a-f]{0,16}", znacka):
             return chyba(404, "Neznámá zpráva")
         id_zpravy = int(kus)
+        self.kliky.oznac(id_zpravy, znacka)
         cil = zaklad + "/"
         for zid, _text, odkaz in (self.zprava() if callable(self.zprava) else []):
             if zid == id_zpravy and odkaz:
@@ -854,10 +862,14 @@ class Router:
                 # od nejnovější, každá jako vlastní řádek — víc aktivních zpráv se nesmí
                 # slít do jedné položky (delší text klienti ořezávají)
                 uzivatel = self._klic_limitu(options, klient) if kousek else ""
+                znacka = self.kliky.znacka(uzivatel)
                 for id_zpravy, oznameni, odkaz in reversed(zpravy):
-                    # se známým id vede řádek přes `/z/<id>`, ať jde spočítat proklik
+                    if id_zpravy and self.kliky.videl(id_zpravy, uzivatel):
+                        continue   # na tuhle zprávu už klikl, podruhé ji nedostane
+                    # se známým id vede řádek přes `/z/<id>`, ať jde spočítat proklik;
+                    # značka za ním říká, komu se pak zpráva má přestat ukazovat
                     if id_zpravy:
-                        cil = zaklad + "/z/" + str(id_zpravy)
+                        cil = zaklad + "/z/" + str(id_zpravy) + ("/" + znacka if znacka else "")
                     else:
                         cil = odkaz if odkaz.startswith("https://") else zaklad + (odkaz if odkaz.startswith("/") else "/")
                     odp.data["streams"].insert(0, mapping.zprava_z_dashboardu(oznameni, cil))

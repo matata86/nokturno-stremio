@@ -25,6 +25,7 @@ from .routes import Blokace, VERZE, Router, jazyk_z_hlavicky, klient_z_useragent
 from .statistiky import Statistiky
 from .pady import Pady
 from .provoz import Provoz
+from . import kliky as kliky_zprav
 
 _LOGGER = logging.getLogger("nokturno")
 
@@ -415,6 +416,9 @@ def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, opti
     server.router.zprava = server.provoz.zprava
     server.router.zobrazeni = server.provoz.zaznamenej_zobrazeni
     server.router.klik = server.provoz.zaznamenej_klik
+    server.router.kliky = kliky_zprav.z_prostredi(data_dir)
+    # nad stropem se nechají jen záznamy zpráv, které se ještě ukazují
+    server.router.kliky.na_aktivni = lambda: {z[0] for z in server.provoz.zprava()}
     server.router.hlas = server.provoz.zaznamenej_hlas
     server.provoz.na_zakazane = server.router.blokace.nastav_zakazane
     server.provoz.start()  # bez NOKTURNO_TRAFFIC_TOKEN se vlákno nespustí a nic se neměří
