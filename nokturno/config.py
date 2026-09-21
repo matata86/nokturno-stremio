@@ -192,7 +192,7 @@ def fingerprint(options):
 
 NAZVY_ZDROJU = {"luna": "Luna", "sosac": "Sosáč", "webshare": "WebShare",
                 "hellspy": "HellSpy", "sledujteto": "Sledujteto", "fastshare": "FastShare",
-                "storage": "vlastní úložiště",
+                "prehrajto": "Přehraj.to", "storage": "vlastní úložiště",
                 "torrent": "torrenty"}
 
 

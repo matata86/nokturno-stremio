@@ -15,7 +15,9 @@ from collections import OrderedDict
 
 from .config import fingerprint
 from .core.engine import Engine
+from .core.lib.prehrajto_api import PrehrajtoApi
 from .core.lib.storage_api import PUBLIC_CRAWL_DEADLINE, PUBLIC_MAX_DIRS, PUBLIC_TIMEOUT
+from .core.lib.store import Store
 from . import sit
 
 _LOGGER = logging.getLogger(__name__)
@@ -76,11 +78,21 @@ class Enginy:
     """
 
     def __init__(self, data_dir, vychozi_options=None, limit=LIMIT, tmdb_key="", nova_jadra=NOVA_JADRA_LIMIT,
-                 nova_limit=NOVA_LIMIT):
+                 nova_limit=NOVA_LIMIT, pt_email="", pt_password=""):
         self.data_dir = data_dir
         self._nova_okno = _Okno(*nova_jadra)
         self.vychozi_options = vychozi_options or {}
         self.limit = limit
+        # Přehraj.to je ve Stremiu **jen s Premium účtem instance** (bez účtu API
+        # nevydá token a HTML scraping z jedné IP by dostal 429). Jeden účet pro
+        # celou službu, ne per-uživatel: server drží víc nastavení, ale jen jednu
+        # relaci Přehraj.to (jinak by každé nastavení dělalo vlastní login a
+        # přeteklo „Správu přihlášených zařízení" účtu). Cache i session sdílené.
+        self.pt_api = None
+        if pt_email and pt_password:
+            self.pt_api = PrehrajtoApi(pt_email, pt_password,
+                                       cache=Store(os.path.join(data_dir, "_prehrajto")))
+        self.pt_ucet = bool(self.pt_api)   # pro manifest: nabídnout Přehraj.to
         # Klíč TMDB instance (`NOKTURNO_TMDB_KEY`) — dostane ho **každé** jádro, i to
         # pro požadavek z internetu. Je to výjimka z pravidla „veřejný požadavek nedostane
         # nastavení z prostředí" (viz `server.je_verejny`), a je vědomá: to pravidlo chrání
@@ -108,7 +120,8 @@ class Enginy:
             # až za otiskem: klíč je pro všechna nastavení stejný, nemá tříštit cache
             options = {**options, "tmdb_api_key": self.tmdb_key}
         return Engine(options, slozka, opener=sit.OPENER if verejny else None,
-                      storage_limits=STROPY_ULOZISTE if verejny else None)
+                      storage_limits=STROPY_ULOZISTE if verejny else None,
+                      pt_api=self.pt_api)   # sdílený účet Přehraj.to instance
 
     def pro(self, options=None, verejny=False, klient=""):
         """Jádro pro dané nastavení; bez nastavení to výchozí z prostředí.

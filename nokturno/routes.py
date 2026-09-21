@@ -421,6 +421,10 @@ class Router:
     def manifest(self, options, nastaveno, nova_adresa=None):
         """Jen z nastavení — jádro se kvůli manifestu nezakládá (viz `sources_from_options`)."""
         zdroje = config.sources_from_options(options)
+        # Přehraj.to je instanční (Premium účet z .env, sdílený všem), ne per-uživatel —
+        # v `options` proto není; nabídne se každému, kdo má instance účet nastavený
+        if getattr(self.enginy, "pt_ucet", False):
+            zdroje = zdroje + ["Přehraj.to"]
         katalogy = self.katalogy.manifest(options) if self.katalogy else []
         data = mapping.manifest(self.verze, zdroje, nastaveno=bool(zdroje), katalogy=katalogy, nova_adresa=nova_adresa)
         data["behaviorHints"]["configurable"] = True

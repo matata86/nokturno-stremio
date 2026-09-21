@@ -255,6 +255,45 @@ class TestPrehrani(unittest.TestCase):
         self.assertEqual(odpoved.status, 502)
 
 
+class TestPrehrajto(unittest.TestCase):
+    """Přehraj.to je ve Stremiu instanční — jeden Premium účet z prostředí, sdílený všem."""
+
+    def test_odkaz_pt_projde_pres_play(self):
+        """`pt:` je vnitřní schéma (viz mapping.SCHEMATA) — `/play/` ho smí rozklíčovat."""
+        odpoved = router(odkaz="https://premiumcdn.example/orig.mkv").route(
+            "/play/" + mapping.zakoduj("pt:12345:matrix:abcdef01"), ZAKLAD)
+        self.assertEqual(odpoved.status, 302)
+        self.assertEqual(odpoved.location, "https://premiumcdn.example/orig.mkv")
+
+    def test_manifest_nabidne_prehrajto_s_instance_uctem(self):
+        r = router()
+        r.enginy_test.pt_ucet = True
+        data = r.route(f"/c/{KOUSEK}/manifest.json", ZAKLAD).data
+        self.assertIn("Přehraj.to", data["description"])
+
+    def test_manifest_bez_instance_uctu_prehrajto_nema(self):
+        data = router().route(f"/c/{KOUSEK}/manifest.json", ZAKLAD).data
+        self.assertNotIn("Přehraj.to", data["description"])
+
+    def test_enginy_postavi_sdilene_jadro_pri_uctu(self):
+        from nokturno.enginy import Enginy
+        tmp = tempfile.mkdtemp()
+        s = Enginy(tmp, {}, pt_email="u@example.com", pt_password="tajne")
+        self.assertTrue(s.pt_ucet)
+        self.assertIsNotNone(s.pt_api)
+        # totéž jádro pro všechna nastavení — ne per-uživatel (jinak by každé nastavení
+        # dělalo vlastní login a přeteklo správu přihlášených zařízení účtu)
+        self.assertIs(s.pro({"ws_username": "a"}).pt, s.pro({"ws_username": "b"}).pt)
+
+    def test_enginy_bez_uctu_prehrajto_vypnute(self):
+        from nokturno.enginy import Enginy
+        tmp = tempfile.mkdtemp()
+        s = Enginy(tmp, {})
+        self.assertFalse(s.pt_ucet)
+        self.assertIsNone(s.pt_api)
+        self.assertFalse(s.pro({"ws_username": "a"}).sources()["prehrajto"])
+
+
 class TestPrevod(unittest.TestCase):
     def setUp(self):
         self.objekt = mapping.stream_object(POPIS, lambda u: f"{ZAKLAD}/play/{mapping.zakoduj(u)}")

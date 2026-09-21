@@ -13,13 +13,16 @@ import os
 import re
 import time
 import unicodedata
+import urllib.error
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 from .lib.abort import Aborted, check as check_stop, gather, never
-from .lib.const import CONF_CZ_ENABLED, CONF_HS_ENABLED, DEFAULT_SORT, LANGS, SORT_ORDERS
+from .lib import accounts as accounts_lib
+from .lib.const import (CONF_CZ_ENABLED, CONF_HS_ENABLED, CONF_PT_ENABLED, DEFAULT_SORT, LANGS,
+                        SORT_ORDERS)
 from .lib.cinemeta_api import CinemetaApi, CinemetaError
 from .lib.enrich import DEAD_IMAGES, _capped, _cinemeta, _fetch, _fetch_title, enrich, enrich_one
 from .lib.luna_api import LunaApi, LunaError, clean_label, parse_base_url, parse_token
@@ -30,21 +33,27 @@ from .lib.sosac_api import SosacError, names_match
 from .lib.sosac_api import is_sosac_id as _is_legacy_sosac_id
 from .lib.sosac_direct import SosacDirect, is_direct_id
 from .lib.store import Store
-from .lib.streams import arrange, estimate_rank, expand_groups, fold, group_streams, langs_from_name, parse_stream, stream_hdr
+from .lib.streams import (arrange, assume_origin_language, estimate_rank, expand_groups, fold, group_streams,
+                            langs_from_name, parse_stream, stream_hdr)
 from .lib.tracks import SUBTITLE_FALLBACK
 from .lib.hellspy_api import HellspyApi, HellspyError, HellspyRateLimited
 from .lib.sledujteto_api import SledujtetoApi, SledujtetoError
 from .lib.fastshare_api import FastshareApi, FastshareError, make_ref as fastshare_ref
+from .lib.prehrajto_api import (PrehrajtoApi, PrehrajtoError, PrehrajtoRateLimited,
+                                make_ref as prehrajto_ref)
 from .lib.cztor_api import CztorApi, CztorError
 from .lib.storage_api import StorageApi, StorageError, match_texts, parse_ref
 from .lib.wikidata_api import local_titles
-from .lib.mediainfo import describe as describe_media, probe as probe_media, quality_from_size
-from .lib.webshare_api import WebshareApi, WebshareError, human_size
+from .lib.mediainfo import describe as describe_media, fetch_sized, probe as probe_media, quality_from_size
+from .lib.opensubtitles_api import BLOK as OSUB_BLOK, OpenSubtitlesApi, OpenSubtitlesError, otisk as osub_otisk
+from .lib.webshare_api import WebshareApi, WebshareApiError, WebshareError, human_size
 
 WS_LIMIT = 25    # kolik souborů brát z fulltextu WebShare
+WS_HIDE_SCORE = -2   # soubor s hlasy (kladné − záporné) ≤ tohle se ve výpisu skryje; ukáže ho až uvolněný fulltext
 HS_LIMIT = 25    # totéž pro HellSpy
 ST_LIMIT = 25    # totéž pro Sledujteto
 FS_LIMIT = 25    # totéž pro FastShare
+PT_LIMIT = 32    # totéž pro Přehraj.to — jedna strana výpisu, bez účtu se dál stejně nedostane
 # značka dílu v názvu souboru: „S01E03", „s1 e3", „1x03"
 EPISODE_ANY_RE = re.compile(r"(?<![a-z0-9])s\d{1,2}\s?e\d{1,2}(?!\d)|(?<!\d)\d{1,2}x\d{2}(?!\d)", re.I)
 AUDIO_PROBE_MAX = 24          # u kolika streamů se ještě vyplatí číst hlavičku souboru
@@ -68,6 +77,12 @@ PROBE_WORKERS = 8
 # 30 dní), takže při dalším otevření titulu už mají ověřený zvuk i rozlišení.
 PROBE_DEADLINE = 3.0
 SUBS_TASK = "Titulky"   # úloha v souběžném hledání streamů, ne zdroj (nehlásí se do průběhu ani výpadků)
+OSUB_TASK = "Titulky OpenSubtitles"   # totéž, jen druhý zdroj titulků (`lib/opensubtitles_api.py`)
+# obě úlohy se chovají stejně: nejdou do průběhu ani do výpadků a bez nich se streamy smí cachovat
+SUBS_TASKS = (SUBS_TASK, OSUB_TASK)
+# kolik titulků z OpenSubtitles se přibalí ke streamu — každé stažení jde z denní
+# kvóty uživatele (5 na IP bez účtu, 20 s účtem), takže jen ten nejlepší
+OSUB_MAX_NA_STREAM = 1
 # Audit 2026-09-19: `kolo()` čekalo na všechny zdroje bez stropu, takže dialog stál na nejpomalejším
 # (WebShare/Luna/Sosáč mají timeout 40 s na každý dotaz), i když ostatní dávno odpověděly. Po
 # deadlinu se vezme, co je; opozdilec se počítá jako výpadek (výsledek se necachuje) a doběhne
@@ -87,7 +102,8 @@ _HS_ID_RE = re.compile(r"^\d{1,20}$")
 _HS_HASH_RE = re.compile(r"^[0-9A-Za-z]{1,64}$")
 
 SOURCE_NAMES = {"main": "Luna", "search": "WebShare", "ws": "WebShare", "sosac": "Sosáč",
-                "hs": "HellSpy", "st": "Sledujteto", "fs": "FastShare", "cz": "CZtor", "torrent": "Torrent", "dav": "Úložiště"}
+                "hs": "HellSpy", "st": "Sledujteto", "fs": "FastShare", "pt": "Přehraj.to", "cz": "CZtor",
+                "torrent": "Torrent", "dav": "Úložiště"}
 
 # vlastní úložiště (WebDAV) — až tři, každé s adresou, jménem, heslem a názvem;
 # klíče jsou vypsané celé, ať je najde kontrola nastavení v testech konzumentů
@@ -290,11 +306,50 @@ def split_episode_id(item_id):
     return str(item_id), None, None
 
 
+def _server_odpovedel(err):
+    """Odpověděl server, nebo se k němu vůbec nešlo dostat?
+
+    Klienti zdrojů balí obojí do vlastní výjimky (`WebshareError`, `SledujtetoError`…),
+    takže se typ nestačí — rozhoduje příčina v `__cause__`. `HTTPError` je odpověď
+    serveru (a je podtřídou `URLError`, proto se testuje dřív), kdežto `URLError`
+    a `OSError` znamenají DNS, timeout nebo vypnutou síť.
+    """
+    vidano = set()
+    while err is not None and id(err) not in vidano:
+        vidano.add(id(err))
+        if isinstance(err, urllib.error.HTTPError):
+            return True
+        if isinstance(err, (urllib.error.URLError, OSError)):
+            return False
+        err = err.__cause__ or err.__context__
+    return True
+
+
+def _account_fail_code(err):
+    """Selhání kontroly účtu → kód. Rozlišuje „účet doplněk odmítl" od „nešlo se zeptat",
+    protože první chce zásah uživatele a druhé jen počkat.
+
+    Bez rozlišení hlásil doplněk „nesedí jméno nebo heslo" pokaždé, když obnova na
+    pozadí padla na vypnutou síť — typicky na mobilu hned po startu Kodi (nahlásil
+    uživatel 2026-09-21: v menu čtyři zdroje v chybě, „Ověřit zdroje" hned nato
+    všechny v pořádku).
+    """
+    if isinstance(err, WebshareApiError):      # WebShare odpověděl a účet odmítl
+        return "bad_login"
+    if isinstance(err, SledujtetoError) and getattr(err, "status", None):
+        return "bad_login"
+    if isinstance(err, StorageError):
+        return "unreachable"
+    if isinstance(err, (WebshareError, SledujtetoError, FastshareError, CztorError)):
+        return "bad_login" if _server_odpovedel(err) else "unreachable"
+    return "error"
+
+
 class Engine:
     """Přístup ke třem zdrojům obsahu pod jedním rozhraním."""
 
     def __init__(self, options, storage_dir, opener=None, store=None, should_stop=None,
-                 storage_limits=None):
+                 storage_limits=None, pt_api=None):
         """`opener`: volitelný `urllib.request.OpenerDirector` pro vlastní úložiště —
         veřejná instance jím hlídá, kam se smí připojit (viz `StorageApi`).
         `storage_limits`: stropy průchodu cizím úložištěm pro veřejnou instanci —
@@ -315,6 +370,10 @@ class Engine:
         self.store = store or Store(storage_dir)
         self.opener = opener
         self.storage_limits = dict(storage_limits or {})
+        # sdílená `PrehrajtoApi` instance (Stremio: jeden účet instance pro všechna
+        # jádra — jinak by každé nastavení dělalo vlastní login a přeteklo by
+        # „Správu přihlášených zařízení" účtu). Bez ní si jádro klienta postaví samo.
+        self._pt_shared = pt_api
         self.should_stop = should_stop or never
         self.last_timings = {}   # časy fází posledního `raw_streams()` (s), viz tam
         self._luna = None
@@ -327,8 +386,10 @@ class Engine:
         self._hs = None
         self._st = None
         self._fs = None
+        self._pt = None
         self._cz = None
         self._cz_paired = self._cztor_paired()
+        self._osub = None
         self._storages = None
         self._cinemeta = None
         self._sosac_db = None
@@ -350,8 +411,10 @@ class Engine:
         self._hs = None
         self._st = None
         self._fs = None
+        self._pt = None
         self._cz = None
         self._cz_paired = self._cztor_paired()
+        self._osub = None
         self._storages = None
         self._tmdb = None
         self._prowlarr = self._qbit = None
@@ -384,6 +447,26 @@ class Engine:
         return self._sosac
 
     @property
+    def osub(self):
+        """OpenSubtitles, nebo None, když chybí klíč nebo je zdroj vypnutý.
+
+        Klíč nemá uživatel vlastní — rozdává ho dashboard (`DashApi.opensubtitles_key()`),
+        proto ho hostitel jen předá ve `options["os_key"]`. Jméno a heslo jsou
+        dobrovolná: bez nich platí kvóta 5 stažených titulků na IP za den, s účtem 20.
+        """
+        if self._osub is None:
+            if not self._opt("os_enabled", True):
+                return None
+            key = str(self._opt("os_key")).strip()
+            if not key:
+                return None
+            self._osub = OpenSubtitlesApi(
+                key, store=self.store,
+                username=self._opt("os_username").strip(), password=self._opt("os_password"),
+                user_agent=str(self._opt("os_user_agent") or "Nokturno v1.0"), opener=self.opener)
+        return self._osub
+
+    @property
     def ws(self):
         """Přihlášený WebShare, nebo None. Selhání loginu (výpadek sítě při startu HA)
         dřív zamklo zdroj do restartu — teď se zkusí znovu po `WS_RETRY_S`."""
@@ -402,6 +485,12 @@ class Engine:
                     self.ws_error = err
                     _LOGGER.warning("WebShare login selhal, další pokus za %d s: %s", WS_RETRY_S, err)
                     self._ws_retry_after = time.time() + WS_RETRY_S
+                    # zadarmo a čerstvěji než obnova na pozadí: odmítnuté heslo je
+                    # jiná věc než výpadek sítě, uživatel u první musí zasáhnout
+                    self._note_account("webshare", {
+                        "level": accounts_lib.FAIL,
+                        "code": "bad_login" if isinstance(err, WebshareApiError) else "unreachable",
+                        "detail": {"error": str(err)[:120]}})
         return self._ws
 
     def check_subscription(self):
@@ -446,6 +535,18 @@ class Engine:
             if user and self._opt("fs_password"):
                 self._fs = FastshareApi(user, self._opt("fs_password"), cache=self.store)
         return self._fs
+
+    @property
+    def pt(self):
+        """Přehraj.to — přepínač, účet nepovinný. Bez něj je vidět jen první strana
+        hledání a nabídne se překódovaná verze; s Premium účtem se stránkuje a hraje
+        se původní soubor (viz `lib/prehrajto_api`)."""
+        if self._pt is None:
+            if self._pt_shared is not None:
+                self._pt = self._pt_shared        # sdílený účet instance (Stremio)
+            elif self._opt(CONF_PT_ENABLED, False):
+                self._pt = PrehrajtoApi(self._opt("pt_email"), self._opt("pt_password"), cache=self.store)
+        return self._pt
 
     @property
     def cz(self):
@@ -578,21 +679,182 @@ class Engine:
                 "hellspy": bool(self._opt(CONF_HS_ENABLED, False)),
                 "sledujteto": bool(str(self._opt("st_email") or "").strip()),
                 "fastshare": bool(str(self._opt("fs_username") or "").strip()),
+                "prehrajto": bool(self._opt(CONF_PT_ENABLED, False) or self._pt_shared is not None),
                 "cztor": self._cz_paired,
                 "storage": bool(self.storages),
                 "torrent": self.prowlarr is not None}
+
+    # --- stav účtů ----------------------------------------------------------
+    #
+    # Dvě metody schválně: `accounts()` nesahá na síť (čte ji menu v Kodi při
+    # každém otevření), `refresh_accounts()` ano a patří na pozadí. Detail
+    # v `lib/accounts.py`.
+
+    def accounts(self, ttl=accounts_lib.TTL):
+        """Stav účtů napříč zdroji **bez jediného dotazu na síť** — z toho, co
+        naposledy uložil `refresh_accounts()`, plus živá pauza HellSpy z disku.
+
+        Vrací seznam v pořadí `accounts.SOURCES`; texty si skládá volající.
+        """
+        saved = dict(self.store.load(accounts_lib.STORE, {}) or {})
+        if self._opt(CONF_HS_ENABLED, False):
+            # pauza po 429 je levná a mění se po minutách — brát ji z dvanáctihodinového
+            # záznamu by znamenalo hlásit blokaci dávno po jejím konci
+            saved["hellspy"] = {**accounts_lib.hellspy(self.store), "ts": time.time()}
+        return accounts_lib.compose(saved, self._account_sources(), ttl=ttl)
+
+    def _luna_konfigurovana(self):
+        """Má se Luna ve stavu zdrojů vůbec objevit?
+
+        Vypnutý přepínač znamená ne, i když adresa v nastavení zůstala — v Kodi
+        má výchozí hodnotu, takže bez téhle podmínky hlásil stav „běží, ale chybí
+        token" každému, kdo Lunu nikdy nezapnul (nahlášeno na `6.6.0~beta11`).
+        Větev, která přepínač neposílá (HA, Stremio), se řídí jen vyplněnými údaji
+        jako dřív.
+        """
+        if not self._opt("luna_enabled", True):
+            return False
+        return bool(self._opt("luna_token").strip() or self._opt("luna_url").strip())
+
+    def _account_sources(self):
+        """Které zdroje se mají ve stavu vůbec objevit.
+
+        Není to `sources()`: tam je zdroj „nastavený" teprve, když se s ním dá
+        pracovat, kdežto tady jde právě o to pojmenovat rozdělanou práci.
+        CZtor se zapnutým přepínačem a bez spárování je typické „nejde mi to";
+        podle `sources()` by zmizel jako vypnutý a `not_paired` by se nikdy
+        neukázalo. Totéž Luna s adresou a bez tokenu.
+        """
+        base = self.sources()
+        base["cztor"] = bool(self._opt(CONF_CZ_ENABLED, False))
+        base["luna"] = self._luna_konfigurovana()
+        return base
+
+    def account_problems(self, ttl=accounts_lib.TTL):
+        """Jen zdroje, se kterými uživatel musí něco udělat (prázdné = vše v pořádku)."""
+        return accounts_lib.problems(self.accounts(ttl=ttl))
+
+    def _note_account(self, source, record):
+        """Zapíše stav zdroje zjištěný mimochodem při běžné práci — selhaný login
+        WebShare, 429 z HellSpy. Zadarmo a čerstvěji než obnova na pozadí."""
+        try:
+            with self.store.updating(accounts_lib.STORE, {}) as data:
+                stary = (data.get(source) or {}).get("code")
+                if record.get("code") == "unreachable" and stary and stary != "unreachable":
+                    # výpadek sítě při jednom hledání (mobil, Wi-Fi při přepnutí)
+                    # není důvod přepsat ověřený stav — to smí až obnova na pozadí
+                    _LOGGER.debug("stav účtu %s: nešlo se připojit, nechávám „%s“", source, stary)
+                    return
+                data[source] = {**record, "ts": time.time()}
+        except Exception as err:  # noqa: BLE001 – stav účtů nesmí shodit hledání
+            _LOGGER.debug("stav účtu %s se neuložil: %s", source, err)
+
+    def _account_checks(self, only=None, warn_days=accounts_lib.WARN_DAYS, deep=True):
+        """{jméno zdroje: funkce bez parametrů} — jen zdroje, které jsou nastavené.
+        Klienti se zakládají tady (bez sítě), samotné dotazy dělá až `refresh_accounts`."""
+        chce = (lambda name: True) if only is None else (lambda name: name in set(only))
+        checks = {}
+        if chce("luna") and self._luna_konfigurovana():
+            url, token = self._opt("luna_url"), self._opt("luna_token")
+            checks["luna"] = lambda: accounts_lib.luna(url, token, deep=deep)
+        if chce("webshare") and self._opt("ws_username").strip():
+            def ws_check():
+                api = self.ws
+                if api is None:
+                    # původní výjimka, ne její text — `_account_fail_code` z ní pozná,
+                    # jestli WebShare odmítl účet, nebo jen nebyla síť
+                    raise self.ws_error or WebshareError("přihlášení se nepovedlo")
+                return accounts_lib.webshare(api, warn_days=warn_days)
+            checks["webshare"] = ws_check
+        if chce("cztor") and self._opt(CONF_CZ_ENABLED, False):
+            client = self.cztor_client()
+            checks["cztor"] = lambda: accounts_lib.cztor(client, warn_days=warn_days, deep=deep)
+        if chce("fastshare") and self.fs is not None:
+            checks["fastshare"] = lambda: accounts_lib.fastshare(self.fs)
+        if chce("sledujteto") and self.st is not None:
+            checks["sledujteto"] = lambda: accounts_lib.sledujteto(self.st)
+        if chce("prehrajto") and self.pt is not None:
+            api = self.pt
+            checks["prehrajto"] = lambda: accounts_lib.prehrajto(api, self.store)
+        if chce("hellspy") and self._opt(CONF_HS_ENABLED, False):
+            checks["hellspy"] = lambda: accounts_lib.hellspy(self.store)   # nikdy se neptá po síti
+        if chce("storage") and self.storages:
+            prvni = self.storages[0]
+            checks["storage"] = lambda: accounts_lib.storage(prvni)
+        return checks
+
+    def refresh_accounts(self, only=None, warn_days=accounts_lib.WARN_DAYS, deep=True,
+                         timeout=25, workers=4):
+        """Zjistí stav účtů po síti a uloží ho pro `accounts()`.
+
+        Patří na pozadí — služba v Kodi, časovač v HA. Jeden dotaz na zdroj;
+        HellSpy se neptá vůbec, jen si přečte vlastní pauzu. `only` omezí obnovu
+        na vyjmenované zdroje, `deep=False` vynechá to, co stojí víc než jeden
+        dotaz (ověření tokenu Luny dotazem na streamy, profil CZtoru).
+        """
+        checks = self._account_checks(only=only, warn_days=warn_days, deep=deep)
+        if not checks:
+            return self.accounts()
+        vysledky = {}
+        with ThreadPoolExecutor(max_workers=max(1, min(workers, len(checks)))) as pool:
+            futures = {name: pool.submit(fn) for name, fn in checks.items()}
+            for name, future in futures.items():
+                try:
+                    vysledky[name] = future.result(timeout=timeout)
+                except Exception as err:  # noqa: BLE001 – přesně tohle chceme uživateli ukázat
+                    _LOGGER.debug("stav účtu %s: %s", name, err)
+                    vysledky[name] = {"level": accounts_lib.FAIL, "code": _account_fail_code(err),
+                                      "detail": {"error": str(err)[:120]}}
+        now = time.time()
+        # Když se nešlo dostat na žádný zdroj, který po síti opravdu volá, je bez
+        # sítě tohle zařízení, ne ty zdroje — na mobilu typicky Kodi na pozadí
+        # nebo hned po startu. Uložit „neodpovídá" ke všem by v menu přepsalo
+        # dobrý stav šumem, který by tam stál do další obnovy. Stav se nechá
+        # a zapíše se jen značka, podle které služba obnovu zopakuje dřív.
+        # Zdroje, které odpověděly bez jediného dotazu na síť, o stavu sítě nic neříkají:
+        # HellSpy se neptá nikdy, Přehraj.to bez účtu taky ne (a s pauzou po 429 ani s ním).
+        bez_site = {"hellspy"}
+        if (vysledky.get("prehrajto") or {}).get("code") in ("anonymous", "paused"):
+            bez_site.add("prehrajto")
+        sitove = {n: r for n, r in vysledky.items() if n not in bez_site}
+        if sitove and all(r.get("code") == "unreachable" for r in sitove.values()):
+            _LOGGER.info("stav účtů: bez sítě (%s), uložený stav se nechává", ", ".join(sitove))
+            try:
+                self.store.save(accounts_lib.OFFLINE, {"ts": now})
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.debug("značka bez sítě se neuložila: %s", err)
+            return self.accounts()
+        try:
+            with self.store.updating(accounts_lib.STORE, {}) as data:
+                for name, rec in vysledky.items():
+                    data[name] = {**rec, "ts": now}
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("stav účtů se neuložil: %s", err)
+        return self.accounts()
+
+    def offline_recently(self, within=accounts_lib.OFFLINE_TTL):
+        """Skončila poslední obnova stavu bez sítě? (značka z `refresh_accounts`)"""
+        try:
+            ts = (self.store.reload(accounts_lib.OFFLINE, {}) or {}).get("ts", 0)
+        except Exception:  # noqa: BLE001
+            return False
+        return bool(ts) and time.time() - float(ts) < within
 
     def _streams_cache_key(self, ctype, item_id, alt=None):
         """Klíč 72h cache streamů — nese i otisk zapnutých zdrojů a účtů. Bez něj měl titul po
         zapnutí nového zdroje (nebo změně účtu) 72 h stejný seznam bez něj a Kodi to obcházelo
         ručním `clear_cache()` jen u CZtoru (audit 2026-09-19). `streams5` = oprava filtru
-        (krátké slovo na začátku názvu), `streams6` = otisk zdrojů."""
+        (krátké slovo na začátku názvu), `streams6` = otisk zdrojů, `streams7` = skryté soubory s
+        hlasy ≤ WS_HIDE_SCORE."""
         podpis = {**self.sources(), "ws": self._opt("ws_username").strip(), "st": str(self._opt("st_email") or "").strip(),
                   "fs": str(self._opt("fs_username") or "").strip(),
+                  # účet Přehraj.to mění výsledek, ne jen rychlost: bez něj je vidět jen první
+                  # strana hledání a hraje se překódovaný soubor místo původního
+                  "pt": str(self._opt("pt_email") or "").strip(),
                   "dav": [str(self._opt(f"dav{n}_url") or "").strip() for n in range(1, 4)],
                   "search": bool(self._opt("search_streams", True)), "cross": bool(self._opt("cross_search", True))}
         otisk = hashlib.sha1(json.dumps(podpis, sort_keys=True, default=str).encode("utf-8")).hexdigest()[:10]
-        return f"streams6:{ctype}:{item_id}:{alt or ''}:{otisk}"
+        return f"streams7:{ctype}:{item_id}:{alt or ''}:{otisk}"
 
     def api_for(self, item_id):
         api = self.sosac if is_sosac_id(item_id) else self.luna
@@ -1294,6 +1556,11 @@ class Engine:
 
         return [q.strip() for q in dict.fromkeys(queries) if q.strip()], relevant
 
+    @staticmethod
+    def _ws_score(f):
+        """Hodnocení souboru z WebShare: kladné hlasy minus záporné (bez hlasů 0)."""
+        return int(f.get("positive") or 0) - int(f.get("negative") or 0)
+
     def _webshare_streams(self, meta, video=None, ctype="movie", alt=None, strict=True, failures=None):
         """Tytéž soubory přímo z WebShare — jejich odkazy fungují i mimo domácí síť.
 
@@ -1322,6 +1589,13 @@ class Engine:
             for f in files:
                 if f["ident"] in seen or not relevant(f.get("name") or ""):
                     continue
+                # hlasy uživatelů WebShare: soubor, který lidé opakovaně hlásí jako špatný, se z běžného
+                # výpisu vynechá. Jediný záporný hlas nestačí (−1) a oblíbené soubory s pár zápory
+                # (+10/−4) zůstávají. Uvolněný fulltext (`strict=False`) ukazuje všechno.
+                if strict and self._ws_score(f) <= WS_HIDE_SCORE:
+                    _LOGGER.debug("WebShare: skrytý soubor s hlasy +%s/−%s: %s",
+                                  f.get("positive"), f.get("negative"), (f.get("name") or "")[:60])
+                    continue
                 seen.add(f["ident"])
                 # velikost patří do `detail` — odtud ji `parse_stream` čte (v labelu ji nehledá).
                 # `size_h` z WebShare je ve stejných jednotkách jako údaj Luny, takže se dvojice najdou.
@@ -1348,6 +1622,10 @@ class Engine:
         for url in urls:
             pool.submit(self._media_from_file, url)
         pool.shutdown(wait=False)
+
+    @staticmethod
+    def _probe_url(stream):
+        return str(stream.get("url") or "")
 
     def _media_from_file(self, url):
         """Co se o souboru dá přečíst z jeho hlavičky. Prázdné, když to nejde."""
@@ -1401,19 +1679,26 @@ class Engine:
             if on_count:
                 on_count(0)
             return streams
-        schemes = ("hs:", "ws:", "streamuj:", "dav:")
+        # `pt:` je podepsaný odkaz bez hlaviček a bez kreditu — hlavičku lze číst vždy
+        schemes = ("hs:", "ws:", "streamuj:", "dav:", "pt:")
         # FastShare strhává kredit za přenesená data — hlavičky výpisu stojí desítky MB.
         # Kdo jede na kredit, zvuk nezjišťujeme; s neomezeným stahováním ano.
         if any(str(s.get("url") or "").startswith("fs:") for s in streams) and self._fastshare_unlimited():
             schemes += ("fs:",)
         candidates = [s for s in streams if not s.get("_tracks")
                       and str(s.get("url") or "").startswith(schemes)]
+        # Lunin řádek spárovaný s WebShare (`_merge_direct`) má zvuk od Luny, ale rozlišení, kodek
+        # a titulky zná jen soubor — čte se přes Lunin vlastní odkaz. Párování s `_ws_url` je jen odhad
+        # podle velikosti (dva soubory po 5 GB), z přibaleného souboru by mohla přijít cizí hlavička.
+        candidates += [s for s in streams if not s.get("_media") and s not in candidates
+                       and s.get("source") in ("main", "search") and str(s.get("_ws_url") or "").startswith("ws:")
+                       and str(s.get("url") or "").startswith("http")]
         ordered = sorted(candidates, key=lambda s: bool(s.get("channels")))
         todo = ordered[:limit]
         # `probe_background`: co se nečte teď (nad limit, sloučené verze v `background`),
         # se přečte na pozadí do cache — další otevření titulu i „Zobrazit všechny“
         # pak mají ověřené všechno, bez čekání
-        rest = [s["url"] for s in ordered[limit:]] + [
+        rest = [self._probe_url(s) for s in ordered[limit:]] + [
             s["url"] for s in background if not s.get("_tracks") and str(s.get("url") or "").startswith(schemes)]
         # skutečný počet čtených hlaviček bývá výrazně nižší než limit —
         # ukazatel průběhu si podle něj dopočítá reálné 100 %, ne odhad
@@ -1430,7 +1715,7 @@ class Engine:
         # hostitel končí — `gather()` se mezi tím ptá `should_stop()` a při přerušení
         # nezačaté hlavičky zruší (viz `lib/abort.py`)
         pool = ThreadPoolExecutor(max_workers=PROBE_WORKERS)
-        futures = {pool.submit(self._media_from_file, s["url"]): s for s in todo}
+        futures = {pool.submit(self._media_from_file, self._probe_url(s)): s for s in todo}
         results = {}
 
         def hotovo(future):
@@ -1448,9 +1733,14 @@ class Engine:
             if not info:
                 continue
             text = describe_media(info)
-            if text:
+            if text and text not in (stream.get("detail") or ""):
                 stream["detail"] = f"{stream['detail']} | {text}" if stream.get("detail") else text
-            stream["_tracks"] = info.get("audio") or []
+            tracks = [dict(t) for t in info.get("audio") or []]
+            known = [t for t in stream.get("_tracks") or [] if t.get("lang")]
+            if len(known) == len(tracks):   # stopa bez jazyka v souboru dostane jazyk od zdroje (Luna)
+                for mine, theirs in zip(tracks, known):
+                    mine["lang"] = mine.get("lang") or theirs["lang"]
+            stream["_tracks"] = tracks
             stream["_media"] = info
             if info.get("duration"):
                 # z hlavičky je i skutečná délka streamu — přesnější základ pro
@@ -1554,6 +1844,48 @@ class Engine:
                     "label": name,
                     "detail": f.get("size_h") or "",
                     "source": "hs",
+                    "_duration": f.get("duration") or 0,
+                    "_direct": True,
+                })
+        return out
+
+    def _prehrajto_streams(self, meta, video=None, ctype="movie", alt=None, strict=True, failures=None):
+        """Tentýž titul na Přehraj.to. Velikost z výpisu popisuje **původní soubor**,
+        ten se ale nabídne jen účtu s Premium — bez účtu se hraje překódované 1080p,
+        takže by velikost v popisku lhala a neuvádí se (viz `lib/prehrajto_api`).
+
+        Rozlišení server ve výpisu neposílá, jen příznak HD; skutečné se dočte
+        z hlavičky souboru v `_fill_audio`, stejně jako u HellSpy."""
+        if not self.pt:
+            return []
+        # velikost patří původnímu souboru — ten dostane jen účet (Kodi z nastavení,
+        # Stremio ze sdílené instance); `_account` platí pro obě cesty
+        premium = bool(getattr(self.pt, "_account", False))
+        queries, relevant = self._title_queries(meta, video, ctype, alt, strict)
+        out, seen = [], set()
+        for query in queries:
+            self._check_stop()
+            try:
+                files, _total = self.pt.search(query, limit=PT_LIMIT)
+            except PrehrajtoError as err:
+                # pauza po dřívější 429 nic nového neříká — nahlas se loguje jen první odmítnutí
+                _LOGGER.log(logging.DEBUG if getattr(err, "paused", False) else logging.WARNING,
+                            "Přehraj.to hledání „%s“: %s", query, err)
+                if failures is not None:
+                    failures.append(("Přehraj.to", err))
+                if isinstance(err, PrehrajtoRateLimited):
+                    break  # adresa je omezená — další dotazy by blokaci jen prodloužily
+                continue
+            for f in files:
+                name = f.get("name") or ""
+                if f["hash"] in seen or not relevant(name):
+                    continue
+                seen.add(f["hash"])
+                out.append({
+                    "url": prehrajto_ref(f),
+                    "label": name,
+                    "detail": (f.get("size_h") or "") if premium else "",
+                    "source": "pt",
                     "_duration": f.get("duration") or 0,
                     "_direct": True,
                 })
@@ -1775,6 +2107,74 @@ class Engine:
         found.sort()
         return ["ws:" + ident for _rank, _name, ident in found[:SUBS_MAX]]
 
+    def _subtitle_langs(self):
+        """Jazyky titulků podle předvolby zvuku, nejžádanější první.
+
+        Bez předvolby se ptáme na češtinu a slovenštinu — doplněk je česko-slovenský
+        a cokoli jiného by jen zabralo místo v seznamu (a u stažení kvótu)."""
+        pref = self._opt("pref_lang", "")
+        return list(SUBTITLE_FALLBACK.get(pref) or ("CZ", "SK"))
+
+    def _opensubtitles_subtitles(self, meta, video=None, ctype="movie"):
+        """Titulky z OpenSubtitles k titulu — `os:<file_id>`.
+
+        Hledá se podle **IMDb id**, u seriálu podle rodičovského id a čísla sezóny
+        a dílu zvlášť. To je ten podstatný rozdíl proti WebShare: tam je číslo dílu
+        jen slovo ve fulltextu a titulky k jinému dílu se musí odfiltrovat regulárem
+        (5.2.34), tady je server zná jako údaj a `_epizoda_sedi()` si je navíc ověří
+        z `feature_details`. Titul bez IMDb id (Sosáč, vlastní úložiště) se přeskočí —
+        podle názvu se tu nehledá schválně, právě aby nemohl přijít cizí díl.
+
+        Vrací jen reference; soubor se stahuje až při přehrání, protože **stažení
+        spotřebuje denní kvótu** (5 na IP bez účtu), kdežto hledání je zadarmo.
+        """
+        api = self.osub
+        if api is None:
+            return []
+        imdb = str(meta.get("imdb_id") or meta.get("id") or "")
+        if not imdb.startswith("tt"):
+            return []
+        season = episode = 0
+        if video and ctype != "movie":
+            season, episode = int(video.get("season") or 0), int(video.get("episode") or 0)
+            if not (season and episode):
+                return []   # seriál bez čísla dílu by vrátil titulky k celé sérii
+        nalezeno = api.hledej_cachovane(imdb, self._subtitle_langs(), season, episode)
+        return ["os:%d" % p["file_id"] for p in nalezeno[:SUBS_MAX] if p.get("file_id")]
+
+    def subtitles_by_hash(self, url, video=None, ctype="movie"):
+        """Titulky spárované s **tímhle konkrétním souborem** (otisk OpenSubtitles).
+
+        Otisk je velikost souboru plus součet prvních a posledních 64 kB. Začátek
+        čte kvůli hlavičce i `mediainfo.probe()`, takže navíc stojí jediný `Range`
+        dotaz na konec. Proto se to nepočítá při výpisu streamů (to by byl dotaz na
+        každý řádek), ale až u streamu, který si uživatel vybral — tam se vyplatí:
+        titulky spárované otiskem sedí i časově, kdežto podle názvu titulu ne vždy.
+
+        Nikdy nevyhodí výjimku — přehrání nesmí spadnout kvůli titulkům. U velkých
+        souborů, které nikdo do OpenSubtitles nenahlásil (typicky české re-uploady
+        a 4K remuxy z našich zdrojů), prostě nic nevrátí a zůstanou titulky podle id.
+        """
+        api = self.osub
+        if api is None or not url:
+            return []
+        try:
+            primy = self.resolve(url)
+            zacatek, velikost = fetch_sized(primy, length=OSUB_BLOK, opener=self.opener)
+            konec, velikost2 = fetch_sized(primy, start=-OSUB_BLOK, opener=self.opener)
+            znak = osub_otisk(zacatek, konec, velikost or velikost2)
+        except Exception as err:  # noqa: BLE001 – vypršelý odkaz, zdroj bez Range, síť
+            _LOGGER.debug("otisk pro titulky %s: %s", url, err)
+            return []
+        if not znak:
+            return []
+        season = episode = 0
+        if video and ctype != "movie":
+            season, episode = int(video.get("season") or 0), int(video.get("episode") or 0)
+        nalezeno = api.hledej(jazyky=self._subtitle_langs(), season=season, episode=episode,
+                              moviehash=znak)
+        return ["os:%d" % p["file_id"] for p in nalezeno if p.get("hash_match") and p.get("file_id")]
+
     @staticmethod
     def _merge_direct(streams):
         """Tentýž soubor přes Lunu i přímo z WebShare → jedna položka.
@@ -1980,6 +2380,8 @@ class Engine:
             found += self._sledujteto_streams(meta, video, ctype, alt, strict=False)
         if "fs" in sources:
             found += self._fastshare_streams(meta, video, ctype, alt, strict=False)
+        if "pt" in sources:
+            found += self._prehrajto_streams(meta, video, ctype, alt, strict=False)
         for stream in found:
             parse_stream(stream)
         found = self._merge_direct(found)
@@ -2235,10 +2637,12 @@ class Engine:
                     ("HellSpy", lambda: self._hellspy_streams(m, video, ctype, alt, strict, failures)),
                     ("Sledujteto", lambda: self._sledujteto_streams(m, video, ctype, alt, strict, failures)),
                     ("FastShare", lambda: self._fastshare_streams(m, video, ctype, alt, strict, failures)),
+                    ("Přehraj.to", lambda: self._prehrajto_streams(m, video, ctype, alt, strict, failures)),
                     ("CZtor", lambda: self._cztor_streams(m, video, ctype, alt, failures)),
                 ]
                 if probe_audio:
                     ulohy.append((SUBS_TASK, lambda: self._webshare_subtitles(m, video, ctype, alt)))
+                    ulohy.append((OSUB_TASK, lambda: self._opensubtitles_subtitles(m, video, ctype)))
                 return ulohy
 
             def bezpecne(label, fetch):
@@ -2246,7 +2650,7 @@ class Engine:
                     return fetch()
                 except Exception as err:  # noqa: BLE001 – ani nečekaná chyba zdroje nesmí shodit ostatní
                     _LOGGER.warning("streamy %s (%s): %s", item_id, label, err)
-                    if label != SUBS_TASK:   # bez titulků se streamy cachovat smí
+                    if label not in SUBS_TASKS:   # bez titulků se streamy cachovat smí
                         failures.append((label, err))
                     return []
 
@@ -2272,7 +2676,7 @@ class Engine:
                     label = label_by_future[future]
                     timings["zdroje"][label] = since(mark)
                     tick()
-                    if on_source_done and label != SUBS_TASK:
+                    if on_source_done and label not in SUBS_TASKS:
                         on_source_done(label, len(future.result()))
                 out = {}
                 for future in gather(pool, futures, self.should_stop, on_done=hotovo, deadline=zbytek):
@@ -2282,7 +2686,7 @@ class Engine:
                         continue
                     out[label] = []
                     timings["zdroje"][label] = f">{zbytek:.0f}s"
-                    if label != SUBS_TASK:
+                    if label not in SUBS_TASKS:
                         _LOGGER.info("streamy %s: %s neodpověděl do %.0f s, bere se bez něj", item_id, label,
                                      zbytek)
                         failures.append((label, TimeoutError(f"neodpověděl do {zbytek:.0f} s")))
@@ -2292,7 +2696,7 @@ class Engine:
                 """Streamy v pořadí úloh (Luna/Sosáč napřed — na tom stojí párování v _merge_direct)."""
                 found = []
                 for label, _fetch in ulohy:
-                    if label != SUBS_TASK:
+                    if label not in SUBS_TASKS:
                         found += vysledky.get(label) or []
                 return found
 
@@ -2317,6 +2721,7 @@ class Engine:
                     vysledky = kolo(ulohy)
             timings["souběžně"] = since(mark)
             subs = vysledky.get(SUBS_TASK) or []
+            osubs = vysledky.get(OSUB_TASK) or []
             found = found + slozit(vysledky, ulohy)
             for stream in found:
                 parse_stream(stream)
@@ -2336,6 +2741,15 @@ class Engine:
                 for stream in found:
                     if not stream.get("subtitles"):
                         stream["subtitles"] = list(subs)
+            # OpenSubtitles až jako poslední záchrana: stažení spotřebuje denní kvótu
+            # (5 souborů na IP), takže se přibalí jen tam, kde nejsou ani titulky ze
+            # zdroje, ani z WebShare, ani přímo v kontejneru souboru
+            if osubs:
+                chci = set(self._subtitle_langs())
+                for stream in found:
+                    if stream.get("subtitles") or (set(stream.get("subs") or []) & chci):
+                        continue
+                    stream["subtitles"] = list(osubs[:OSUB_MAX_NA_STREAM])
             # `parse_stream()` dává do langs/subs `set` — nejde ho serializovat do JSON
             # cache, tak se tu normalizuje na list (řazení navíc dělá cache stabilní)
             for stream in found:
@@ -2423,6 +2837,8 @@ class Engine:
         with_audio = self._fill_audio(ranked, tick, on_count, on_audio_progress, background=alts) \
             if probe_audio else ranked
         timings["hlavičky"] = since(mark)
+        if probe_audio:
+            assume_origin_language(with_audio, (meta or {}).get("country"))
         ordered = self._finish(sort, with_audio, video or meta)
         if on_progress and done[0] < total:
             done[0] = total
@@ -2519,6 +2935,18 @@ class Engine:
                 return api.file_link(file_id, file_hash)
             except HellspyError as err:
                 raise NokturnoError(f"HellSpy: {err}") from err
+        if url.startswith("os:"):
+            # titulky z OpenSubtitles; tohle volání jako jediné spotřebuje denní kvótu,
+            # proto se dělá až při přehrávání (`local_subtitles` v Kodi), ne ve výpisu
+            api = self.osub
+            if api is None:
+                raise NokturnoError("OpenSubtitles nejsou nastavené.")
+            if not url[3:].isdigit():
+                raise NokturnoError("OpenSubtitles: neplatný odkaz.")
+            try:
+                return api.odkaz(int(url[3:]))
+            except OpenSubtitlesError as err:
+                raise NokturnoError("OpenSubtitles: %s" % err) from err
         if url.startswith("st:"):
             if self.st is None:
                 raise NokturnoError("Účet Sledujteto není nastavený.")
@@ -2532,6 +2960,21 @@ class Engine:
                 return self._fastshare_api().kodi_url(url)
             except FastshareError as err:
                 raise NokturnoError(f"FastShare: {err}") from err
+        if url.startswith("pts:"):
+            # titulky ze stránky videa; adresa platí den, proto se hledá až teď
+            if self.pt is None:
+                raise NokturnoError("Přehraj.to není zapnutý.")
+            try:
+                return self.pt.subtitle_link(url)
+            except PrehrajtoError as err:
+                raise NokturnoError(f"Přehraj.to: {err}") from err
+        if url.startswith("pt:"):
+            if self.pt is None:
+                raise NokturnoError("Přehraj.to není zapnutý.")
+            try:
+                return self.pt.file_link(url)
+            except PrehrajtoError as err:
+                raise NokturnoError(f"Přehraj.to: {err}") from err
         if url.startswith("cz:"):
             if self.cz is None:
                 raise NokturnoError("CZtor není zapnutý nebo spárovaný.")

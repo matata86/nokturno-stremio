@@ -43,7 +43,7 @@ NE_PRO_WEB = (".mkv", ".avi", ".ts", ".m2ts", ".wmv", ".flv")
 # schémata, která umí rozklíčovat `Engine.resolve()`; jiné se k přehrání nepustí.
 # Hotové http(s) odkazy (titulky Sledujteto) tu záměrně nejsou: `resolve()` je vrací
 # beze změny, takže by `/play/` byl veřejný přesměrovávač kamkoli — vydávají se rovnou.
-SCHEMATA = ("ws:", "hs:", "st:", "fs:", "dav:", "streamuj:")
+SCHEMATA = ("ws:", "hs:", "st:", "fs:", "dav:", "streamuj:", "pt:")
 PRIME = ("http://", "https://")
 # Zdroje, které chtějí u každého požadavku autentizační hlavičku (FastShare cookie
 # z přihlášení, vlastní úložiště Basic auth). Vydávají se jako přímá adresa zdroje
