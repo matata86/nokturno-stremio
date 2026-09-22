@@ -983,8 +983,11 @@ $("overit-su").addEventListener("click", () => {
   else vysledek("su", "info", "Vyplněno. Streamuj neumí heslo ověřit dopředu, pozná se to při prvním přehrání.");
 });
 
-// --- souhlas s podmínkami: dokud není zaškrtnutý, tlačítka pro adresu jsou disabled ---
+// --- souhlas s podmínkami: dokud není zaškrtnutý, tlačítka pro adresu jsou disabled.
+// Editace stávající adresy (formulář předvyplněný ze `soucasne`) má souhlas rovnou
+// zaškrtnutý — na tuhle stránku se dostane, jen kdo si adresu už dřív vyrobil. ---
 const souhlas = $("souhlas-podminky");
+if (Object.keys(soucasne).length > 0) souhlas.checked = true;
 for (const id of ["instalovat", "nuvio", "kopirovat"]) $(id).disabled = !souhlas.checked;
 souhlas.addEventListener("change", () => {
   for (const id of ["instalovat", "nuvio", "kopirovat"]) $(id).disabled = !souhlas.checked;

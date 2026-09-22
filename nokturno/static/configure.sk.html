@@ -983,8 +983,11 @@ $("overit-su").addEventListener("click", () => {
   else vysledek("su", "info", "Vyplnené. Streamuj nevie heslo overiť vopred, zistí sa to pri prvom prehrávaní.");
 });
 
-// --- súhlas s podmienkami: kým nie je zaškrtnutý, tlačidlá pre adresu sú disabled ---
+// --- súhlas s podmienkami: kým nie je zaškrtnutý, tlačidlá pre adresu sú disabled.
+// Editácia existujúcej adresy (formulár predvyplnený zo `soucasne`) má súhlas rovno
+// zaškrtnutý — na túto stránku sa dostane len ten, kto si adresu už predtým vyrobil. ---
 const souhlas = $("souhlas-podminky");
+if (Object.keys(soucasne).length > 0) souhlas.checked = true;
 for (const id of ["instalovat", "nuvio", "kopirovat"]) $(id).disabled = !souhlas.checked;
 souhlas.addEventListener("change", () => {
   for (const id of ["instalovat", "nuvio", "kopirovat"]) $(id).disabled = !souhlas.checked;
