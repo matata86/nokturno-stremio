@@ -3,8 +3,9 @@
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-podpo%C5%99%20autora-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/matata86) [![PayPal](https://img.shields.io/badge/PayPal-paypal.me%2Fmatata86-00457C?logo=paypal&logoColor=white)](https://paypal.me/matata86) [![Bitcoin](https://img.shields.io/badge/Bitcoin-BTC-f7931a?logo=bitcoin&logoColor=white)](#podpora)
 
 Doplněk, který k filmům a seriálům ve Stremiu (i v Nuviu a dalších klientech
-s doplňky Stremia) dohledá streamy z **WebShare**, **Sosáče**, **Sledujteto**,
-**FastShare**, **HellSpy** a **Přehraj.to** i z **vlastního úložiště** (WebDAV). Podrobný návod je ve [wiki](https://github.com/matata86/nokturno-stremio/wiki).
+s doplňky Stremia) přehraje soubory z tvého **vlastního úložiště** (WebDAV) a
+volitelně k nim dohledá i streamy z **WebShare**, **Sosáče**, **Sledujteto**,
+**FastShare**, **HellSpy** a **Přehraj.to**. Podrobný návod je ve [wiki](https://github.com/matata86/nokturno-stremio/wiki).
 
 ## Jak přidat
 
@@ -35,8 +36,8 @@ vyplň účty a klikni na *Přidat do Stremia* nebo *Přidat do Nuvia*.
 ## Co umí
 
 - **Streamy ke všemu s IMDb id.** Doplněk se chytá na všem, co má identifikátor IMDb (i `tmdb:` id od klientů), a k tomu přihodí své streamy. Detail titulu a díly seriálů dodá Stremio z Cinemety.
-- **Šest zdrojů** — WebShare, Sosáč, Sledujteto, FastShare, HellSpy a Přehraj.to; žádný není povinný. Přehraj.to (od 7.0.4) chce ve formuláři vlastní účet jako WebShare nebo Sledujteto: bez přihlášení API nevydá token a HTML z jedné serverové adresy dostane HTTP 429.
 - **Vlastní úložiště** (od 3.1.0) — až tři WebDAV složky s vlastními soubory ve formuláři (s ověřením). Soubory jsou mezi streamy první.
+- **Šest volitelných zdrojů** — WebShare, Sosáč, Sledujteto, FastShare, HellSpy a Přehraj.to; žádný není povinný. Přehraj.to (od 7.0.4) chce ve formuláři vlastní účet jako WebShare nebo Sledujteto: bez přihlášení API nevydá token a HTML z jedné serverové adresy dostane HTTP 429.
 - **Volitelné katalogy** (od 5.1.0) — seznamy ze Sosáče a TMDB, žebříček „Nejsledovanější tento týden" a nové seriály s CZ dabingem / titulky; každý se zapíná zvlášť ve formuláři.
 - **Přímé přehrávání** (od 5.2.26) — vlastní úložiště a FastShare se přehrávají přímo ze zdroje (`behaviorHints.proxyHeaders` nese přihlášení), žádná proxy. Úložiště proto musí být dosažitelné ze serveru (hledání) i ze zařízení, kde se přehrává. ⚠️ Ve webovém přehrávači Stremia se tyto streamy nepřehrají, jen v aplikaci. Veřejná instance ignoruje úložiště s adresou na server samotný nebo link-local. Podrobně ve [wiki](https://github.com/matata86/nokturno-stremio/wiki/Zdroje-a-nastaveni#vlastní-úložiště).
 - **Zprávy z dashboardu** — položka „📢 Nokturno" jako první stream; **jazyky** čeština, slovenština, angličtina i maďarština.
