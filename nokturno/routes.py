@@ -642,6 +642,14 @@ class Router:
         return Odpoved(html=html.replace("__ZAKLAD__", html_lib.escape(zaklad, quote=True))
                        .replace("__VERZE__", self.verze))
 
+    def terms(self, zaklad, jazyk="cs"):
+        """Právní upozornění — statický text, na který odkazuje checkbox ve `/configure`."""
+        try:
+            html = self._stranka("terms", jazyk)
+        except OSError:
+            return chyba(404, "Právní upozornění tu není.")
+        return Odpoved(html=html.replace("__ZAKLAD__", html_lib.escape(zaklad, quote=True)))
+
     def streams(self, engine, ctype, item_id, zaklad, kousek, aplikace="stremio"):
         if ctype not in TYPY:
             return chyba(404, f"Neznámý typ obsahu: {ctype}")
@@ -744,6 +752,8 @@ class Router:
         cesta = urllib.parse.unquote(cesta)
         if cesta == "/health":
             return self.health()
+        if cesta == "/terms":
+            return self.terms(zaklad, jazyk)
         if cesta == "/anketa":
             return Odpoved(status=302, location=zaklad + "/")   # anketa je nahoře na úvodní stránce
         if cesta == "/anketa/hlas":

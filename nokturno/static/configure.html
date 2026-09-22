@@ -646,10 +646,14 @@
 
 <!-- lišta s instalací: vždy po ruce -->
 <div class="akce" id="akce">
+  <label class="prepinac" for="souhlas-podminky" style="padding-top:0;padding-bottom:.5rem">
+    <input type="checkbox" id="souhlas-podminky">
+    <span>Potvrzuji, že budu doplněk používat pouze k obsahu, ke kterému mám právo přístupu, a souhlasím s <a href="__ZAKLAD__/terms" target="_blank" rel="noopener">podmínkami použití</a>.</span>
+  </label>
   <div class="akce-radek">
-    <button type="button" class="hlavni" id="instalovat"><span class="dlouhe">Přidat do </span>Stremia</button>
-    <button type="button" class="hlavni" id="nuvio"><span class="dlouhe">Přidat do </span>Nuvia</button>
-    <button type="button" id="kopirovat">Zkopírovat<span class="dlouhe"> adresu</span></button>
+    <button type="button" class="hlavni" id="instalovat" disabled><span class="dlouhe">Přidat do </span>Stremia</button>
+    <button type="button" class="hlavni" id="nuvio" disabled><span class="dlouhe">Přidat do </span>Nuvia</button>
+    <button type="button" id="kopirovat" disabled>Zkopírovat<span class="dlouhe"> adresu</span></button>
     <span class="akce-souhrn" id="souhrn-zdroju"></span>
   </div>
   <div class="stav" id="stav"></div>
@@ -977,6 +981,13 @@ $("overit-su").addEventListener("click", () => {
   if (!n.streamuj_username && !n.streamuj_password) vysledek("su", "info", "Nevyplněno — Sosáč se vynechá.");
   else if (!n.streamuj_username || !n.streamuj_password) vysledek("su", "pozor", "Vyplň jméno i heslo.");
   else vysledek("su", "info", "Vyplněno. Streamuj neumí heslo ověřit dopředu, pozná se to při prvním přehrání.");
+});
+
+// --- souhlas s podmínkami: dokud není zaškrtnutý, tlačítka pro adresu jsou disabled ---
+const souhlas = $("souhlas-podminky");
+for (const id of ["instalovat", "nuvio", "kopirovat"]) $(id).disabled = !souhlas.checked;
+souhlas.addEventListener("change", () => {
+  for (const id of ["instalovat", "nuvio", "kopirovat"]) $(id).disabled = !souhlas.checked;
 });
 
 // --- instalace ---
