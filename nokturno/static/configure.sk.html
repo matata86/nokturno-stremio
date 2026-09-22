@@ -194,8 +194,79 @@
 
     <!-- ============================== 1. ZDROJE ============================== -->
     <section id="zdroje">
-      <h2><b>1</b>Zdroje a účty</h2>
-      <p class="popis">Stačí jeden zdroj, viac zdrojov nájde viac streamov. Účty zostávajú len v adrese doplnku, server si ich nikam neukladá.</p>
+      <h2><b>1</b>Vlastné úložisko a zdroje</h2>
+      <p class="popis">Nokturno je predovšetkým prehrávač <strong>tvojho vlastného úložiska</strong> — nastav ho hneď prvou kartou. Voliteľne k nemu môžeš pripojiť aj verejné vyhľadávače tretích strán; účty zostávajú len v adrese doplnku, server si ich nikam neukladá.</p>
+
+      <!-- Vlastní úložiště -->
+      <div class="karta">
+        <div class="karta-hlava">
+          <h3>Vlastné úložisko</h3>
+          <span class="stitek doporuceno">Hlavný zdroj · až 3 · WebDAV</span>
+        </div>
+        <p>Tvoje vlastné filmy a seriály na NAS, Nextcloude alebo serveri s WebDAV. Nokturno prejde priečinky a súbory priradí k titulom podľa názvu súboru a priečinka nad ním („Sherlock/S01E02.mkv“).</p>
+        <div class="poznamka">
+          <strong>Neprehrá sa vo webovom Stremiu.</strong> Súbor z úložiska chce heslo a tú hlavičku vie poslať len aplikácia — <strong>Stremio pre počítač, Android a Android TV</strong>, alebo Nuvio. V Stremiu v prehliadači sa taký stream nespustí; v zozname ich spoznáš podľa upozornenia pri popise. Dáta tečú z tvojho úložiska rovno k tebe, nie cez tento server.
+        </div>
+        <details class="uloziste" open>
+          <summary>Úložisko 1</summary>
+          <div class="dvojice">
+            <label class="pole"><span>Názov (zobrazí sa pri streame)</span>
+              <input type="text" name="dav1_name" spellcheck="false" placeholder="napríklad NAS"></label>
+            <label class="pole"><span>Adresa priečinka</span>
+              <input type="url" name="dav1_url" autocapitalize="off" spellcheck="false" placeholder="https://…"></label>
+            <label class="pole"><span>Používateľské meno</span>
+              <input type="text" name="dav1_username" autocapitalize="off" spellcheck="false"></label>
+            <label class="pole"><span>Heslo</span>
+              <span class="heslo"><input type="password" name="dav1_password" spellcheck="false">
+                <button type="button" class="ukazat" aria-label="Ukázať heslo">ukázať</button></span></label>
+          </div>
+        </details>
+        <details class="uloziste">
+          <summary>Úložisko 2</summary>
+          <div class="dvojice">
+            <label class="pole"><span>Názov (zobrazí sa pri streame)</span>
+              <input type="text" name="dav2_name" spellcheck="false" placeholder="napríklad NAS"></label>
+            <label class="pole"><span>Adresa priečinka</span>
+              <input type="url" name="dav2_url" autocapitalize="off" spellcheck="false" placeholder="https://…"></label>
+            <label class="pole"><span>Používateľské meno</span>
+              <input type="text" name="dav2_username" autocapitalize="off" spellcheck="false"></label>
+            <label class="pole"><span>Heslo</span>
+              <span class="heslo"><input type="password" name="dav2_password" spellcheck="false">
+                <button type="button" class="ukazat" aria-label="Ukázať heslo">ukázať</button></span></label>
+          </div>
+        </details>
+        <details class="uloziste">
+          <summary>Úložisko 3</summary>
+          <div class="dvojice">
+            <label class="pole"><span>Názov (zobrazí sa pri streame)</span>
+              <input type="text" name="dav3_name" spellcheck="false" placeholder="napríklad NAS"></label>
+            <label class="pole"><span>Adresa priečinka</span>
+              <input type="url" name="dav3_url" autocapitalize="off" spellcheck="false" placeholder="https://…"></label>
+            <label class="pole"><span>Používateľské meno</span>
+              <input type="text" name="dav3_username" autocapitalize="off" spellcheck="false"></label>
+            <label class="pole"><span>Heslo</span>
+              <span class="heslo"><input type="password" name="dav3_password" spellcheck="false">
+                <button type="button" class="ukazat" aria-label="Ukázať heslo">ukázať</button></span></label>
+          </div>
+        </details>
+        <div class="overeni">
+          <button type="button" class="male" id="overit-dav">Overiť úložisko</button>
+          <span class="vysledek" id="vysledek-dav"></span>
+        </div>
+        <details class="navod">
+          <summary>Ako na to — adresa, heslo, ako pomenovať súbory</summary>
+          <div class="obsah">
+            <ol>
+              <li>Adresa je priečinok na WebDAV, napríklad <code>https://nas.example.cz/remote.php/dav/files/meno/Video/</code> (Nextcloud) alebo <code>https://server:10000/</code>. Tvar <code>davs://</code> z Kodi funguje tiež.</li>
+              <li>Meno a heslo sú tie, ktorými sa k úložisku prihlasuješ. Zostanú len v adrese doplnku; pri prehratí ich pošle tvoj prehrávač priamo úložisku, takže súbor netečie cez tento server.</li>
+              <li>Súbory pomenuj ako zvyčajne: <code>Pelisky (1999).mkv</code>, alebo priečinok <code>Sherlock/Season 1/S01E02.mkv</code>. Nový súbor sa zobrazí najneskôr do hodiny.</li>
+            </ol>
+            <p>Úložisko musí byť dosiahnuteľné zo <strong>servera doplnku</strong> (hľadá v ňom súbory) <strong>aj zo zariadenia, na ktorom prehrávaš</strong> (sťahuje ich). Adresy v domácej sieti preto fungujú len s doplnkom, ktorý beží u teba doma.</p>
+          </div>
+        </details>
+      </div>
+
+      <p class="popis">Vyhľadávače tretích strán — voliteľná doplnková služba. Nokturno u nich žiadny obsah nehostí ani neposkytuje, len sa na ne dotazuje tvojím účtom.</p>
 
       <!-- WebShare -->
       <div class="karta">
@@ -366,75 +437,6 @@
           <span><strong>Hľadať aj na HellSpy</strong>
             <small>Verejné úložisko s pôvodnými súbormi (často vo vysokej kvalite). Nič sa nevypĺňa, stačí nechať zapnuté.</small></span>
         </label>
-      </div>
-
-      <!-- Vlastní úložiště -->
-      <div class="karta">
-        <div class="karta-hlava">
-          <h3>Vlastné úložisko</h3>
-          <span class="stitek">Voliteľné · až 3 · WebDAV</span>
-        </div>
-        <p>Tvoje vlastné filmy a seriály na NAS, Nextcloude alebo serveri s WebDAV. Nokturno prejde priečinky a súbory priradí k titulom podľa názvu súboru a priečinka nad ním („Sherlock/S01E02.mkv“).</p>
-        <div class="poznamka">
-          <strong>Neprehrá sa vo webovom Stremiu.</strong> Súbor z úložiska chce heslo a tú hlavičku vie poslať len aplikácia — <strong>Stremio pre počítač, Android a Android TV</strong>, alebo Nuvio. V Stremiu v prehliadači sa taký stream nespustí; v zozname ich spoznáš podľa upozornenia pri popise. Dáta tečú z tvojho úložiska rovno k tebe, nie cez tento server.
-        </div>
-        <details class="uloziste" open>
-          <summary>Úložisko 1</summary>
-          <div class="dvojice">
-            <label class="pole"><span>Názov (zobrazí sa pri streame)</span>
-              <input type="text" name="dav1_name" spellcheck="false" placeholder="napríklad NAS"></label>
-            <label class="pole"><span>Adresa priečinka</span>
-              <input type="url" name="dav1_url" autocapitalize="off" spellcheck="false" placeholder="https://…"></label>
-            <label class="pole"><span>Používateľské meno</span>
-              <input type="text" name="dav1_username" autocapitalize="off" spellcheck="false"></label>
-            <label class="pole"><span>Heslo</span>
-              <span class="heslo"><input type="password" name="dav1_password" spellcheck="false">
-                <button type="button" class="ukazat" aria-label="Ukázať heslo">ukázať</button></span></label>
-          </div>
-        </details>
-        <details class="uloziste">
-          <summary>Úložisko 2</summary>
-          <div class="dvojice">
-            <label class="pole"><span>Názov (zobrazí sa pri streame)</span>
-              <input type="text" name="dav2_name" spellcheck="false" placeholder="napríklad NAS"></label>
-            <label class="pole"><span>Adresa priečinka</span>
-              <input type="url" name="dav2_url" autocapitalize="off" spellcheck="false" placeholder="https://…"></label>
-            <label class="pole"><span>Používateľské meno</span>
-              <input type="text" name="dav2_username" autocapitalize="off" spellcheck="false"></label>
-            <label class="pole"><span>Heslo</span>
-              <span class="heslo"><input type="password" name="dav2_password" spellcheck="false">
-                <button type="button" class="ukazat" aria-label="Ukázať heslo">ukázať</button></span></label>
-          </div>
-        </details>
-        <details class="uloziste">
-          <summary>Úložisko 3</summary>
-          <div class="dvojice">
-            <label class="pole"><span>Názov (zobrazí sa pri streame)</span>
-              <input type="text" name="dav3_name" spellcheck="false" placeholder="napríklad NAS"></label>
-            <label class="pole"><span>Adresa priečinka</span>
-              <input type="url" name="dav3_url" autocapitalize="off" spellcheck="false" placeholder="https://…"></label>
-            <label class="pole"><span>Používateľské meno</span>
-              <input type="text" name="dav3_username" autocapitalize="off" spellcheck="false"></label>
-            <label class="pole"><span>Heslo</span>
-              <span class="heslo"><input type="password" name="dav3_password" spellcheck="false">
-                <button type="button" class="ukazat" aria-label="Ukázať heslo">ukázať</button></span></label>
-          </div>
-        </details>
-        <div class="overeni">
-          <button type="button" class="male" id="overit-dav">Overiť úložisko</button>
-          <span class="vysledek" id="vysledek-dav"></span>
-        </div>
-        <details class="navod">
-          <summary>Ako na to — adresa, heslo, ako pomenovať súbory</summary>
-          <div class="obsah">
-            <ol>
-              <li>Adresa je priečinok na WebDAV, napríklad <code>https://nas.example.cz/remote.php/dav/files/meno/Video/</code> (Nextcloud) alebo <code>https://server:10000/</code>. Tvar <code>davs://</code> z Kodi funguje tiež.</li>
-              <li>Meno a heslo sú tie, ktorými sa k úložisku prihlasuješ. Zostanú len v adrese doplnku; pri prehratí ich pošle tvoj prehrávač priamo úložisku, takže súbor netečie cez tento server.</li>
-              <li>Súbory pomenuj ako zvyčajne: <code>Pelisky (1999).mkv</code>, alebo priečinok <code>Sherlock/Season 1/S01E02.mkv</code>. Nový súbor sa zobrazí najneskôr do hodiny.</li>
-            </ol>
-            <p>Úložisko musí byť dosiahnuteľné zo <strong>servera doplnku</strong> (hľadá v ňom súbory) <strong>aj zo zariadenia, na ktorom prehrávaš</strong> (sťahuje ich). Adresy v domácej sieti preto fungujú len s doplnkom, ktorý beží u teba doma.</p>
-          </div>
-        </details>
       </div>
 
       <div class="poznamka">

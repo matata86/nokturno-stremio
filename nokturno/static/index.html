@@ -30,6 +30,9 @@
   .zdroje li { padding: .25rem .75rem; border-radius: 99px; border: 1px solid var(--okraj); background: var(--panel);
                font-size: .86rem; }
   .zdroje li span { color: var(--tlumene); }
+  .zdroje li.hlavni { border-color: var(--akcent); color: var(--akcent); font-weight: 600; }
+  .zdroje li.hlavni span { color: var(--akcent); opacity: .8; }
+  .pod-zdroji { color: var(--tlumene); font-size: .86rem; margin: -1.6rem 0 2rem; }
 
   h2 { font-size: 1.25rem; margin: 0 0 .9rem; }
   .mrizka { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2.25rem; }
@@ -84,7 +87,7 @@
     <img src="https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/resources/media/icon2.png" alt="">
     <div>
       <h1>Nokturno</h1>
-      <p class="podtitul">Filmy a seriály z českých a slovenských úschoven — jedno hledání, všechny zdroje.</p>
+      <p class="podtitul">Přehrávač <strong>tvého vlastního úložiště</strong> pro Kodi, Home Assistant a Stremio — a když chceš, i jedno hledání napříč veřejnými vyhledávači.</p>
     </div>
     <nav class="jazyky" aria-label="Jazyk"><a href="?lang=cs" hreflang="cs" lang="cs" aria-current="true">CZ</a> | <a href="?lang=sk" hreflang="sk" lang="sk">SK</a></nav>
   </header>
@@ -102,6 +105,7 @@
   <img class="banner" src="https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/resources/media/fanart.jpg" alt="">
 
   <ul class="zdroje">
+    <li class="hlavni">Vlastní úložiště <span>· WebDAV</span></li>
     <li>WebShare <span>· VIP</span></li>
     <li>Sosáč <span>· Streamuj.tv</span></li>
     <li>Sledujteto <span>· Premium</span></li>
@@ -111,6 +115,7 @@
     <li>Luna <span>· vlastní server</span></li>
     <li>CZtor <span>· předplatné</span></li>
   </ul>
+  <p class="pod-zdroji">Vlastní úložiště je to hlavní, kvůli čemu Nokturno vzniklo. Zbytek jsou veřejné vyhledávače třetích stran — volitelná doplňková služba, kterou si připojíš vlastním účtem.</p>
 
   <p style="color:var(--tlumene);font-size:.92rem;margin:-1.2rem 0 2rem"><a href="__ZAKLAD__/terms">Právní upozornění</a> — Nokturno je především přehrávač vlastního úložiště, vyhledávače třetích stran jsou jen volitelná doplňková služba.</p>
 
