@@ -814,7 +814,10 @@ function problem(n = nastaveni()) {
 }
 
 function prekresli() {
-  $("adresa").textContent = adresa();
+  // `souhlas` je const deklarovaná nižšie v skripte — skoršie volania (viď nižšie) by na ňu
+  // narazili v TDZ, preto sa stav číta priamo z DOM, nie cez premennú.
+  const ma_suhlas = document.getElementById("souhlas-podminky")?.checked;
+  $("adresa").textContent = ma_suhlas ? adresa() : "";
   const z = zdroje();
   $("souhrn-zdroju").textContent = z.length ? "Zdroje: " + z.join(", ") : "Zatiaľ žiadny zdroj";
 }
@@ -991,7 +994,9 @@ if (Object.keys(soucasne).length > 0) souhlas.checked = true;
 for (const id of ["instalovat", "nuvio", "kopirovat"]) $(id).disabled = !souhlas.checked;
 souhlas.addEventListener("change", () => {
   for (const id of ["instalovat", "nuvio", "kopirovat"]) $(id).disabled = !souhlas.checked;
+  prekresli();   // adresa v "Zobraziť adresu doplnku" sa bez súhlasu neukazuje ani tu
 });
+prekresli();   // súhlas pri editácii je zaškrtnutý od začiatku — adresa sa má ukázať hneď
 
 // --- instalace ---
 $("instalovat").addEventListener("click", () => {
