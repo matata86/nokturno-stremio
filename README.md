@@ -193,6 +193,15 @@ python3 -m unittest discover -s tests -v
 
 Nesahají na síť a nepotřebují účty. Jádro má vlastní testy ve svém repu.
 
+## Právní upozornění
+
+Nokturno je především přehrávač a správce vlastního úložiště — obsahu, který si
+sám nahraješ a zpřístupníš (např. přes WebDAV). Vyhledávače třetích stran
+(WebShare, Sosáč, HellSpy, Sledujteto, FastShare, Přehraj.to, CZtor, Luna,
+OpenSubtitles) jsou jen volitelná doplňková služba, doplněk sám žádný obsah
+nehostuje. Plný text a kontakty pro nahlášení nelegálního obsahu u jednotlivých
+zdrojů: [nokturno.tailf0014.ts.net/terms](https://nokturno.tailf0014.ts.net/terms).
+
 ## Licence
 
 Zdrojový kód je veřejně čitelný pro transparentnost a instalaci přes oficiální
