@@ -35,7 +35,6 @@ TTL = 6 * 3600
 JAZYK_STALE = 7 * 86400   # jak starý výsledek seriálů podle jazyka ještě ukázat, než doběhne nový
 JAZYK_CIL = 30            # kolik seriálů v každém ze dvou seznamů stačí
 JAZYK_KANDIDATU = 60
-CZECH = {"CZ", "SK"}
 PREFIX = "nokturno."
 STRANKA_SOSAC = 100   # Sosáč vydává dlouhé seznamy, TMDB stránkuje po 20 samo
 TMDB_IMG = "https://image.tmdb.org/"
@@ -141,15 +140,13 @@ class Katalogy:
             if stop is not None and stop():
                 break
             try:
-                streamy = engine.raw_streams("series", f"{meta['imdb_id']}:{sezona}:{dil}", probe_audio=False)
+                # `classify_langs()` v jádru: kolo zdrojů skončí hned, jak některý nabídne
+                # CZ/SK dabing (dabing má přednost), a zařazení se drží 24 h.
+                zarazeni = engine.classify_langs("series", f"{meta['imdb_id']}:{sezona}:{dil}")
             except Exception as err:  # noqa: BLE001 – jeden seriál nesmí shodit celý seznam
                 _LOGGER.info("seriály podle jazyka: %s přeskočen (%s)", meta.get("imdb_id"), err)
                 continue
-            jazyky, titulky = set(), set()
-            for st in streamy or []:
-                jazyky.update(st.get("langs") or [])
-                titulky.update(st.get("subs") or [])
-            druh = "dub" if jazyky & CZECH else "subs" if titulky & CZECH else None
+            druh = zarazeni["k"] or None
             nahl = nahled("series", meta) if druh else None
             if nahl and len(vysledek[druh]) < JAZYK_CIL:
                 vysledek[druh].append(nahl)

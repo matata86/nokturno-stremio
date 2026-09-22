@@ -610,12 +610,21 @@ class TestKatalogy(unittest.TestCase):
         pustit = __import__("threading").Event()
 
         class Engine:
-            def raw_streams(self, ctype, item_id, probe_audio=True, **kw):
+            def classify_langs(self, ctype, item_id, **kw):
+                # `Katalogy.serialy_podle_jazyka()` volá jádro přes `classify_langs()`
+                # (2026-09-22, stejné zařazení jako u jazykových katalogů Kodi) —
+                # falešné jádro tu napodobí jeho výstup `{"k": ..., "n": ...}`.
                 pustit.wait(5)
-                dotazy.append((ctype, item_id, probe_audio))
-                return {"tt1:1:6": [{"langs": ["EN"], "subs": ["CZ"]}, {"langs": ["CZ"]}],
-                        "tt2:2:1": [{"langs": ["EN"], "subs": ["SK"]}],
-                        "tt3:1:1": [{"langs": ["EN"], "subs": ["EN"]}]}.get(item_id, [])
+                dotazy.append((ctype, item_id, False))
+                streams = {"tt1:1:6": [{"langs": ["EN"], "subs": ["CZ"]}, {"langs": ["CZ"]}],
+                           "tt2:2:1": [{"langs": ["EN"], "subs": ["SK"]}],
+                           "tt3:1:1": [{"langs": ["EN"], "subs": ["EN"]}]}.get(item_id, [])
+                langs, subs = set(), set()
+                for st in streams:
+                    langs.update(st.get("langs") or [])
+                    subs.update(st.get("subs") or [])
+                want = {"CZ", "SK"}
+                return {"k": "dub" if langs & want else "subs" if subs & want else "", "n": len(streams)}
 
         class Sosac:
             def recent_series(self, limit=60):
