@@ -19,6 +19,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .config import decode, fingerprint, from_environ, sources_summary
 from .katalogy import Katalogy
+from .koncerty import Koncerty
+from .core.lib.dash_api import DashApi
 from .identita import Identita
 from .enginy import Enginy
 from .routes import Blokace, VERZE, Router, jazyk_z_hlavicky, klient_z_useragent
@@ -46,7 +48,7 @@ VYCHOZI_DATA = "./data"      # cache a mezipaměť jádra; v kontejneru svazek
 MAX_SPOJENI = int(os.environ.get("NOKTURNO_MAX_SPOJENI", "400"))
 
 
-_CORS_RE = re.compile(r"^(?:/c/[^/]+)?/(?:manifest\.json|health|stream/.+\.json|catalog/.+\.json|play/.+)$")
+_CORS_RE = re.compile(r"^(?:/c/[^/]+)?(?:/koncerty)?/(?:manifest\.json|health|stream/.+\.json|catalog/.+\.json|meta/.+\.json|play/.+)$")
 
 
 def cors_povoleno(path):
@@ -408,6 +410,7 @@ def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, opti
     blokovane = {o.strip() for o in os.environ.get("NOKTURNO_BLOCKED_FINGERPRINTS", "").split(",") if o.strip()}
     server.router = Router(enginy, predvyplnit=predvyplnit, statistiky=Statistiky.z_prostredi(VERZE),
                            katalogy=katalogy, blokovane=blokovane, identita=Identita.z_prostredi(),
+                           koncerty=Koncerty(DashApi(cache=enginy.spolecne)),
                            blokace=Blokace(soubor=os.path.join(data_dir, "odebrane_identity.txt"),
                                            adresy_soubor=os.path.join(data_dir, "zakazane_adresy.txt")))
     server.pady = Pady.z_prostredi(data_dir, VERZE)

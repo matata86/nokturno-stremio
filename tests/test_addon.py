@@ -528,6 +528,79 @@ class TestBezLuny(unittest.TestCase):
         self.assertTrue(logo.endswith("/resources/media/icon2.png"), logo)
 
 
+class FalesnyDash:
+    """`DashApi` jen s koncerty — pamatuje si, s čím se volalo."""
+
+    def __init__(self):
+        self.volani = []
+        self.polozky = [{"id": 7, "artist": "Pink Floyd", "title": "Pulse", "year": 1994, "sources": ["webshare"]}]
+        self.koncert = {"id": 7, "artist": "Pink Floyd", "title": "Pulse", "year": 1994, "files": [
+            {"source": "webshare", "ref": "ws:abc", "name": "pulse.mkv", "size": 2_000_000_000, "duration": 5400},
+            {"source": "fastshare", "ref": "fs:1:s:1", "name": "pulse.mp4", "size": 900_000_000, "duration": 0}]}
+
+    def concert_items(self, sources, search="", skip=0, install=""):
+        self.volani.append(("items", tuple(sources), search, skip))
+        return self.polozky, len(self.polozky)
+
+    def concert(self, concert_id, sources, install=""):
+        self.volani.append(("concert", concert_id, tuple(sources)))
+        return self.koncert if concert_id == 7 else None
+
+
+class TestKoncerty(unittest.TestCase):
+    """Samostatný doplněk Koncerty (`nokturno/koncerty.py`): vlastní manifest na
+    `/c/<nastavení>/koncerty/…`, id `nktc:<id>`, soubory přes společné `/play/`."""
+
+    def setUp(self):
+        from nokturno.koncerty import Koncerty
+        self.dash = FalesnyDash()
+        self.r = router()
+        self.r.koncerty = Koncerty(self.dash)
+
+    def test_manifest_podle_zdroju(self):
+        m = self.r.route(f"/c/{KOUSEK}/koncerty/manifest.json", ZAKLAD).data
+        self.assertEqual((m["id"], m["types"], m["idPrefixes"]), ("cz.nokturno.koncerty", ["movie"], ["nktc:"]))
+        self.assertEqual(m["resources"], ["catalog", "meta", "stream"])
+        self.assertIn("WebShare", m["description"])
+        self.assertFalse(m["behaviorHints"]["configurationRequired"])
+        bez = config.encode(config.from_mapping({"st_email": "a@b.cz", "st_password": "x", "hs_enabled": False}))
+        m = self.r.route(f"/c/{bez}/koncerty/manifest.json", ZAKLAD).data
+        self.assertTrue(m["behaviorHints"]["configurationRequired"], "Sledujteto koncerty neumí")
+        self.assertEqual(self.r.enginy_test.pozadovana_nastaveni, [], "manifest nezakládá jádro")
+
+    def test_katalog_hledani_a_strankovani(self):
+        odp = self.r.route(f"/c/{KOUSEK}/koncerty/catalog/movie/nokturno.koncerty.json", ZAKLAD)
+        self.assertEqual([m["id"] for m in odp.data["metas"]], ["nktc:7"])
+        self.assertEqual(odp.data["metas"][0]["name"], "Pink Floyd – Pulse (1994)")
+        self.r.route(f"/c/{KOUSEK}/koncerty/catalog/movie/nokturno.koncerty/search=abba&skip=100.json", ZAKLAD)
+        # KOUSEK = WebShare + výchozí HellSpy (from_mapping ho zapíná)
+        self.assertEqual(self.dash.volani, [("items", ("webshare", "hellspy"), "", 0),
+                                            ("items", ("webshare", "hellspy"), "abba", 100)])
+        self.assertEqual(self.r.route(f"/c/{KOUSEK}/koncerty/catalog/movie/jiny.json", ZAKLAD).status, 404)
+        self.assertEqual(self.r.route(f"/c/{KOUSEK_HS}/koncerty/catalog/movie/nokturno.koncerty.json", ZAKLAD)
+                         .data["metas"][0]["id"], "nktc:7")
+        self.assertEqual(self.dash.volani[-1][1], ("hellspy",))
+
+    def test_meta_a_streamy_pres_play(self):
+        meta = self.r.route(f"/c/{KOUSEK}/koncerty/meta/movie/nktc:7.json", ZAKLAD).data["meta"]
+        self.assertEqual((meta["id"], meta["type"]), ("nktc:7", "movie"))
+        self.assertIn("pulse.mkv", meta["description"])
+        self.assertEqual(self.r.route(f"/c/{KOUSEK}/koncerty/meta/movie/nktc:8.json", ZAKLAD).status, 404)
+        self.assertEqual(self.r.route(f"/c/{KOUSEK}/koncerty/meta/movie/tt1.json", ZAKLAD).status, 404)
+        streamy = self.r.route(f"/c/{KOUSEK}/koncerty/stream/movie/nktc:7.json", ZAKLAD).data["streams"]
+        # FastShare chce hlavičky — falešné jádro je nedá, takže zůstane jen WebShare přes /play/
+        self.assertEqual(len(streamy), 1)
+        self.assertTrue(streamy[0]["url"].startswith(f"{ZAKLAD}/c/{KOUSEK}/play/"), streamy[0]["url"])
+        self.assertEqual(mapping.dekoduj(streamy[0]["url"].rsplit("/", 1)[1]), "ws:abc")
+        self.assertEqual(streamy[0]["name"], "Koncerty")
+        self.assertIn("2.0 GB", streamy[0]["description"])
+        self.assertIn("1:30", streamy[0]["description"])
+
+    def test_bez_koncertu_v_routeru_404(self):
+        self.r.koncerty = None
+        self.assertEqual(self.r.route(f"/c/{KOUSEK}/koncerty/manifest.json", ZAKLAD).status, 404)
+
+
 class TestKatalogy(unittest.TestCase):
     """Volitelné katalogy: jen zvolené v manifestu, jedna sdílená cache, bez jádra."""
 
@@ -1713,7 +1786,9 @@ class TestLimityAUklid(unittest.TestCase):
     def test_cors_jen_na_protokol(self):
         from nokturno.server import cors_povoleno
         for c in ("/health", "/manifest.json", f"/c/{KOUSEK}/manifest.json", f"/c/{KOUSEK}/stream/movie/tt1.json",
-                  f"/c/{KOUSEK}/catalog/movie/x/skip=20.json", f"/c/{KOUSEK}/play/abc", "/catalog/movie/x.json"):
+                  f"/c/{KOUSEK}/catalog/movie/x/skip=20.json", f"/c/{KOUSEK}/play/abc", "/catalog/movie/x.json",
+                  f"/c/{KOUSEK}/koncerty/manifest.json", f"/c/{KOUSEK}/koncerty/meta/movie/nktc:1.json",
+                  f"/c/{KOUSEK}/koncerty/stream/movie/nktc:1.json"):
             self.assertTrue(cors_povoleno(c), c)
         for c in ("/", "/configure", f"/c/{KOUSEK}/configure", f"/c/{KOUSEK}/check", "/identita/vyzva",
                   "/identita?vyzva=1&reseni=2", "/configure?lang=sk"):
@@ -1921,6 +1996,8 @@ class TestProvoz(unittest.TestCase):
                          ("stremio", "/catalog/series"))
         self.assertEqual(klasifikuj("/"), ("stremio", "/"))
         self.assertEqual(klasifikuj("/health"), ("stremio", "/health"))
+        self.assertEqual(klasifikuj("/c/eyJ3cyI6MX0/koncerty/catalog/movie/nokturno.koncerty/search=abba.json"),
+                         ("stremio", "/c/{nastaveni}/koncerty/catalog/movie"))
 
 
     def test_ucty_z_adresy_se_nikam_neposlou(self):

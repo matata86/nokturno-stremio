@@ -79,6 +79,9 @@ def klasifikuj(cesta):
         else:
             prefix = "/c/{nastaveni}"   # sdílené nastavení bez účtů — ti, kdo mají přejít na identitu
     casti = [c for c in zbytek.split("/") if c]
+    if casti and casti[0] == "koncerty":
+        prefix += "/koncerty"   # samostatný doplněk Koncerty, jinak stejné cesty jako hlavní
+        casti = casti[1:]
     if not casti:
         return "stremio", (prefix + "/") if prefix else "/"
     prvni = casti[0]

@@ -660,6 +660,7 @@
     <span class="akce-souhrn" id="souhrn-zdroju"></span>
   </div>
   <div class="stav" id="stav"></div>
+  <p class="pozn" id="koncerty-pozn">Samostatný doplněk <strong>Nokturno Koncerty</strong> (hudební koncerty z WebShare, HellSpy a FastShare, bez IMDb) má vlastní adresu se stejným nastavením: <a href="#" id="koncerty-stremio">přidat do Stremia</a> · <a href="#" id="koncerty-kopirovat">zkopírovat adresu</a>. Zatím ve zkušebním provozu — katalog se plní postupně.</p>
   <details class="adresa"><summary>Zobrazit adresu doplňku</summary><pre id="adresa"></pre></details>
   <p id="identita-pozn" class="pozn" hidden>Adresa nese tvoji osobní identitu (kromě účtů). Nikomu ji neposílej — kdo ji má, používá limity a případnou blokaci s tebou. Každý si má vyrobit vlastní na této stránce.</p>
 </div>
@@ -1016,6 +1017,22 @@ $("nuvio").addEventListener("click", () => {
   if (chyba) { nastavStav(chyba, true); return; }
   nastavStav("Otevírám Nuvio… Když se nic nestane, použij Zkopírovat adresu.");
   window.location.href = adresa().replace(/^https?:\/\//, "nuvio://");
+});
+
+// doplněk Koncerty: táž adresa s nastavením, jen `/koncerty/manifest.json`
+const adresaKoncertu = () => ZAKLAD + "/c/" + kousek() + "/koncerty/manifest.json";
+$("koncerty-stremio").addEventListener("click", (e) => {
+  e.preventDefault();
+  const chyba = problem();
+  if (chyba) { nastavStav(chyba, true); return; }
+  window.location.href = adresaKoncertu().replace(/^https?:\/\//, "stremio://");
+});
+$("koncerty-kopirovat").addEventListener("click", async (e) => {
+  e.preventDefault();
+  const chyba = problem();
+  if (chyba) { nastavStav(chyba, true); return; }
+  try { await navigator.clipboard.writeText(adresaKoncertu()); nastavStav("Adresa doplňku Koncerty zkopírována."); }
+  catch { nastavStav("Kopírování prohlížeč nedovolil.", true); }
 });
 
 $("kopirovat").addEventListener("click", async () => {

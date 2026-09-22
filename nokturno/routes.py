@@ -44,7 +44,7 @@ from .core.lib.sledujteto_api import SledujtetoApi
 from .core.lib.fastshare_api import FastshareApi
 from .core.lib.prehrajto_api import PrehrajtoApi
 from .core.lib.storage_api import SLOTS, StorageApi
-from . import config, mapping, sit
+from . import config, koncerty as koncerty_mod, mapping, sit
 from .enginy import PrilisMnohoNovych
 from .identita import Identita
 from .kliky import Kliky
@@ -358,8 +358,9 @@ class Router:
     """Obsluha požadavků. Jádro si bere podle nastavení v adrese."""
 
     def __init__(self, enginy, verze=VERZE, predvyplnit=False, statistiky=None, katalogy=None,
-                 blokovane=None, identita=None, blokace=None):
+                 blokovane=None, identita=None, blokace=None, koncerty=None):
         self.enginy = enginy
+        self.koncerty = koncerty   # nokturno.koncerty.Koncerty, None = doplněk Koncerty se nenabízí
         self.identita = identita or Identita("")
         self.zprava = None   # volatelná → [(id, text, odkaz)] zpráv z dashboardu (nastaví server)
         self.zobrazeni = None   # volatelná (id, klíč uživatele) → započítá zobrazení zprávy
@@ -731,6 +732,57 @@ class Router:
             return chyba(502, "Zdroj vrátil prázdný odkaz.")
         return Odpoved(status=302, location=skutecna, text="")
 
+    # --- doplněk Koncerty ---------------------------------------------------
+    def _koncerty(self, options, zbytek, zaklad, kousek, klient, verejny):
+        """`/c/<nastavení>/koncerty/…`: manifest, katalog, meta a streamy samostatného
+        doplňku (viz `koncerty.py`). Limity a `/play/` sdílí s hlavním doplňkem."""
+        if zbytek == "/manifest.json":
+            return Odpoved(data=self.koncerty.manifest(self.verze, options))
+        casti = [c for c in zbytek.split("/") if c]
+        if len(casti) == 3 and casti[0] in ("catalog", "meta") and casti[1] == koncerty_mod.TYP and casti[2].endswith(".json"):
+            if not self.katalog_okno.povolit(klic_klienta(klient) or "?"):
+                odp = chyba(429, "Příliš mnoho požadavků na katalog za sebou, zkus to za pár minut.")
+                odp.utok = ("limit", config.fingerprint(options))
+                return odp
+            polozka = casti[2][:-len(".json")]
+            if casti[0] == "meta":
+                data = self.koncerty.meta(options, polozka)
+                return Odpoved(data=data) if data else chyba(404, "Takový koncert tu není.")
+            if polozka != koncerty_mod.KATALOG:
+                return chyba(404, "Takový katalog tu není.")
+            return Odpoved(data=self.koncerty.katalog(options))
+        if len(casti) == 4 and casti[0] == "catalog" and casti[1] == koncerty_mod.TYP and casti[3].endswith(".json"):
+            if casti[2] != koncerty_mod.KATALOG:
+                return chyba(404, "Takový katalog tu není.")
+            if not self.katalog_okno.povolit(klic_klienta(klient) or "?"):
+                odp = chyba(429, "Příliš mnoho požadavků na katalog za sebou, zkus to za pár minut.")
+                odp.utok = ("limit", config.fingerprint(options))
+                return odp
+            return Odpoved(data=self.koncerty.katalog(options, **self._extra_koncertu(casti[3][:-len(".json")])))
+        if len(casti) == 3 and casti[0] == "stream" and casti[1] == koncerty_mod.TYP and casti[2].endswith(".json"):
+            odp = self._omezit(self.stream_okno, options, klient, "streamy")
+            if odp is not None:
+                return odp
+            try:
+                engine = self.enginy.pro(options, verejny=verejny, klient=self._klic_limitu(options, klient))
+            except PrilisMnohoNovych:
+                odp = chyba(429, "Příliš mnoho nových nastavení z jedné adresy za hodinu, zkus to později.")
+                odp.utok = ("limit", config.fingerprint(options))
+                return odp
+            return Odpoved(data=self.koncerty.streamy(options, casti[2][:-len(".json")],
+                                                      self._odkaz(zaklad, kousek), _primy(engine)))
+        return chyba(404, "Tady nic není.")
+
+    @staticmethod
+    def _extra_koncertu(polozka):
+        """`search=abba&skip=100` (část adresy za id katalogu) → parametry katalogu."""
+        q = urllib.parse.parse_qs(polozka)
+        try:
+            skip = max(0, int((q.get("skip") or ["0"])[0]))
+        except ValueError:
+            skip = 0
+        return {"search": (q.get("search") or [""])[0][:80], "skip": min(skip, MAX_SKIP)}
+
     # --- rozcestník -------------------------------------------------------
     def route(self, cesta, zaklad, verejny=False, jazyk=None, klient="", aplikace="stremio"):
         """Cesta požadavku na odpověď. `zaklad` je absolutní adresa služby,
@@ -817,6 +869,11 @@ class Router:
         if zbytek == "/manifest.json":
             return self.manifest(options if kousek else self.enginy.vychozi_options, nastaveno=bool(kousek),
                                  nova_adresa=nova if stara else None)
+
+        if kousek and self.koncerty is not None and zbytek.startswith("/koncerty/"):
+            if stara:
+                return chyba(410, "Tahle adresa doplňku je zastaralá. Otevři Nastavení doplňku, odeber ho a přidej nový.")
+            return self._koncerty(options, zbytek[len("/koncerty"):], zaklad, kousek, klient, verejny)
 
         casti = [c for c in zbytek.split("/") if c]
         if casti and casti[0] == "catalog":
