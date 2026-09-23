@@ -89,9 +89,14 @@ class Koncerty:
 
     @staticmethod
     def _nahled(p):
-        return {"id": f"{PREFIX}{p['id']}", "type": TYP, "name": _nazev(p), "posterShape": "landscape",
-                "releaseInfo": str(p["year"]) if p.get("year") else "",
-                "description": "Zdroje: " + ", ".join(config.NAZVY_ZDROJU[s] for s in p.get("sources") or [])}
+        m = {"id": f"{PREFIX}{p['id']}", "type": TYP, "name": _nazev(p), "posterShape": "landscape",
+             "releaseInfo": str(p["year"]) if p.get("year") else "",
+             "description": "Zdroje: " + ", ".join(config.NAZVY_ZDROJU[s] for s in p.get("sources") or [])}
+        # koncert nemá plakát z TMDB — náhled souboru ze zdroje (snímek z videa, proto na šířku)
+        img = p.get("img") or next((f["img"] for f in p.get("files") or [] if f.get("img")), "")
+        if img:
+            m["poster"] = m["background"] = img
+        return m
 
     def _koncert(self, options, item_id):
         n = cislo(item_id)

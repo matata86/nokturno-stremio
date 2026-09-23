@@ -533,9 +533,11 @@ class FalesnyDash:
 
     def __init__(self):
         self.volani = []
-        self.polozky = [{"id": 7, "artist": "Pink Floyd", "title": "Pulse", "year": 1994, "sources": ["webshare"]}]
+        self.polozky = [{"id": 7, "artist": "Pink Floyd", "title": "Pulse", "year": 1994, "sources": ["webshare"],
+                         "img": "https://img/pulse.jpg"}]
         self.koncert = {"id": 7, "artist": "Pink Floyd", "title": "Pulse", "year": 1994, "files": [
-            {"source": "webshare", "ref": "ws:abc", "name": "pulse.mkv", "size": 2_000_000_000, "duration": 5400},
+            {"source": "webshare", "ref": "ws:abc", "name": "pulse.mkv", "size": 2_000_000_000, "duration": 5400,
+             "img": "https://img/detail.jpg"},
             {"source": "fastshare", "ref": "fs:1:s:1", "name": "pulse.mp4", "size": 900_000_000, "duration": 0}]}
 
     def concert_items(self, sources, search="", skip=0, install=""):
@@ -576,6 +578,7 @@ class TestKoncerty(unittest.TestCase):
         odp = self.r.route(f"/c/{KOUSEK}/koncerty/catalog/movie/nokturno.koncerty.json", ZAKLAD)
         self.assertEqual([m["id"] for m in odp.data["metas"]], ["nktc:7"])
         self.assertEqual(odp.data["metas"][0]["name"], "Pink Floyd – Pulse (1994)")
+        self.assertEqual(odp.data["metas"][0]["poster"], "https://img/pulse.jpg")
         self.r.route(f"/c/{KOUSEK}/koncerty/catalog/movie/nokturno.koncerty/search=abba&skip=100.json", ZAKLAD)
         # KOUSEK = WebShare + výchozí HellSpy (from_mapping ho zapíná)
         self.assertEqual(self.dash.volani, [("items", ("webshare", "hellspy"), "", 0),
@@ -599,6 +602,7 @@ class TestKoncerty(unittest.TestCase):
         meta = self.r.route(f"/c/{KOUSEK}/koncerty/meta/movie/nktc:7.json", ZAKLAD).data["meta"]
         self.assertEqual((meta["id"], meta["type"]), ("nktc:7", "movie"))
         self.assertIn("pulse.mkv", meta["description"])
+        self.assertEqual((meta["poster"], meta["background"]), ("https://img/detail.jpg",) * 2)
         self.assertEqual(self.r.route(f"/c/{KOUSEK}/koncerty/meta/movie/nktc:8.json", ZAKLAD).status, 404)
         self.assertEqual(self.r.route(f"/c/{KOUSEK}/koncerty/meta/movie/tt1.json", ZAKLAD).status, 404)
         streamy = self.r.route(f"/c/{KOUSEK}/koncerty/stream/movie/nktc:7.json", ZAKLAD).data["streams"]
