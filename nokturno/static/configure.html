@@ -113,6 +113,8 @@
           border-bottom: 0; border-radius: 14px 14px 0 0; padding: .85rem 1rem; max-width: 47rem; margin: 0 auto;
           box-shadow: 0 -10px 28px rgba(0,0,0,.5); }
   .akce-radek { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
+  .akce-radek.koncerty { margin-top: .5rem; padding-top: .5rem; border-top: 1px solid var(--okraj); }
+  .koncerty-stitek { font-weight: 600; white-space: nowrap; }
   .akce-souhrn { font-size: .84rem; color: var(--tlumene); margin-left: auto; }
   .stav { margin-top: .45rem; font-size: .88rem; color: #cbbcff; }
   .stav:empty { display: none; }
@@ -660,7 +662,11 @@
     <span class="akce-souhrn" id="souhrn-zdroju"></span>
   </div>
   <div class="stav" id="stav"></div>
-  <p class="pozn" id="koncerty-pozn">Samostatný doplněk <strong>Nokturno Koncerty</strong> (hudební koncerty z WebShare, HellSpy a FastShare, bez IMDb) má vlastní adresu se stejným nastavením: <a href="#" id="koncerty-stremio">přidat do Stremia</a> · <a href="#" id="koncerty-kopirovat">zkopírovat adresu</a>. Zatím ve zkušebním provozu — katalog se plní postupně.</p>
+  <div class="akce-radek koncerty" title="Hudební koncerty z WebShare, HellSpy a FastShare jako samostatný doplněk se stejným nastavením. Zkušební provoz.">
+    <span class="koncerty-stitek">🎸 Koncerty</span>
+    <button type="button" id="koncerty-stremio" disabled><span class="dlouhe">Přidat do </span>Stremia</button>
+    <button type="button" id="koncerty-kopirovat" disabled>Zkopírovat<span class="dlouhe"> adresu</span></button>
+  </div>
   <details class="adresa"><summary>Zobrazit adresu doplňku</summary><pre id="adresa"></pre></details>
   <p id="identita-pozn" class="pozn" hidden>Adresa nese tvoji osobní identitu (kromě účtů). Nikomu ji neposílej — kdo ji má, používá limity a případnou blokaci s tebou. Každý si má vyrobit vlastní na této stránce.</p>
 </div>
@@ -995,9 +1001,9 @@ $("overit-su").addEventListener("click", () => {
 // zaškrtnutý — na tuhle stránku se dostane, jen kdo si adresu už dřív vyrobil. ---
 const souhlas = $("souhlas-podminky");
 if (Object.keys(soucasne).length > 0) souhlas.checked = true;
-for (const id of ["instalovat", "nuvio", "kopirovat"]) $(id).disabled = !souhlas.checked;
+for (const id of ["instalovat", "nuvio", "kopirovat", "koncerty-stremio", "koncerty-kopirovat"]) $(id).disabled = !souhlas.checked;
 souhlas.addEventListener("change", () => {
-  for (const id of ["instalovat", "nuvio", "kopirovat"]) $(id).disabled = !souhlas.checked;
+  for (const id of ["instalovat", "nuvio", "kopirovat", "koncerty-stremio", "koncerty-kopirovat"]) $(id).disabled = !souhlas.checked;
   prekresli();   // adresa v "Zobrazit adresu doplňku" se bez souhlasu neukazuje ani tady
 });
 prekresli();   // souhlas u editace je zaškrtnutý od začátku — adresa se má ukázat hned
