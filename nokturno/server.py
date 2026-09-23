@@ -87,6 +87,15 @@ def bezpecna_cesta(path):
     return re.sub(r"^/c/([^/?]+)", otisk, path or "")
 
 
+def dash_koncertu(provoz, cache):
+    """Koncerty jsou ve zkušebním provozu jen pro vybrané instalace. Doplněk běží na témže
+    stroji jako dashboard, takže se ptá přímo (mimo nginx a tunel) a prokáže se tokenem
+    z `/traffic`. Bez tokenu (vlastní instance) jde na veřejnou adresu jako dřív."""
+    if not provoz.token or not provoz.url.endswith("/traffic"):
+        return DashApi(cache=cache)
+    return DashApi(cache=cache, base=provoz.url[:-len("/traffic")], headers={"X-Nokturno-Token": provoz.token})
+
+
 def uklid_dat(data_dir, max_age_s=30 * 86400):
     """Složky jader, na které se 30 dní nesáhlo — každá adresa doplňku má vlastní,
     a ty s překlepem nebo od zkoušejících by jinak zůstaly navždy."""
@@ -407,15 +416,16 @@ def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, opti
     if options is None:
         # ať první dotaz po restartu nevrátí prázdný seznam seriálů; jen služba z prostředí (testy jdou bez sítě)
         katalogy.zahrat()
+    provoz = Provoz.z_prostredi()
     blokovane = {o.strip() for o in os.environ.get("NOKTURNO_BLOCKED_FINGERPRINTS", "").split(",") if o.strip()}
     server.router = Router(enginy, predvyplnit=predvyplnit, statistiky=Statistiky.z_prostredi(VERZE),
                            katalogy=katalogy, blokovane=blokovane, identita=Identita.z_prostredi(),
-                           koncerty=Koncerty(DashApi(cache=enginy.spolecne)),
+                           koncerty=Koncerty(dash_koncertu(provoz, enginy.spolecne)),
                            blokace=Blokace(soubor=os.path.join(data_dir, "odebrane_identity.txt"),
                                            adresy_soubor=os.path.join(data_dir, "zakazane_adresy.txt")))
     server.pady = Pady.z_prostredi(data_dir, VERZE)
     server.pady.odesli()   # co zůstalo ve frontě z minula (server nebo síť tehdy neběžely)
-    server.provoz = Provoz.z_prostredi()
+    server.provoz = provoz
     server.router.zprava = server.provoz.zprava
     server.router.zobrazeni = server.provoz.zaznamenej_zobrazeni
     server.router.klik = server.provoz.zaznamenej_klik

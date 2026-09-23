@@ -121,16 +121,17 @@ def _clean_items(items, ctype):
 
 
 class DashApi:
-    def __init__(self, cache=None, base=BASE):
+    def __init__(self, cache=None, base=BASE, headers=None):
         self.cache = cache
         self.base = base
+        self.headers = headers or {}   # Stremio: token pro koncerty ze zkušebního provozu
 
     # --- síť a cache -----------------------------------------------------------------
 
     def _get(self, path, timeout=TIMEOUT, **params):
         query = urllib.parse.urlencode({k: v for k, v in params.items() if v})
         url = f"{self.base}{path}" + (f"?{query}" if query else "")
-        req = urllib.request.Request(url, headers={"User-Agent": "Nokturno"})
+        req = urllib.request.Request(url, headers={"User-Agent": "Nokturno", **self.headers})
         try:
             with open_url(req, timeout=timeout) as resp:
                 return json.loads(resp.read().decode("utf-8"))

@@ -610,6 +610,13 @@ class TestKoncerty(unittest.TestCase):
         self.assertIn("2.0 GB", streamy[0]["description"])
         self.assertIn("1:30", streamy[0]["description"])
 
+    def test_dash_koncertu_s_tokenem_lokalne(self):
+        from nokturno.server import dash_koncertu
+        from nokturno.provoz import Provoz
+        d = dash_koncertu(Provoz(url="http://127.0.0.1:8080/traffic", token="t"), None)
+        self.assertEqual((d.base, d.headers), ("http://127.0.0.1:8080", {"X-Nokturno-Token": "t"}))
+        self.assertEqual(dash_koncertu(Provoz(token=""), None).headers, {})
+
     def test_bez_koncertu_v_routeru_404(self):
         self.r.koncerty = None
         self.assertEqual(self.r.route(f"/c/{KOUSEK}/koncerty/manifest.json", ZAKLAD).status, 404)
