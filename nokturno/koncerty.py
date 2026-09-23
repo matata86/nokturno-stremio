@@ -18,7 +18,7 @@ PREFIX = "nktc:"
 KATALOG = "nokturno.koncerty"
 NOVE = "nokturno.koncerty.nove"   # 50 naposledy schválených (dashboard `/concerts/recent`), bez stránkování
 KATALOGY = (NOVE, KATALOG)
-TYP = "movie"
+TYP = "Koncerty"   # vlastní typ: Stremio ho vypíše vedle názvu katalogu místo „Filmy“
 STRANKA = 100   # tolik vrací dashboard na jeden `skip`
 LOGO = "https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/resources/media/icon2.png"
 # zdroj → klíč nastavení, který ho zapíná (jen zdroje, ze kterých server koncerty sbírá)
@@ -65,8 +65,8 @@ class Koncerty:
             "resources": ["catalog", "meta", "stream"],
             "types": [TYP],
             "idPrefixes": [PREFIX],
-            "catalogs": [{"type": TYP, "id": NOVE, "name": "Koncerty – nově přidané"},
-                         {"type": TYP, "id": KATALOG, "name": "Koncerty",
+            "catalogs": [{"type": TYP, "id": NOVE, "name": "Nově přidané"},
+                         {"type": TYP, "id": KATALOG, "name": "Všechny",
                           "extra": [{"name": "search", "isRequired": False}, {"name": "skip", "isRequired": False}]}],
             "behaviorHints": {"configurable": False, "configurationRequired": not srcs},
         }

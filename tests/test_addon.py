@@ -565,7 +565,7 @@ class TestKoncerty(unittest.TestCase):
 
     def test_manifest_podle_zdroju(self):
         m = self.r.route(f"/c/{KOUSEK}/koncerty/manifest.json", ZAKLAD).data
-        self.assertEqual((m["id"], m["types"], m["idPrefixes"]), ("cz.nokturno.koncerty", ["movie"], ["nktc:"]))
+        self.assertEqual((m["id"], m["types"], m["idPrefixes"]), ("cz.nokturno.koncerty", ["Koncerty"], ["nktc:"]))
         self.assertEqual(m["resources"], ["catalog", "meta", "stream"])
         self.assertNotIn("WebShare", m["description"], "popis bez názvů zdrojů")
         self.assertFalse(m["behaviorHints"]["configurationRequired"])
@@ -575,37 +575,37 @@ class TestKoncerty(unittest.TestCase):
         self.assertEqual(self.r.enginy_test.pozadovana_nastaveni, [], "manifest nezakládá jádro")
 
     def test_katalog_hledani_a_strankovani(self):
-        odp = self.r.route(f"/c/{KOUSEK}/koncerty/catalog/movie/nokturno.koncerty.json", ZAKLAD)
+        odp = self.r.route(f"/c/{KOUSEK}/koncerty/catalog/Koncerty/nokturno.koncerty.json", ZAKLAD)
         self.assertEqual([m["id"] for m in odp.data["metas"]], ["nktc:7"])
         self.assertEqual(odp.data["metas"][0]["name"], "Pink Floyd – Pulse (1994)")
         self.assertEqual(odp.data["metas"][0]["poster"], "https://img/pulse.jpg")
-        self.r.route(f"/c/{KOUSEK}/koncerty/catalog/movie/nokturno.koncerty/search=abba&skip=100.json", ZAKLAD)
+        self.r.route(f"/c/{KOUSEK}/koncerty/catalog/Koncerty/nokturno.koncerty/search=abba&skip=100.json", ZAKLAD)
         # KOUSEK = WebShare + výchozí HellSpy (from_mapping ho zapíná)
         self.assertEqual(self.dash.volani, [("items", ("webshare", "hellspy"), "", 0),
                                             ("items", ("webshare", "hellspy"), "abba", 100)])
-        self.assertEqual(self.r.route(f"/c/{KOUSEK}/koncerty/catalog/movie/jiny.json", ZAKLAD).status, 404)
-        self.assertEqual(self.r.route(f"/c/{KOUSEK_HS}/koncerty/catalog/movie/nokturno.koncerty.json", ZAKLAD)
+        self.assertEqual(self.r.route(f"/c/{KOUSEK}/koncerty/catalog/Koncerty/jiny.json", ZAKLAD).status, 404)
+        self.assertEqual(self.r.route(f"/c/{KOUSEK_HS}/koncerty/catalog/Koncerty/nokturno.koncerty.json", ZAKLAD)
                          .data["metas"][0]["id"], "nktc:7")
         self.assertEqual(self.dash.volani[-1][1], ("hellspy",))
 
     def test_nove_pridane_prvni_a_bez_strankovani(self):
         m = self.r.route(f"/c/{KOUSEK}/koncerty/manifest.json", ZAKLAD).data
         self.assertEqual([c["id"] for c in m["catalogs"]], ["nokturno.koncerty.nove", "nokturno.koncerty"])
-        odp = self.r.route(f"/c/{KOUSEK}/koncerty/catalog/movie/nokturno.koncerty.nove.json", ZAKLAD)
+        odp = self.r.route(f"/c/{KOUSEK}/koncerty/catalog/Koncerty/nokturno.koncerty.nove.json", ZAKLAD)
         self.assertEqual([x["id"] for x in odp.data["metas"]], ["nktc:7"])
         self.assertEqual(self.dash.volani, [("recent", ("webshare", "hellspy"))])
-        odp = self.r.route(f"/c/{KOUSEK}/koncerty/catalog/movie/nokturno.koncerty.nove/skip=100.json", ZAKLAD)
+        odp = self.r.route(f"/c/{KOUSEK}/koncerty/catalog/Koncerty/nokturno.koncerty.nove/skip=100.json", ZAKLAD)
         self.assertEqual(odp.data["metas"], [], "nově přidané mají jen jednu stránku")
         self.assertEqual(len(self.dash.volani), 1)
 
     def test_meta_a_streamy_pres_play(self):
-        meta = self.r.route(f"/c/{KOUSEK}/koncerty/meta/movie/nktc:7.json", ZAKLAD).data["meta"]
-        self.assertEqual((meta["id"], meta["type"]), ("nktc:7", "movie"))
+        meta = self.r.route(f"/c/{KOUSEK}/koncerty/meta/Koncerty/nktc:7.json", ZAKLAD).data["meta"]
+        self.assertEqual((meta["id"], meta["type"]), ("nktc:7", "Koncerty"))
         self.assertIn("pulse.mkv", meta["description"])
         self.assertEqual((meta["poster"], meta["background"]), ("https://img/detail.jpg",) * 2)
-        self.assertEqual(self.r.route(f"/c/{KOUSEK}/koncerty/meta/movie/nktc:8.json", ZAKLAD).status, 404)
-        self.assertEqual(self.r.route(f"/c/{KOUSEK}/koncerty/meta/movie/tt1.json", ZAKLAD).status, 404)
-        streamy = self.r.route(f"/c/{KOUSEK}/koncerty/stream/movie/nktc:7.json", ZAKLAD).data["streams"]
+        self.assertEqual(self.r.route(f"/c/{KOUSEK}/koncerty/meta/Koncerty/nktc:8.json", ZAKLAD).status, 404)
+        self.assertEqual(self.r.route(f"/c/{KOUSEK}/koncerty/meta/Koncerty/tt1.json", ZAKLAD).status, 404)
+        streamy = self.r.route(f"/c/{KOUSEK}/koncerty/stream/Koncerty/nktc:7.json", ZAKLAD).data["streams"]
         # FastShare chce hlavičky — falešné jádro je nedá, takže zůstane jen WebShare přes /play/
         self.assertEqual(len(streamy), 1)
         self.assertTrue(streamy[0]["url"].startswith(f"{ZAKLAD}/c/{KOUSEK}/play/"), streamy[0]["url"])
