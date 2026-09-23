@@ -287,8 +287,9 @@ def manifest(verze, zdroje=(), nastaveno=True, katalogy=(), nova_adresa=None):
     a co neumíme, vrátí prázdno; jeden dotaz navíc je levnější než chybějící
     streamy u poloviny knihovny.
     """
-    popis = ("Streamy z WebShare, Sosáče, Sledujteto, FastShare, Přehraj.to a HellSpy "
-             "k filmům a seriálům, které už ve Stremiu vidíš.")
+    popis = ("Přehrávač tvého vlastního úložiště (WebDAV, NAS, přímé odkazy) přímo ve Stremiu. "
+             "Volitelně umí hledat i ve vyhledávačích třetích stran (WebShare, Sosáč, Sledujteto, "
+             "FastShare, Přehraj.to, HellSpy). Doplněk sám žádný obsah nehostuje.")
     if zdroje:
         popis += " Nastavené zdroje: " + ", ".join(zdroje) + "."
     if nova_adresa:
