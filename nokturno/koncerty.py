@@ -53,11 +53,9 @@ class Koncerty:
 
     def manifest(self, verze, options):
         srcs = zdroje(options)
-        popis = "Hudební koncerty z WebShare, HellSpy a FastShare — záznamy vystoupení podle interpreta, bez IMDb."
-        if srcs:
-            popis += " Nastavené zdroje: " + ", ".join(config.NAZVY_ZDROJU[s] for s in srcs) + "."
-        else:
-            popis += " ⚠️ V nastavení není zapnutý žádný zdroj, který koncerty umí (WebShare, HellSpy, FastShare)."
+        popis = "Záznamy hudebních koncertů podle interpreta."
+        if not srcs:
+            popis += " ⚠️ V nastavení není zapnutý žádný zdroj, který koncerty umí."
         return {
             "id": ID,
             "version": mapping.manifest_version(verze),

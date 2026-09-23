@@ -567,7 +567,7 @@ class TestKoncerty(unittest.TestCase):
         m = self.r.route(f"/c/{KOUSEK}/koncerty/manifest.json", ZAKLAD).data
         self.assertEqual((m["id"], m["types"], m["idPrefixes"]), ("cz.nokturno.koncerty", ["movie"], ["nktc:"]))
         self.assertEqual(m["resources"], ["catalog", "meta", "stream"])
-        self.assertIn("WebShare", m["description"])
+        self.assertNotIn("WebShare", m["description"], "popis bez názvů zdrojů")
         self.assertFalse(m["behaviorHints"]["configurationRequired"])
         bez = config.encode(config.from_mapping({"st_email": "a@b.cz", "st_password": "x", "hs_enabled": False}))
         m = self.r.route(f"/c/{bez}/koncerty/manifest.json", ZAKLAD).data
