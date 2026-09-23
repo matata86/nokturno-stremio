@@ -16,6 +16,8 @@ _LOGGER = logging.getLogger("nokturno")
 ID = "cz.nokturno.koncerty"
 PREFIX = "nktc:"
 KATALOG = "nokturno.koncerty"
+NOVE = "nokturno.koncerty.nove"   # 50 naposledy schválených (dashboard `/concerts/recent`), bez stránkování
+KATALOGY = (NOVE, KATALOG)
 TYP = "movie"
 STRANKA = 100   # tolik vrací dashboard na jeden `skip`
 LOGO = "https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/resources/media/icon2.png"
@@ -65,17 +67,21 @@ class Koncerty:
             "resources": ["catalog", "meta", "stream"],
             "types": [TYP],
             "idPrefixes": [PREFIX],
-            "catalogs": [{"type": TYP, "id": KATALOG, "name": "Koncerty",
+            "catalogs": [{"type": TYP, "id": NOVE, "name": "Koncerty – nově přidané"},
+                         {"type": TYP, "id": KATALOG, "name": "Koncerty",
                           "extra": [{"name": "search", "isRequired": False}, {"name": "skip", "isRequired": False}]}],
             "behaviorHints": {"configurable": False, "configurationRequired": not srcs},
         }
 
-    def katalog(self, options, search="", skip=0):
+    def katalog(self, options, search="", skip=0, katalog=KATALOG):
         srcs = zdroje(options)
-        if not srcs:
+        if not srcs or (katalog == NOVE and (search or skip)):
             return {"metas": []}
         try:
-            polozky, _celkem = self.dash.concert_items(srcs, search=search, skip=skip)
+            if katalog == NOVE:
+                polozky = self.dash.concert_recent(srcs)
+            else:
+                polozky, _celkem = self.dash.concert_items(srcs, search=search, skip=skip)
         except Exception as err:  # noqa: BLE001 – výpadek dashboardu = prázdný katalog, ne chyba služby
             _LOGGER.warning("katalog koncertů: %s", err)
             return {"metas": []}

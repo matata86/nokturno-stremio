@@ -542,6 +542,10 @@ class FalesnyDash:
         self.volani.append(("items", tuple(sources), search, skip))
         return self.polozky, len(self.polozky)
 
+    def concert_recent(self, sources, install=""):
+        self.volani.append(("recent", tuple(sources)))
+        return self.polozky
+
     def concert(self, concert_id, sources, install=""):
         self.volani.append(("concert", concert_id, tuple(sources)))
         return self.koncert if concert_id == 7 else None
@@ -580,6 +584,16 @@ class TestKoncerty(unittest.TestCase):
         self.assertEqual(self.r.route(f"/c/{KOUSEK_HS}/koncerty/catalog/movie/nokturno.koncerty.json", ZAKLAD)
                          .data["metas"][0]["id"], "nktc:7")
         self.assertEqual(self.dash.volani[-1][1], ("hellspy",))
+
+    def test_nove_pridane_prvni_a_bez_strankovani(self):
+        m = self.r.route(f"/c/{KOUSEK}/koncerty/manifest.json", ZAKLAD).data
+        self.assertEqual([c["id"] for c in m["catalogs"]], ["nokturno.koncerty.nove", "nokturno.koncerty"])
+        odp = self.r.route(f"/c/{KOUSEK}/koncerty/catalog/movie/nokturno.koncerty.nove.json", ZAKLAD)
+        self.assertEqual([x["id"] for x in odp.data["metas"]], ["nktc:7"])
+        self.assertEqual(self.dash.volani, [("recent", ("webshare", "hellspy"))])
+        odp = self.r.route(f"/c/{KOUSEK}/koncerty/catalog/movie/nokturno.koncerty.nove/skip=100.json", ZAKLAD)
+        self.assertEqual(odp.data["metas"], [], "nově přidané mají jen jednu stránku")
+        self.assertEqual(len(self.dash.volani), 1)
 
     def test_meta_a_streamy_pres_play(self):
         meta = self.r.route(f"/c/{KOUSEK}/koncerty/meta/movie/nktc:7.json", ZAKLAD).data["meta"]

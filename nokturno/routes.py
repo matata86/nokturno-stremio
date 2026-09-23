@@ -748,17 +748,18 @@ class Router:
             if casti[0] == "meta":
                 data = self.koncerty.meta(options, polozka)
                 return Odpoved(data=data) if data else chyba(404, "Takový koncert tu není.")
-            if polozka != koncerty_mod.KATALOG:
+            if polozka not in koncerty_mod.KATALOGY:
                 return chyba(404, "Takový katalog tu není.")
-            return Odpoved(data=self.koncerty.katalog(options))
+            return Odpoved(data=self.koncerty.katalog(options, katalog=polozka))
         if len(casti) == 4 and casti[0] == "catalog" and casti[1] == koncerty_mod.TYP and casti[3].endswith(".json"):
-            if casti[2] != koncerty_mod.KATALOG:
+            if casti[2] not in koncerty_mod.KATALOGY:
                 return chyba(404, "Takový katalog tu není.")
             if not self.katalog_okno.povolit(klic_klienta(klient) or "?"):
                 odp = chyba(429, "Příliš mnoho požadavků na katalog za sebou, zkus to za pár minut.")
                 odp.utok = ("limit", config.fingerprint(options))
                 return odp
-            return Odpoved(data=self.koncerty.katalog(options, **self._extra_koncertu(casti[3][:-len(".json")])))
+            return Odpoved(data=self.koncerty.katalog(options, katalog=casti[2],
+                                                      **self._extra_koncertu(casti[3][:-len(".json")])))
         if len(casti) == 3 and casti[0] == "stream" and casti[1] == koncerty_mod.TYP and casti[2].endswith(".json"):
             odp = self._omezit(self.stream_okno, options, klient, "streamy")
             if odp is not None:
