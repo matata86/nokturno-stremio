@@ -621,6 +621,19 @@ class TestKoncerty(unittest.TestCase):
         self.assertEqual((d.base, d.headers), ("http://127.0.0.1:8080", {"X-Nokturno-Token": "t"}))
         self.assertEqual(dash_koncertu(Provoz(token=""), None).headers, {})
 
+    def test_koncerty_jako_volitelny_katalog(self):
+        bez = self.r.route(f"/c/{KOUSEK}/manifest.json", ZAKLAD).data
+        self.assertNotIn("Koncerty", bez["types"])
+        k = config.encode(config.decode(KOUSEK) | {"katalogy": "koncerty"})
+        m = self.r.route(f"/c/{k}/manifest.json", ZAKLAD).data
+        self.assertIn("Koncerty", m["types"])
+        self.assertIn("nokturno.koncerty.nove", [c["id"] for c in m["catalogs"]])
+        self.assertIn({"name": "meta", "types": ["Koncerty"], "idPrefixes": ["nktc:"]}, m["resources"])
+        self.assertEqual([x["id"] for x in self.r.route(f"/c/{k}/catalog/Koncerty/nokturno.koncerty.json", ZAKLAD)
+                          .data["metas"]], ["nktc:7"])
+        self.assertEqual(self.r.route(f"/c/{k}/meta/Koncerty/nktc:7.json", ZAKLAD).data["meta"]["id"], "nktc:7")
+        self.assertEqual(len(self.r.route(f"/c/{k}/stream/Koncerty/nktc:7.json", ZAKLAD).data["streams"]), 1)
+
     def test_bez_koncertu_v_routeru_404(self):
         self.r.koncerty = None
         self.assertEqual(self.r.route(f"/c/{KOUSEK}/koncerty/manifest.json", ZAKLAD).status, 404)

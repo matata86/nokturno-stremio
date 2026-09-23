@@ -18,6 +18,7 @@ PREFIX = "nktc:"
 KATALOG = "nokturno.koncerty"
 NOVE = "nokturno.koncerty.nove"   # 50 naposledy schválených (dashboard `/concerts/recent`), bez stránkování
 KATALOGY = (NOVE, KATALOG)
+KLIC = "koncerty"   # hodnota v poli `katalogy` nastavení — zapne koncerty v hlavním doplňku
 TYP = "Koncerty"   # vlastní typ: Stremio ho vypíše vedle názvu katalogu místo „Filmy“
 STRANKA = 100   # tolik vrací dashboard na jeden `skip`
 LOGO = "https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/resources/media/icon2.png"

@@ -51,7 +51,7 @@ from .kliky import Kliky
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "8.0.0"
+VERZE = "8.1.0"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -431,10 +431,22 @@ class Router:
         zdroje = config.sources_from_options(options)
         katalogy = self.katalogy.manifest(options) if self.katalogy else []
         data = mapping.manifest(self.verze, zdroje, nastaveno=bool(zdroje), katalogy=katalogy, nova_adresa=nova_adresa)
+        if self._koncerty_zapnute(options):
+            # koncerty jako volitelný katalog hlavního doplňku: vlastní typ a `nktc:` id,
+            # meta jen pro ně — filmy a seriály dál popisuje Cinemeta
+            k = self.koncerty.manifest(self.verze, options)
+            data["catalogs"] += k["catalogs"]
+            data["types"] = data["types"] + [koncerty_mod.TYP]
+            data["resources"] = ["stream", "catalog",
+                                 {"name": "meta", "types": [koncerty_mod.TYP], "idPrefixes": [koncerty_mod.PREFIX]}]
         data["behaviorHints"]["configurable"] = True
         # bez vlastního nastavení ať Stremio rovnou nabídne formulář
         data["behaviorHints"]["configurationRequired"] = not (nastaveno or zdroje)
         return Odpoved(data=data)
+
+    def _koncerty_zapnute(self, options):
+        chtene = {x.strip() for x in str((options or {}).get("katalogy") or "").split(",")}
+        return self.koncerty is not None and koncerty_mod.KLIC in chtene and bool(koncerty_mod.zdroje(options))
 
     def health(self):
         return Odpoved(data={"ok": True, "verze": self.verze, "jader": len(self.enginy)})
@@ -460,7 +472,12 @@ class Router:
             soucasne = self.enginy.vychozi_options
         # hodnoty z adresy jsou od kohokoli — do <script> jen escapované (viz json_do_scriptu)
         html = html.replace("__NASTAVENI__", mapping.json_do_scriptu(soucasne or {}))
-        html = html.replace("__KATALOGY__", mapping.json_do_scriptu(self.katalogy.formular(jazyk) if self.katalogy else []))
+        nabidka = self.katalogy.formular(jazyk) if self.katalogy else []
+        if self.koncerty is not None:
+            nabidka = nabidka + [{"klic": koncerty_mod.KLIC, "typ": koncerty_mod.TYP,
+                                  "nazev": "Koncerty (záznamy hudobných koncertov)" if jazyk == "sk"
+                                  else "Koncerty (záznamy hudebních koncertů)"}]
+        html = html.replace("__KATALOGY__", mapping.json_do_scriptu(nabidka))
         html = html.replace("__ZAKLAD__", html_lib.escape(zaklad, quote=True))
         html = html.replace("__VERZE__", self.verze)
         html = html.replace("__ID__", self._identita_pro_formular(soucasne, klient))
@@ -877,6 +894,11 @@ class Router:
             return self._koncerty(options, zbytek[len("/koncerty"):], zaklad, kousek, klient, verejny)
 
         casti = [c for c in zbytek.split("/") if c]
+        if (kousek and self.koncerty is not None and len(casti) >= 3
+                and casti[0] in ("catalog", "meta", "stream") and casti[1] == koncerty_mod.TYP):
+            if stara:
+                return chyba(410, "Tahle adresa doplňku je zastaralá. Otevři Nastavení doplňku, odeber ho a přidej nový.")
+            return self._koncerty(options, zbytek, zaklad, kousek, klient, verejny)
         if casti and casti[0] == "catalog":
             # katalog na účtech nezávisí — jádro se nezakládá, cache je jedna pro všechny
             if not self.katalog_okno.povolit(klic_klienta(klient) or "?"):

@@ -114,8 +114,6 @@
           border-bottom: 0; border-radius: 14px 14px 0 0; padding: .85rem 1rem; max-width: 47rem; margin: 0 auto;
           box-shadow: 0 -10px 28px rgba(0,0,0,.5); }
   .akce-radek { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
-  .akce-radek.koncerty { margin-top: .5rem; padding-top: .5rem; border-top: 1px solid var(--okraj); }
-  .koncerty-stitek { font-weight: 600; white-space: nowrap; }
   .akce-souhrn { font-size: .84rem; color: var(--tlumene); margin-left: auto; }
   .stav { margin-top: .45rem; font-size: .88rem; color: #cbbcff; }
   .stav:empty { display: none; }
@@ -139,12 +137,8 @@
     .dlouhe { display: none; }
     .kratke { display: inline; }
     details.adresa { margin-top: .25rem; }
-    /* lišta rostla s Koncerty a poznámkou o identitě — po souhlasu schovat text souhlasu,
-       zbytek zhustit */
+    /* po souhlasu schovat text souhlasu, lišta jinak zabírá půl telefonu */
     .akce:has(#souhlas-podminky:checked) > label.prepinac { display: none; }
-    .akce-radek.koncerty { margin-top: .35rem; padding-top: .35rem; }
-    .akce-radek.koncerty button { padding: .4rem .5rem; font-size: .84rem; }
-    .koncerty-stitek { font-size: .86rem; }
     #identita-pozn { font-size: .72rem; margin-top: .25rem; }
   }
   .zarizeni { display: grid; grid-template-columns: repeat(3, 1fr); gap: .8rem; }
@@ -671,11 +665,6 @@
     <span class="akce-souhrn" id="souhrn-zdroju"></span>
   </div>
   <div class="stav" id="stav"></div>
-  <div class="akce-radek koncerty" title="Záznamy hudobných koncertov ako samostatný doplnok s rovnakým nastavením.">
-    <span class="koncerty-stitek">🎸 Koncerty</span>
-    <button type="button" id="koncerty-stremio" disabled><span class="dlouhe">Pridať do Stremia</span><span class="kratke">Stremio</span></button>
-    <button type="button" id="koncerty-kopirovat" disabled>Skopírovať<span class="dlouhe"> adresu</span></button>
-  </div>
   <details class="adresa"><summary>Zobraziť adresu doplnku</summary><pre id="adresa"></pre></details>
   <p id="identita-pozn" class="pozn" hidden>Adresa nesie tvoju osobnú identitu (okrem účtov). Nikomu ju neposielaj — kto ju má, používa limity a prípadnú blokáciu s tebou. Každý si má vyrobiť vlastnú na tejto stránke.</p>
 </div>
@@ -1010,9 +999,9 @@ $("overit-su").addEventListener("click", () => {
 // zaškrtnutý — na túto stránku sa dostane len ten, kto si adresu už predtým vyrobil. ---
 const souhlas = $("souhlas-podminky");
 if (Object.keys(soucasne).length > 0) souhlas.checked = true;
-for (const id of ["instalovat", "nuvio", "kopirovat", "koncerty-stremio", "koncerty-kopirovat"]) $(id).disabled = !souhlas.checked;
+for (const id of ["instalovat", "nuvio", "kopirovat"]) $(id).disabled = !souhlas.checked;
 souhlas.addEventListener("change", () => {
-  for (const id of ["instalovat", "nuvio", "kopirovat", "koncerty-stremio", "koncerty-kopirovat"]) $(id).disabled = !souhlas.checked;
+  for (const id of ["instalovat", "nuvio", "kopirovat"]) $(id).disabled = !souhlas.checked;
   prekresli();   // adresa v "Zobraziť adresu doplnku" sa bez súhlasu neukazuje ani tu
 });
 prekresli();   // súhlas pri editácii je zaškrtnutý od začiatku — adresa sa má ukázať hneď
@@ -1032,22 +1021,6 @@ $("nuvio").addEventListener("click", () => {
   if (chyba) { nastavStav(chyba, true); return; }
   nastavStav("Otváram Nuvio… Keď sa nič nestane, použi Skopírovať adresu.");
   window.location.href = adresa().replace(/^https?:\/\//, "nuvio://");
-});
-
-// doplněk Koncerty: táž adresa s nastavením, jen `/koncerty/manifest.json`
-const adresaKoncertu = () => ZAKLAD + "/c/" + kousek() + "/koncerty/manifest.json";
-$("koncerty-stremio").addEventListener("click", (e) => {
-  e.preventDefault();
-  const chyba = problem();
-  if (chyba) { nastavStav(chyba, true); return; }
-  window.location.href = adresaKoncertu().replace(/^https?:\/\//, "stremio://");
-});
-$("koncerty-kopirovat").addEventListener("click", async (e) => {
-  e.preventDefault();
-  const chyba = problem();
-  if (chyba) { nastavStav(chyba, true); return; }
-  try { await navigator.clipboard.writeText(adresaKoncertu()); nastavStav("Adresa doplňku Koncerty zkopírována."); }
-  catch { nastavStav("Kopírování prohlížeč nedovolil.", true); }
 });
 
 $("kopirovat").addEventListener("click", async () => {
