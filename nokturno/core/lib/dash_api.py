@@ -462,6 +462,8 @@ def _concerts_with_files(raw, with_artist=False):
         title = _text(c.get("title"), 200)
         year = c.get("year") if isinstance(c.get("year"), int) else None
         item = {"title": title, "year": year, "files": files}
+        if isinstance(c.get("id"), int):
+            item["id"] = c["id"]   # Stremio z něj skládá `nktc:<id>`
         if with_artist:
             item["artist"] = _text(c.get("artist"), MAX_TITLE)
             if not item["artist"]:
