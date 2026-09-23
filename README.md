@@ -9,7 +9,7 @@ volitelně k nim dohledá i streamy z **WebShare**, **Sosáče**, **Sledujteto**
 
 ## Jak přidat
 
-1. Otevři **[nokturno.tailf0014.ts.net/configure](https://nokturno.tailf0014.ts.net/configure)**.
+1. Otevři **[nokturno.stream/configure](https://nokturno.stream/configure)**.
 2. Vyplň účty ke zdrojům, které používáš (žádný není povinný) a klikni na **Přidat do Stremia** nebo **Přidat do Nuvia**.
 3. Do Streamletu se adresa vkládá ručně (*Zkopírovat adresu*).
 
@@ -30,7 +30,7 @@ Stremio je záměrně nejjednodušší: nemá CZtor (každé nastavení by potř
 a server by držel tokeny cizích placených účtů) ani Lunu (ta má vlastní oficiální doplněk).
 Kdo chce víc — stahování, titulky z OpenSubtitles, Trakt, TV program — použije Kodi.
 
-**Přidat do Stremia:** otevři **[nokturno.tailf0014.ts.net/configure](https://nokturno.tailf0014.ts.net/configure)**,
+**Přidat do Stremia:** otevři **[nokturno.stream/configure](https://nokturno.stream/configure)**,
 vyplň účty a klikni na *Přidat do Stremia* nebo *Přidat do Nuvia*.
 
 ## Co umí
@@ -75,7 +75,7 @@ náhodné, jedno na server (`<data>/pady/id`). Vypnutí: `NOKTURNO_CRASH_REPORTS
 ## Stav a co dál
 
 Stabilní 5.5.0, v provozu na vlastní instanci, veřejně přes Tailscale Funnel na
-[nokturno.tailf0014.ts.net](https://nokturno.tailf0014.ts.net/). Nastavení s návody je na
+[nokturno.stream](https://nokturno.stream/). Nastavení s návody je na
 `/configure`, včetně ověření účtů WebShare, Sledujteto a FastShare i vlastních úložišť.
 
 Veřejná instance je chráněná: ověřování účtů má limit požadavků na jedno nastavení,
@@ -201,7 +201,7 @@ sám nahraješ a zpřístupníš (např. přes WebDAV). Vyhledávače třetích 
 (WebShare, Sosáč, HellSpy, Sledujteto, FastShare, Přehraj.to, CZtor, Luna,
 OpenSubtitles) jsou jen volitelná doplňková služba, doplněk sám žádný obsah
 nehostuje. Plný text a kontakty pro nahlášení nelegálního obsahu u jednotlivých
-zdrojů: [nokturno.tailf0014.ts.net/terms](https://nokturno.tailf0014.ts.net/terms).
+zdrojů: [nokturno.stream/terms](https://nokturno.stream/terms).
 
 ## Licence
 
