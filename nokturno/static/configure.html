@@ -137,6 +137,13 @@
     .akce-souhrn { display: none; }
     .dlouhe { display: none; }
     details.adresa { margin-top: .25rem; }
+    /* lišta rostla s Koncerty a poznámkou o identitě — po souhlasu schovat text souhlasu,
+       zbytek zhustit */
+    .akce:has(#souhlas-podminky:checked) > label.prepinac { display: none; }
+    .akce-radek.koncerty { margin-top: .35rem; padding-top: .35rem; }
+    .akce-radek.koncerty button { padding: .4rem .5rem; font-size: .84rem; }
+    .koncerty-stitek { font-size: .86rem; }
+    #identita-pozn { font-size: .72rem; margin-top: .25rem; }
   }
   .zarizeni { display: grid; grid-template-columns: repeat(3, 1fr); gap: .8rem; }
   @media (max-width: 40rem) { .zarizeni { grid-template-columns: 1fr; } }
