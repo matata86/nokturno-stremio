@@ -106,6 +106,7 @@
   button:disabled { opacity: .55; cursor: progress; }
   button.hlavni { background: var(--akcent); border-color: var(--akcent); color: #fff; }
   button.hlavni:hover { background: var(--akcent-tmavy); }
+  .kratke { display: none; }
   button.male { padding: .42rem .8rem; font-size: .86rem; }
 
   /* lišta s instalací drží dole — neprůhledná, jinak se na mobilu překrývala s formulářem */
@@ -136,6 +137,7 @@
     .akce-radek button { flex: 1; padding: .62rem .5rem; font-size: .9rem; white-space: nowrap; }
     .akce-souhrn { display: none; }
     .dlouhe { display: none; }
+    .kratke { display: inline; }
     details.adresa { margin-top: .25rem; }
     /* lišta rostla s Koncerty a poznámkou o identitě — po souhlasu schovat text souhlasu,
        zbytek zhustit */
@@ -663,15 +665,15 @@
     <span>Potvrdzujem, že budem doplnok používať iba na obsah, ku ktorému mám právo prístupu, a súhlasím s <a href="__ZAKLAD__/terms?lang=sk" target="_blank" rel="noopener">podmienkami použitia</a>.</span>
   </label>
   <div class="akce-radek">
-    <button type="button" class="hlavni" id="instalovat" disabled><span class="dlouhe">Pridať do </span>Stremia</button>
-    <button type="button" class="hlavni" id="nuvio" disabled><span class="dlouhe">Pridať do </span>Nuvia</button>
+    <button type="button" class="hlavni" id="instalovat" disabled><span class="dlouhe">Pridať do Stremia</span><span class="kratke">Stremio</span></button>
+    <button type="button" class="hlavni" id="nuvio" disabled><span class="dlouhe">Pridať do Nuvia</span><span class="kratke">Nuvio</span></button>
     <button type="button" id="kopirovat" disabled>Skopírovať<span class="dlouhe"> adresu</span></button>
     <span class="akce-souhrn" id="souhrn-zdroju"></span>
   </div>
   <div class="stav" id="stav"></div>
   <div class="akce-radek koncerty" title="Záznamy hudobných koncertov ako samostatný doplnok s rovnakým nastavením.">
     <span class="koncerty-stitek">🎸 Koncerty</span>
-    <button type="button" id="koncerty-stremio" disabled><span class="dlouhe">Pridať do </span>Stremia</button>
+    <button type="button" id="koncerty-stremio" disabled><span class="dlouhe">Pridať do Stremia</span><span class="kratke">Stremio</span></button>
     <button type="button" id="koncerty-kopirovat" disabled>Skopírovať<span class="dlouhe"> adresu</span></button>
   </div>
   <details class="adresa"><summary>Zobraziť adresu doplnku</summary><pre id="adresa"></pre></details>
