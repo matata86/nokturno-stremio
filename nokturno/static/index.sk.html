@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Nokturno — prehrávač vlastného úložiska pre Kodi, Home Assistant a Stremio</title>
-<meta name="description" content="Nokturno — prehrávač tvojho vlastného úložiska (WebDAV, NAS, priame odkazy) pre Kodi, Home Assistant a Stremio. Voliteľne aj hľadanie vo WebShare, Sosáči, Sledujteto, FastShare, HellSpy, Prehraj.to a Lune.">
+<meta name="description" content="Nokturno — prehrávač tvojho vlastného úložiska (WebDAV, NAS, priame odkazy) pre Kodi, Home Assistant a Stremio.">
+<meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/resources/media/icon2.png">
 <style>
   :root {
@@ -24,14 +25,6 @@
   .hlava img { width: 72px; height: 72px; border-radius: 16px; flex: none; }
   h1 { font-size: 2rem; margin: 0; line-height: 1.15; }
   .podtitul { color: var(--tlumene); margin: .2rem 0 0; }
-  .banner { display: block; width: 100%; aspect-ratio: 16 / 7; object-fit: cover; border-radius: 16px;
-            border: 1px solid var(--okraj); margin: 1.5rem 0 1rem; background: var(--panel); }
-  .zdroje { display: flex; flex-wrap: wrap; gap: .45rem; margin: 0 0 2rem; padding: 0; list-style: none; }
-  .zdroje li { padding: .25rem .75rem; border-radius: 99px; border: 1px solid var(--okraj); background: var(--panel);
-               font-size: .86rem; }
-  .zdroje li span { color: var(--tlumene); }
-  .zdroje li.hlavni { border-color: var(--akcent); color: var(--akcent); font-weight: 600; }
-  .zdroje li.hlavni span { color: var(--akcent); opacity: .8; }
 
   h2 { font-size: 1.25rem; margin: 0 0 .9rem; }
   .mrizka { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2.25rem; }
@@ -69,15 +62,6 @@
   .jazyky a:hover { color: var(--text); }
   .jazyky a[aria-current] { color: var(--text); font-weight: 600; }
   footer { margin: 2.5rem 0 2rem; color: var(--tlumene); font-size: .82rem; text-align: center; }
-  .anketa { background: var(--panel); border: 1px solid var(--akcent); border-radius: 16px; padding: 1.2rem 1.4rem; margin: 1.5rem 0 0; }
-  .anketa h2 { margin: 0 0 .3rem; font-size: 1.15rem; }
-  .anketa p { margin: 0 0 .9rem; color: var(--tlumene); font-size: .92rem; }
-  .anketa .tlacitka { display: flex; gap: .7rem; flex-wrap: wrap; }
-  .anketa button { font: inherit; font-weight: 600; padding: .65rem 1.2rem; border-radius: 10px; border: 1px solid var(--okraj);
-                   background: var(--pozadi); color: var(--text); cursor: pointer; }
-  .anketa button:hover { border-color: var(--akcent); }
-  .anketa button.vybrano { background: var(--akcent); border-color: var(--akcent); color: #fff; }
-  #anketa-stav { color: var(--ok); font-size: .88rem; min-height: 1.3em; margin-top: .6rem; }
 </style>
 </head>
 <body>
@@ -86,36 +70,12 @@
     <img src="https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/resources/media/icon2.png" alt="">
     <div>
       <h1>Nokturno</h1>
-      <p class="podtitul">Prehrávač <strong>tvojho vlastného úložiska</strong> pre Kodi, Home Assistant a Stremio — a keď chceš, aj jedno hľadanie naprieč verejnými vyhľadávačmi.</p>
+      <p class="podtitul">Prehrávač <strong>tvojho vlastného úložiska</strong> pre Kodi, Home Assistant a Stremio.</p>
     </div>
     <nav class="jazyky" aria-label="Jazyk"><a href="?lang=cs" hreflang="cs" lang="cs">CZ</a> | <a href="?lang=sk" hreflang="sk" lang="sk" aria-current="true">SK</a></nav>
   </header>
 
-  <section class="anketa" id="anketa">
-    <h2>Mali by ste záujem o CZtor aj v Stremiu?</h2>
-    <p>CZtor je platený katalóg s vlastným účtom. V Kodi a Home Assistante sa už dá pripojiť cez Nokturno, zaujíma nás, či ho chcete aj v Stremiu, Nuviu a Streamlete. Hlasovanie je anonymné.</p>
-    <div class="tlacitka">
-      <button id="anketa-ano" type="button">👍 Áno, chcem</button>
-      <button id="anketa-ne" type="button">👎 Nie, nepotrebujem</button>
-    </div>
-    <div id="anketa-stav" data-ok="Vďaka za hlas! Odpoveď môžeš kedykoľvek zmeniť." data-chyba="Hlas sa nepodarilo uložiť, skús to o chvíľu."></div>
-  </section>
-
-  <img class="banner" src="https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/resources/media/fanart.jpg" alt="">
-
-  <ul class="zdroje">
-    <li class="hlavni">Vlastné úložisko <span>· WebDAV</span></li>
-    <li>WebShare <span>· VIP</span></li>
-    <li>Sosáč <span>· Streamuj.tv</span></li>
-    <li>Sledujteto <span>· Premium</span></li>
-    <li>FastShare <span>· kredit</span></li>
-    <li>HellSpy <span>· zadarmo</span></li>
-    <li>Přehraj.to <span>· Premium</span></li>
-    <li>Luna <span>· vlastný server</span></li>
-    <li>CZtor <span>· predplatné</span></li>
-  </ul>
-
-  <p style="color:var(--tlumene);font-size:.92rem;margin:-1.2rem 0 2rem"><a href="__ZAKLAD__/terms?lang=sk">Právne upozornenie</a> — Nokturno je predovšetkým prehrávač vlastného úložiska, vyhľadávače tretích strán sú len voliteľná doplnková služba.</p>
+  <p style="color:var(--tlumene);font-size:.92rem;margin:1.2rem 0 2rem"><a href="__ZAKLAD__/terms?lang=sk">Právne upozornenie</a> — Nokturno je predovšetkým prehrávač vlastného úložiska, vyhľadávače tretích strán sú len voliteľná doplnková služba.</p>
 
   <h2>Kde Nokturno beží</h2>
   <div class="mrizka">
@@ -193,28 +153,6 @@
 
   <footer>Nokturno pre Stremio __VERZE__ · anonymné štatistiky, žiadne účty na serveri · <a href="__ZAKLAD__/terms?lang=sk">právne upozornenie</a></footer>
 </main>
-<script>
-(function () {
-  var klic = "nokturno-anketa-id", id = "";
-  try { id = localStorage.getItem(klic) || ""; } catch (e) {}
-  if (!/^[0-9a-f]{32}$/.test(id)) {
-    var b = new Uint8Array(16);
-    if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(b); else for (var i = 0; i < 16; i++) b[i] = Math.random() * 256;
-    id = Array.prototype.map.call(b, function (x) { return ("0" + x.toString(16)).slice(-2); }).join("");
-    try { localStorage.setItem(klic, id); } catch (e) {}
-  }
-  var stav = document.getElementById("anketa-stav");
-  function hlasuj(volba) {
-    document.getElementById("anketa-ano").className = volba === "ano" ? "vybrano" : "";
-    document.getElementById("anketa-ne").className = volba === "ne" ? "vybrano" : "";
-    fetch("__ZAKLAD__/anketa/hlas?v=" + id + "&volba=" + volba, { cache: "no-store" })
-      .then(function (r) { stav.textContent = r.ok ? stav.dataset.ok : stav.dataset.chyba; })
-      .catch(function () { stav.textContent = stav.dataset.chyba; });
-  }
-  document.getElementById("anketa-ano").onclick = function () { hlasuj("ano"); };
-  document.getElementById("anketa-ne").onclick = function () { hlasuj("ne"); };
-})();
-</script>
 <script>
 document.querySelectorAll("[data-kopirovat]").forEach((tl) => tl.addEventListener("click", async () => {
   const stav = document.getElementById(tl.closest("#podpora") ? "stav-podpora" : "stav");

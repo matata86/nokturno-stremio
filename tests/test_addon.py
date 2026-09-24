@@ -2239,8 +2239,12 @@ class TestProvoz(unittest.TestCase):
         r = router()
         hlasy = []
         r.hlas = lambda *a: hlasy.append(a)
-        self.assertIn("Měli byste zájem o CZtor", r.route("/", ZAKLAD).html)
-        self.assertIn("Mali by ste záujem o CZtor", r.route("/", ZAKLAD, jazyk="sk").html)
+        # úvodní stránka je od 2026-09-24 neutrální: bez ankety, bez názvů zdrojů, neindexovat
+        for jazyk in ("cs", "sk"):
+            html = r.route("/", ZAKLAD, jazyk=jazyk).html
+            self.assertIn('name="robots" content="noindex', html)
+            for zdroj in ("CZtor", "WebShare", "HellSpy", "Sosáč", "FastShare", "Sledujteto", "Luna"):
+                self.assertNotIn(zdroj, html)
         self.assertEqual(r.route("/anketa", ZAKLAD).status, 302)
         v = "0123456789abcdef0123456789abcdef"
         self.assertEqual(r.route(f"/anketa/hlas?v={v}&volba=ano", ZAKLAD, klient="1.2.3.4").status, 200)
