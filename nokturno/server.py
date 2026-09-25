@@ -27,7 +27,7 @@ from .routes import Blokace, VERZE, Router, jazyk_z_hlavicky, klient_z_useragent
 from .statistiky import Statistiky
 from .pady import Pady
 from .provoz import Provoz
-from . import kliky as kliky_zprav
+from . import cztor, kliky as kliky_zprav
 
 _LOGGER = logging.getLogger("nokturno")
 
@@ -404,6 +404,7 @@ def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, opti
     smazano = uklid_dat(data_dir)
     if smazano:
         _LOGGER.info("úklid: %d složek jader bez použití přes 30 dní", smazano)
+    cztor.uklid(data_dir)   # ponytail: jen při startu; nasazuje se často, denní smyčku netřeba
     vychozi = options if options is not None else from_environ()
     enginy = Enginy(data_dir, vychozi, tmdb_key=os.environ.get("NOKTURNO_TMDB_KEY", "").strip())
     zdroje = sources_summary(enginy.pro())

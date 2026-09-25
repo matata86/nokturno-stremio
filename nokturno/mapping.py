@@ -43,7 +43,7 @@ NE_PRO_WEB = (".mkv", ".avi", ".ts", ".m2ts", ".wmv", ".flv")
 # schémata, která umí rozklíčovat `Engine.resolve()`; jiné se k přehrání nepustí.
 # Hotové http(s) odkazy (titulky Sledujteto) tu záměrně nejsou: `resolve()` je vrací
 # beze změny, takže by `/play/` byl veřejný přesměrovávač kamkoli — vydávají se rovnou.
-SCHEMATA = ("ws:", "hs:", "st:", "fs:", "dav:", "streamuj:", "pt:")
+SCHEMATA = ("ws:", "hs:", "st:", "fs:", "dav:", "streamuj:", "pt:", "cz:")
 PRIME = ("http://", "https://")
 # Zdroje, které chtějí u každého požadavku autentizační hlavičku (FastShare cookie
 # z přihlášení, vlastní úložiště Basic auth). Vydávají se jako přímá adresa zdroje
@@ -289,7 +289,7 @@ def manifest(verze, zdroje=(), nastaveno=True, katalogy=(), nova_adresa=None):
     """
     popis = ("Přehrávač tvého vlastního úložiště (WebDAV, NAS, přímé odkazy) přímo ve Stremiu. "
              "Volitelně umí hledat i ve vyhledávačích třetích stran (WebShare, Sosáč, Sledujteto, "
-             "FastShare, Přehraj.to, HellSpy). Doplněk sám žádný obsah nehostuje.")
+             "FastShare, Přehraj.to, HellSpy, CZtor). Doplněk sám žádný obsah nehostuje.")
     if zdroje:
         popis += " Nastavené zdroje: " + ", ".join(zdroje) + "."
     if nova_adresa:

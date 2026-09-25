@@ -64,6 +64,9 @@ PRAVDA = ("1", "true", "yes", "ano", "on")
 # identita uživatele (`identita.py`) — jde jen z adresy, nikdy z prostředí; tvar hlídá `identita.TVAR`
 ID_KLIC = "id"
 ID_RE = re.compile(r"^(?:[0-9a-f]{8}\.)?[0-9a-f]{16}\.[0-9a-f]{16}$")   # s časem vydání (6.1.3) i bez
+# klíč k zapečetěným tokenům CZtoru (`cztor.py`) — jen z adresy, vyrábí ho párování ve formuláři
+CZ_KLIC = "cz"
+CZ_RE = re.compile(r"^[0-9a-f]{32}$")
 # klíče, u kterých engine čeká pravdivostní hodnotu, ne řetězec
 LOGICKE = ("hs_enabled", "pref_surround", "hide_sd")
 
@@ -89,7 +92,12 @@ def from_mapping(raw):
     """
     options = dict(VYCHOZI)
     for key, value in (raw or {}).items():
-        if value is None or (key not in set(PROSTREDI.values()) and key != ID_KLIC):
+        if value is None or (key not in set(PROSTREDI.values()) and key not in (ID_KLIC, CZ_KLIC)):
+            continue
+        if key == CZ_KLIC:
+            if isinstance(value, str) and CZ_RE.match(value.strip()):
+                options[key] = value.strip()
+                options["cz_enabled"] = True   # přepínač jádra; bez spárování ho `Engine.cz` stejně vypne
             continue
         if key == ID_KLIC:
             if isinstance(value, str) and ID_RE.match(value.strip()):
@@ -205,7 +213,7 @@ def fingerprint(options):
 
 NAZVY_ZDROJU = {"luna": "Luna", "sosac": "Sosáč", "webshare": "WebShare",
                 "hellspy": "HellSpy", "sledujteto": "Sledujteto", "fastshare": "FastShare",
-                "prehrajto": "Přehraj.to", "storage": "vlastní úložiště",
+                "prehrajto": "Přehraj.to", "cztor": "CZtor", "storage": "vlastní úložiště",
                 "torrent": "torrenty"}
 
 
@@ -223,7 +231,7 @@ def ma_ucty(options):
     Nastavení jen s HellSpy a volbami sdílí spousta lidí — to takové není."""
     o = options or {}
     return any(str(o.get(k) or "").strip() for k in (
-        "ws_username", "streamuj_username", "st_email", "fs_username", "pt_email",
+        "ws_username", "streamuj_username", "st_email", "fs_username", "pt_email", CZ_KLIC,
         "dav1_url", "dav2_url", "dav3_url"))
 
 
@@ -239,6 +247,7 @@ def sources_from_options(options):
         "sledujteto": bool(str(o.get("st_email") or "").strip()),
         "fastshare": bool(str(o.get("fs_username") or "").strip()),
         "prehrajto": bool(str(o.get("pt_email") or "").strip()),
+        "cztor": bool(o.get(CZ_KLIC)),
         "storage": any(str(o.get(f"dav{n}_url") or "").strip() for n in (1, 2, 3)),
     }
     return [NAZVY_ZDROJU[k] for k, v in zapnuto.items() if v]

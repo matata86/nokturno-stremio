@@ -17,7 +17,7 @@ from .config import fingerprint
 from .core.engine import Engine
 from .core.lib.storage_api import PUBLIC_CRAWL_DEADLINE, PUBLIC_MAX_DIRS, PUBLIC_TIMEOUT
 from .core.lib.store import Store
-from . import sit
+from . import cztor, sit
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,6 +35,21 @@ SPOLECNA_SLOZKA = "_spolecne"   # cache společná všem jádrům, viz `Enginy.s
 # stropy pro procházení cizího úložiště z internetu (viz `_vytvor`)
 STROPY_ULOZISTE = {"crawl_deadline": PUBLIC_CRAWL_DEADLINE, "max_dirs": PUBLIC_MAX_DIRS,
                    "timeout": PUBLIC_TIMEOUT}
+
+
+class _Engine(Engine):
+    """Jádro, kterému CZtor drží tokeny v trezoru zapečetěném klíčem z adresy (`cztor.py`),
+    ne v otevřeném úložišti jádra jako v Kodi a HA."""
+
+    def __init__(self, *args, cz_data_dir=None, **kwargs):
+        self._cz_data_dir = cz_data_dir   # před super(): `Engine.__init__` už CZtor zkouší
+        super().__init__(*args, **kwargs)
+
+    def cztor_client(self):
+        klic = self._opt("cz")
+        if not klic or not self._cz_data_dir:
+            return super().cztor_client()
+        return cztor.klient(self._cz_data_dir, klic, cache=self.store)
 
 
 class PrilisMnohoNovych(Exception):
@@ -135,9 +150,9 @@ class Enginy:
         if self.tmdb_key:
             # až za otiskem: klíč je pro všechna nastavení stejný, nemá tříštit cache
             options = {**options, "tmdb_api_key": self.tmdb_key}
-        return Engine(options, slozka, opener=sit.OPENER if verejny else None,
-                      storage_limits=STROPY_ULOZISTE if verejny else None,
-                      shared_store=self.spolecne)
+        return _Engine(options, slozka, opener=sit.OPENER if verejny else None,
+                       storage_limits=STROPY_ULOZISTE if verejny else None,
+                       shared_store=self.spolecne, cz_data_dir=self.data_dir)
 
     def pro(self, options=None, verejny=False, klient=""):
         """Jádro pro dané nastavení; bez nastavení to výchozí z prostředí.

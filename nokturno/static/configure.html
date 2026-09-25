@@ -436,6 +436,33 @@
         </details>
       </div>
 
+      <!-- CZtor -->
+      <div class="karta">
+        <div class="karta-hlava">
+          <h3>CZtor</h3>
+          <span class="stitek">Volitelné · předplatné</span>
+        </div>
+        <p>Placený katalog filmů a seriálů se streamy v plné kvalitě včetně 4K a dabingu. Nepřihlašuješ se heslem, ale <strong>spárováním PINem</strong> na cztor.com. Heslo ani přihlášení tu nezadáváš a server tvoje přihlášení drží zašifrované klíčem, který je jen v adrese tvého doplňku. <strong>Hraje i ve webovém přehrávači</strong> (přímá adresa, žádná proxy).</p>
+        <input type="hidden" name="cz">
+        <div class="overeni">
+          <button type="button" class="male" id="parovat-cz">Spárovat CZtor</button>
+          <button type="button" class="male" id="overit-cz" hidden>Ověřit účet</button>
+          <button type="button" class="male" id="zrusit-cz" hidden>Zrušit párování</button>
+          <span class="vysledek" id="vysledek-cz"></span>
+        </div>
+        <details class="navod">
+          <summary>Jak na to — účet CZtor</summary>
+          <div class="obsah">
+            <ol>
+              <li>Na <a href="https://cztor.com/" target="_blank" rel="noopener">cztor.com</a> si založ účet a aktivuj předplatné.</li>
+              <li>Klikni na <strong>Spárovat CZtor</strong>. Ukáže se PIN a odkaz na cztor.com/activate.</li>
+              <li>Tam se přihlas a PIN zadej. Formulář to za pár vteřin sám pozná.</li>
+              <li>Adresa doplňku se tím změní — doplněk pak <strong>nainstaluj znovu</strong> tlačítkem dole.</li>
+            </ol>
+          </div>
+        </details>
+      </div>
+
       <!-- HellSpy -->
       <div class="karta">
         <div class="karta-hlava">
@@ -648,6 +675,7 @@
           <li><strong>FastShare</strong> — česká úschovna s velkým výběrem, hledá i bez účtu, přehrává z kreditu nebo s neomezeným stahováním. Jen v aplikaci Stremio, ne v prohlížeči.</li>
           <li><strong>HellSpy</strong> — veřejné soubory zdarma, bez účtu. Méně výběru, ale nic nestojí.</li>
           <li><strong>Přehraj.to</strong> — česká úschovna, ve Stremiu potřebuje účet (server je jedna IP, bez přihlášení by ho Přehraj.to omezil). S Premium hraje původní soubor, jinak překódovanou verzi. Hraje i v prohlížeči.</li>
+          <li><strong>CZtor</strong> — placený katalog s plnou kvalitou, páruje se PINem na cztor.com (heslo nezadáváš). Hraje i v prohlížeči.</li>
         </ul>
       </div>
     </details>
@@ -799,6 +827,7 @@ function zdroje(n = nastaveni()) {
   if (n.st_email) out.push("Sledujteto");
   if (n.fs_username) out.push("FastShare");
   if (n.pt_email) out.push("Přehraj.to");
+  if (n.cz) out.push("CZtor");
   if (n.hs_enabled) out.push("HellSpy");
   const uloziste = [1, 2, 3].filter((i) => n["dav" + i + "_url"]);
   if (uloziste.length) out.push(uloziste.length === 1 ? "vlastní úložiště" : uloziste.length + " vlastní úložiště");
@@ -996,6 +1025,83 @@ $("overit-su").addEventListener("click", () => {
   if (!n.streamuj_username && !n.streamuj_password) vysledek("su", "info", "Nevyplněno — Sosáč se vynechá.");
   else if (!n.streamuj_username || !n.streamuj_password) vysledek("su", "pozor", "Vyplň jméno i heslo.");
   else vysledek("su", "info", "Vyplněno. Streamuj neumí heslo ověřit dopředu, pozná se to při prvním přehrání.");
+});
+
+// --- CZtor: párování PINem. Do adresy jde jen klíč `cz`, tokeny drží server zapečetěné tímhle klíčem ---
+const CZ = {"zadam": "Žádám CZtor o PIN…", "jdi": "Otevři ", "zadej": " a zadej PIN ", "cekam": " · čekám na potvrzení…", "ok": "✓ Spárováno", "do_": " do ", "bez": "Spárováno, ale bez aktivního předplatného — streamy se neukážou.", "znovu": " Adresa doplňku se změnila, nainstaluj ho znovu tlačítkem dole.", "vyprsel": "PIN vypršel, zkus to znovu.", "nepovedlo": "Párování se nepovedlo (", "overuji": "Ověřuji účet CZtor…", "nesparovano": "Nespárováno.", "zruseno": "Párování zrušeno. Zařízení „Nokturno Stremio“ odeber i na cztor.com v seznamu zařízení.", "overeni": "Ověření se nepovedlo (", "pozdeji": "). Zkus to za chvíli."};
+function czTlacitka() {
+  const sparovano = !!form.elements["cz"].value;
+  $("parovat-cz").hidden = sparovano;
+  $("overit-cz").hidden = !sparovano;
+  $("zrusit-cz").hidden = !sparovano;
+}
+czTlacitka();
+function czUcet(u) {
+  if (!u || u.active === false) return ["pozor", CZ.bez];
+  return ["ok", CZ.ok + (u.plan ? " · " + u.plan : "") + (u.valid_until ? CZ.do_ + u.valid_until : "")];
+}
+async function czJson(url) {
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error((await res.text()) || res.status);
+  return res.json();
+}
+let czBeh = 0;
+$("parovat-cz").addEventListener("click", async () => {
+  const tl = $("parovat-cz"), beh = ++czBeh;
+  tl.disabled = true;
+  vysledek("cz", "info", CZ.zadam);
+  try {
+    const d = await czJson(ZAKLAD + "/cztor/pin");
+    const el = $("vysledek-cz");
+    el.className = "vysledek info";
+    el.textContent = "";
+    const odkaz = document.createElement("a");
+    odkaz.href = d.url; odkaz.target = "_blank"; odkaz.rel = "noopener"; odkaz.textContent = d.url.replace(/^https?:\/\//, "");
+    const pin = document.createElement("strong");
+    pin.textContent = d.pin;
+    el.append(CZ.jdi, odkaz, CZ.zadej, pin, CZ.cekam);
+    const konec = Date.now() + d.platnost * 1000;
+    while (beh === czBeh && Date.now() < konec) {
+      await new Promise((ok) => setTimeout(ok, d.interval * 1000));
+      const p = await czJson(ZAKLAD + "/cztor/poll?k=" + d.klic + "&t=" + encodeURIComponent(d.token));
+      if (p.stav === "chyba") throw new Error(p.zprava);
+      if (p.stav === "ok") {
+        form.elements["cz"].value = d.klic;
+        czTlacitka();
+        prekresli();
+        const [trida, text] = czUcet(p.ucet);
+        vysledek("cz", trida, text + CZ.znovu);
+        return;
+      }
+    }
+    if (beh === czBeh) vysledek("cz", "pozor", CZ.vyprsel);
+  } catch (err) {
+    vysledek("cz", "chyba", CZ.nepovedlo + err.message + ").");
+  } finally {
+    tl.disabled = false;
+  }
+});
+$("overit-cz").addEventListener("click", async () => {
+  const tl = $("overit-cz");
+  tl.disabled = true;
+  vysledek("cz", "info", CZ.overuji);
+  try {
+    const cz = (await overit()).cztor;
+    if (!cz) vysledek("cz", "pozor", CZ.nesparovano);
+    else if (!cz.ok) vysledek("cz", "chyba", cz.chyba);
+    else vysledek("cz", ...czUcet(cz));
+  } catch (err) {
+    vysledek("cz", "chyba", CZ.overeni + err.message + CZ.pozdeji);
+  } finally {
+    tl.disabled = false;
+  }
+});
+$("zrusit-cz").addEventListener("click", () => {
+  czBeh++;
+  form.elements["cz"].value = "";
+  czTlacitka();
+  prekresli();
+  vysledek("cz", "info", CZ.zruseno);
 });
 
 // --- souhlas s podmínkami: dokud není zaškrtnutý, tlačítka pro adresu jsou disabled.

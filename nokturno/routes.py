@@ -6,6 +6,8 @@
     GET /c/<nastavení>/stream/:t/:id.json   streamy k titulu
     GET /c/<nastavení>/play/:payload     302 na skutečný soubor
     GET /c/<nastavení>/check             ověření účtů pro formulář (WebShare + VIP)
+    GET /cztor/pin                       nový klíč a PIN pro párování CZtoru (viz cztor.py)
+    GET /cztor/poll?k=<klíč>&t=<token>   čeká na potvrzení PINu na cztor.com/activate
     GET /health                          pro kontejner
 
 Stremio nemá soubor nastavení — účty se nosí zakódované v cestě adresy, takže
@@ -44,7 +46,8 @@ from .core.lib.sledujteto_api import SledujtetoApi
 from .core.lib.fastshare_api import FastshareApi
 from .core.lib.prehrajto_api import PrehrajtoApi
 from .core.lib.storage_api import SLOTS, StorageApi
-from . import config, koncerty as koncerty_mod, mapping, sit
+from .core.lib.cztor_api import CztorError
+from . import config, cztor, koncerty as koncerty_mod, mapping, sit
 from .enginy import PrilisMnohoNovych
 from .identita import Identita
 from .kliky import Kliky
@@ -71,6 +74,10 @@ ID_LIMIT = (10, 3600)   # vydaných identit z jedné adresy za hodinu (formulá�
 PLAY_LIMIT = (120, 10 * 60)
 KATALOG_LIMIT = (600, 10 * 60)
 IP_STROP = (300, 10 * 60)
+# párování CZtoru: každý PIN založí zařízení u CZtoru a soubor na disku, proto přísně;
+# čekání na potvrzení se ptá po ~5 s a PIN platí asi 10 minut
+CZ_PIN_LIMIT = (10, 3600)
+CZ_POLL_LIMIT = (300, 10 * 60)
 MAX_SKIP = 500
 
 
@@ -370,6 +377,9 @@ class Router:
         self.hlas_okno = Okno(30, 3600)   # hlasů z jedné adresy za hodinu
         self.klik_okno = Okno(60, 10 * 60)   # prokliků zpráv z jedné adresy za 10 min
         self.id_okno = Okno(*ID_LIMIT)
+        self.cz_pin_okno = Okno(*CZ_PIN_LIMIT)
+        self.cz_poll_okno = Okno(*CZ_POLL_LIMIT)
+        self.cz_klient = lambda klic: cztor.klient(self.enginy.data_dir, klic)   # testy podstrčí falešný
         self.katalogy = katalogy   # nokturno.katalogy.Katalogy, None = katalogy se nenabízejí
         self.verze = verze
         # nabídnout ve formuláři účty z prostředí? Na sdílené instanci NE — ukázalo
@@ -599,6 +609,14 @@ class Router:
             except Exception as err:  # noqa: BLE001 – pro uživatele je každé selhání totéž
                 _LOGGER.info("ověření Přehraj.to %s: %s", pt_email[:3] + "…", err)
                 out["prehrajto"] = {"ok": False, "chyba": str(err) or "přihlášení selhalo"}
+        klic = options.get(config.CZ_KLIC)
+        if klic:
+            try:
+                api = self.cz_klient(klic)
+                out["cztor"] = ({"ok": True, **api.profile()} if api.paired()
+                                else {"ok": False, "chyba": "Zařízení není spárované — spáruj znovu."})
+            except CztorError as err:
+                out["cztor"] = {"ok": False, "chyba": str(err) or "ověření selhalo"}
         out["uloziste"] = []
         for n in range(1, SLOTS + 1):
             url = (options.get(f"dav{n}_url") or "").strip()
@@ -615,6 +633,38 @@ class Router:
                 out["uloziste"].append({"slot": n, "ok": False,
                                         "chyba": "nedostupné" if verejny else (str(err) or "nedostupné")})
         return Odpoved(data=out)
+
+    def cztor_pin(self, klient):
+        """Nový klíč do adresy doplňku a PIN, který uživatel potvrdí na cztor.com/activate."""
+        if not self.cz_pin_okno.povolit(klic_klienta(klient) or "?"):
+            return chyba(429, "Příliš mnoho párování z jedné adresy za hodinu, zkus to později.")
+        klic = cztor.novy_klic()
+        try:
+            pin = self.cz_klient(klic).start_pin()
+        except CztorError as err:
+            _LOGGER.info("CZtor PIN: %s", err)
+            return chyba(502, f"CZtor teď PIN nevydal ({err}).")
+        return Odpoved(data={"klic": klic, "pin": pin["pin"], "url": pin["url"], "token": pin["poll_token"],
+                             "interval": pin["interval"], "platnost": int(pin["expires"] - time.time())})
+
+    def cztor_poll(self, q, klient):
+        """{"stav": "ceka" | "ok" | "chyba"}; u „ok" i účet a předplatné."""
+        if not self.cz_poll_okno.povolit(klic_klienta(klient) or "?"):
+            return chyba(429, "Příliš mnoho dotazů za sebou, zkus to za pár minut.")
+        klic = (q.get("k") or [""])[0]
+        token = (q.get("t") or [""])[0]
+        if not config.CZ_RE.match(klic) or not token or len(token) > 512:
+            return chyba(400, "Neplatný dotaz.")
+        api = self.cz_klient(klic)
+        if not api.store.existuje():
+            # jen klíč z `/cztor/pin` — jinak by každý vymyšlený klíč založil soubor
+            return chyba(404, "Párování nenalezeno, začni znovu.")
+        try:
+            if not api.poll_pin(token):
+                return Odpoved(data={"stav": "ceka"})
+        except CztorError as err:
+            return Odpoved(data={"stav": "chyba", "zprava": str(err)})
+        return Odpoved(data={"stav": "ok", "ucet": api.account()})
 
     ANKETA = "cztor-stremio"
 
@@ -835,6 +885,10 @@ class Router:
             return Odpoved(data={"vyzva": self.identita.vyzva(klic_klienta(klient)), "bity": self.identita.bity})
         if cesta == "/identita":
             return self.vydat_identitu(urllib.parse.parse_qs(dotaz), klient)
+        if cesta == "/cztor/pin":
+            return self.cztor_pin(klient)
+        if cesta == "/cztor/poll":
+            return self.cztor_poll(urllib.parse.parse_qs(dotaz), klient)
 
         kousek, zbytek = self._rozdel(cesta)
         options = config.decode(kousek) if kousek else None

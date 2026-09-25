@@ -2634,3 +2634,110 @@ class TestSdilejUcet(unittest.TestCase):
         self.assertEqual(config.from_mapping({"fs_provider": "sdilej"}).get("fs_provider"), "sdilej")
         for hodnota in ("fastshare", "", "nesmysl"):
             self.assertNotIn("fs_provider", config.from_mapping({"fs_provider": hodnota}))
+
+
+class TestCztor(unittest.TestCase):
+    """CZtor: párování PINem, tokeny na serveru zapečetěné klíčem z adresy (`cztor.py`)."""
+
+    KLIC = "0123456789abcdef0123456789abcdef"
+
+    def test_trezor_bez_klice_nic_neprecte(self):
+        from nokturno import cztor
+        tmp = tempfile.mkdtemp()
+        t = cztor.Trezor(tmp, self.KLIC)
+        t.save("cztor_session", {"refresh_token": "tajny-token"})
+        self.assertEqual(t.load("cztor_session"), {"refresh_token": "tajny-token"})
+        with open(t.cesta, "rb") as f:
+            obsah = f.read()
+        self.assertNotIn(b"tajny-token", obsah)
+        self.assertNotIn(self.KLIC.encode(), t.cesta.encode())   # ze jména souboru klíč nevyčteš
+        self.assertEqual(oct(os.stat(t.cesta).st_mode & 0o777), "0o600")
+        cizi = cztor.Trezor(tmp, "f" * 32)
+        self.assertIsNone(cizi.load("cztor_session"))
+
+    def test_klic_z_adresy_zapne_cztor(self):
+        o = config.from_mapping({"cz": self.KLIC})
+        self.assertEqual(o["cz"], self.KLIC)
+        self.assertTrue(o["cz_enabled"])
+        self.assertTrue(config.ma_ucty(o))
+        self.assertIn("CZtor", config.sources_from_options(o))
+        for spatny in ("nesmysl", self.KLIC.upper(), self.KLIC + "0"):
+            self.assertNotIn("cz_enabled", config.from_mapping({"cz": spatny}))
+
+    def test_jadro_drzi_tokeny_v_trezoru(self):
+        from nokturno import cztor
+        from nokturno.enginy import Enginy
+        tmp = tempfile.mkdtemp()
+        engine = Enginy(tmp, {}).pro(config.from_mapping({"cz": self.KLIC}))
+        klient = engine.cztor_client()
+        self.assertIsInstance(klient.store, cztor.Trezor)
+        self.assertFalse(klient.paired())
+        self.assertIsNone(engine.cz)   # nespárováno = zdroj se nepoužije
+        klient.store.save("cztor_session", {"device_id": "x", "refresh_token": "r", "access_token": "a",
+                                            "expires": time.time() + 3600})
+        engine2 = Enginy(tmp, {}).pro(config.from_mapping({"cz": self.KLIC}))
+        self.assertIsNotNone(engine2.cz)
+        self.assertEqual(engine2.cz.device_name, cztor.JMENO_ZARIZENI)
+        # tokeny nikde v otevřené podobě (Kodi a HA je mají v `cztor_session.json` úložiště jádra)
+        self.assertFalse([f for _, _, soubory in os.walk(tmp) for f in soubory if f.startswith("cztor_session")])
+
+    def test_odkaz_cz_projde_pres_play(self):
+        odpoved = router(odkaz="https://zeus.example/film.mkv").route(
+            "/play/" + mapping.zakoduj("cz:m:1:2"), ZAKLAD)
+        self.assertEqual(odpoved.status, 302)
+
+    def _router(self):
+        from nokturno import cztor
+
+        class Klient:
+            paired_ = False
+
+            def __init__(s, klic):
+                s.store = cztor.Trezor(tmp, klic)
+
+            def start_pin(s):
+                s.store.save("cztor_session", {"device_id": "d"})
+                return {"pin": "1234", "url": "https://cztor.com/activate", "poll_token": "pt",
+                        "interval": 5, "expires": time.time() + 600}
+
+            def poll_pin(s, token):
+                return token == "hotovo"
+
+            def account(s):
+                return {"plan": "Basic", "active": True, "valid_until": "2026-10-13"}
+
+        tmp = tempfile.mkdtemp()
+        r = router()
+        r.cz_klient = Klient
+        return r
+
+    def test_parovani(self):
+        r = self._router()
+        pin = r.route("/cztor/pin", ZAKLAD, klient="1.2.3.4").data
+        self.assertEqual(pin["pin"], "1234")
+        self.assertTrue(config.CZ_RE.match(pin["klic"]))
+        k = pin["klic"]
+        self.assertEqual(r.route(f"/cztor/poll?k={k}&t=pt", ZAKLAD, klient="1.2.3.4").data["stav"], "ceka")
+        hotovo = r.route(f"/cztor/poll?k={k}&t=hotovo", ZAKLAD, klient="1.2.3.4").data
+        self.assertEqual(hotovo["stav"], "ok")
+        self.assertEqual(hotovo["ucet"]["plan"], "Basic")
+
+    def test_poll_s_vymyslenym_klicem_nezaklada_soubor(self):
+        r = self._router()
+        self.assertEqual(r.route(f"/cztor/poll?k={self.KLIC}&t=pt", ZAKLAD, klient="1.2.3.4").status, 404)
+        self.assertEqual(r.route("/cztor/poll?k=nesmysl&t=pt", ZAKLAD, klient="1.2.3.4").status, 400)
+
+    def test_pin_ma_limit_na_adresu(self):
+        r = self._router()
+        stavy = [r.route("/cztor/pin", ZAKLAD, klient="1.2.3.4").status for _ in range(routes.CZ_PIN_LIMIT[0] + 1)]
+        self.assertEqual(stavy[-1], 429)
+        self.assertEqual(r.route("/cztor/pin", ZAKLAD, klient="5.6.7.8").status, 200)
+
+    def test_uklid_starych(self):
+        from nokturno import cztor
+        tmp = tempfile.mkdtemp()
+        t = cztor.Trezor(tmp, self.KLIC)
+        t.save("x", {})
+        os.utime(t.cesta, (1, 1))
+        self.assertEqual(cztor.uklid(tmp), 1)
+        self.assertFalse(t.existuje())
