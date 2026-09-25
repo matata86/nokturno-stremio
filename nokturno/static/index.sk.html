@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="sk">
 <head>
+<script>try{var t=localStorage.getItem("nokturno-tema");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Nokturno — prehrávač vlastného úložiska pre Kodi, Home Assistant a Stremio</title>
@@ -12,12 +13,37 @@
     --pozadi: #0d0c1d; --panel: #17162b; --panel-2: #1c1b33; --pole: #201f38; --okraj: #2f2d4d;
     --text: #e8e6f5; --tlumene: #9a97b8; --akcent: #7b5bf5; --akcent-tmavy: #6547d6; --ok: #3ecf8e;
   }
+  /* barvy mimo základní paletu; světlá verze níž, přepínač ☀/☾ ukládá volbu do localStorage */
+  :root { color-scheme: dark; --odkaz: #a993ff; --odkaz-hover: #c7b8ff; --akcent-svetly: #cbbcff;
+          --doporuceno-pozadi: #221c45; --ok-okraj: #22563f; --pozor-text: #ffd694; --pozor-okraj: #5a4318;
+          --stin: rgba(0,0,0,.5); --cara: rgba(255,255,255,.08); }
+  :root[data-theme="light"] { --pozadi: #f6f5fb; --panel: #ffffff; --panel-2: #f1effa; --pole: #f3f1fa; --okraj: #e2def0;
+    --text: #1c1a33; --tlumene: #5f5b7a; --akcent: #6d4ef0; --akcent-tmavy: #5a3dd8;
+    --ok: #13925f; --ok-pozadi: #e6f6ee; --vystraha: #b7791f; --vystraha-pozadi: #fdf4e3;
+    --chyba: #d63939; --chyba-pozadi: #fdecec;
+    --odkaz: #5b3fd9; --odkaz-hover: #3f27b0; --akcent-svetly: #5b3fd9; --doporuceno-pozadi: #ece7ff;
+    --ok-okraj: #a6dfc3; --pozor-text: #8a5a0f; --pozor-okraj: #f0d49a;
+    --stin: rgba(30,20,80,.12); --cara: rgba(0,0,0,.08); color-scheme: light; }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --pozadi: #f6f5fb; --panel: #ffffff; --panel-2: #f1effa; --pole: #f3f1fa; --okraj: #e2def0;
+    --text: #1c1a33; --tlumene: #5f5b7a; --akcent: #6d4ef0; --akcent-tmavy: #5a3dd8;
+    --ok: #13925f; --ok-pozadi: #e6f6ee; --vystraha: #b7791f; --vystraha-pozadi: #fdf4e3;
+    --chyba: #d63939; --chyba-pozadi: #fdecec;
+    --odkaz: #5b3fd9; --odkaz-hover: #3f27b0; --akcent-svetly: #5b3fd9; --doporuceno-pozadi: #ece7ff;
+    --ok-okraj: #a6dfc3; --pozor-text: #8a5a0f; --pozor-okraj: #f0d49a;
+    --stin: rgba(30,20,80,.12); --cara: rgba(0,0,0,.08); color-scheme: light; } }
+  .karta { box-shadow: 0 1px 3px var(--cara); }
+  .tema { background: none; border: 1px solid var(--okraj); border-radius: 99px; color: var(--tlumene); cursor: pointer;
+          margin-left: .6rem; padding: .1rem .35rem; line-height: 0; vertical-align: middle; transition: color .2s, border-color .2s, transform .3s; }
+  .tema:hover { color: var(--text); border-color: var(--akcent); transform: rotate(20deg); }
+  .tema svg { width: 1rem; height: 1rem; }
+  body { transition: background-color .3s, color .3s; }
+
   * { box-sizing: border-box; }
   body { margin: 0; padding: 0 1rem; background: var(--pozadi); color: var(--text);
          font: 15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   main { max-width: 64rem; margin: 0 auto; padding: 2rem 0 1rem; }
-  a { color: #a993ff; }
-  a:hover { color: #c7b8ff; }
+  a { color: var(--odkaz); }
+  a:hover { color: var(--odkaz-hover); }
   code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .84em; background: var(--pole);
          border: 1px solid var(--okraj); border-radius: 5px; padding: .08rem .38rem; word-break: break-all; }
 
@@ -104,7 +130,7 @@
       <h1>Nokturno</h1>
       <p class="podtitul">Prehrávač <strong>tvojho vlastného úložiska</strong> pre Kodi, Home Assistant a Stremio.</p>
     </div>
-    <nav class="jazyky" aria-label="Jazyk"><a href="?lang=cs" hreflang="cs" lang="cs">CZ</a> | <a href="?lang=sk" hreflang="sk" lang="sk" aria-current="true">SK</a></nav>
+    <nav class="jazyky" aria-label="Jazyk"><a href="?lang=cs" hreflang="cs" lang="cs">CZ</a> | <a href="?lang=sk" hreflang="sk" lang="sk" aria-current="true">SK</a><button type="button" class="tema" id="tema"></button></nav>
   </header>
 
   <p style="color:var(--tlumene);font-size:.92rem;margin:1.2rem 0 2rem"><a href="__ZAKLAD__/terms?lang=sk">Právne upozornenie</a> — Nokturno je predovšetkým prehrávač vlastného úložiska, vyhľadávače tretích strán sú len voliteľná doplnková služba.</p>
@@ -233,6 +259,27 @@ document.querySelectorAll("[data-kopirovat]").forEach((tl) => tl.addEventListene
     el.append(b, " · " + L.d + " " + kdy(r.at));
     el.hidden = false;
   });
+})();
+</script>
+<script>
+(() => {
+  const tl = document.getElementById("tema"); if (!tl) return;
+  const root = document.documentElement, sk = root.lang === "sk";
+  const ted = () => root.dataset.theme || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+  const kresli = () => {
+    const svetly = ted() === "light";
+    tl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+      + (svetly ? '<path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z"/>' : '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>') + '</svg>';
+    tl.title = svetly ? (sk ? "Tmavý vzhľad" : "Tmavý vzhled") : (sk ? "Svetlý vzhľad" : "Světlý vzhled");
+    tl.setAttribute("aria-label", tl.title);
+  };
+  tl.addEventListener("click", () => {
+    root.dataset.theme = ted() === "light" ? "dark" : "light";
+    try { localStorage.setItem("nokturno-tema", root.dataset.theme); } catch {}
+    kresli();
+  });
+  matchMedia("(prefers-color-scheme: light)").addEventListener("change", kresli);
+  kresli();
 })();
 </script>
 </body>
