@@ -51,7 +51,7 @@ from .kliky import Kliky
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "8.1.3"
+VERZE = "8.3.0b1"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -582,7 +582,8 @@ class Router:
         if fs_user:
             # FastShare: přihlášení a kolik zbývá — přehrání se odečítá z kreditu, pokud účet nemá neomezený tarif
             try:
-                ucet = self.fs_api(fs_user, options.get("fs_password") or "").login()
+                ucet = self.fs_api(fs_user, options.get("fs_password") or "",
+                                   provider=options.get("fs_provider") or "fastshare").login()
                 out["fastshare"] = {"ok": True, "neomezene": bool(ucet.get("unlimited")),
                                     "kredit_mb": int(ucet.get("credit_mb") or 0)}
             except Exception as err:  # noqa: BLE001 – pro uživatele je každé selhání totéž

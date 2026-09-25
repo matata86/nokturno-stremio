@@ -792,7 +792,7 @@ class TestKatalogy(unittest.TestCase):
 
 
 class FalesnyFastshare:
-    def __init__(self, login, password):
+    def __init__(self, login, password, provider="fastshare"):
         self.password = password
 
     def login(self):
@@ -2625,3 +2625,12 @@ class TestSpolecnaCache(unittest.TestCase):
         os.utime(spolecna, (time.time() - 400 * 86400,) * 2)
         uklid_dat(tmp)
         self.assertTrue(os.path.isdir(spolecna))
+
+
+class TestSdilejUcet(unittest.TestCase):
+    """Účet ze Sdilej.cz u FastShare: v nastavení jen „sdilej", výchozí se neukládá."""
+
+    def test_jen_sdilej_zustava(self):
+        self.assertEqual(config.from_mapping({"fs_provider": "sdilej"}).get("fs_provider"), "sdilej")
+        for hodnota in ("fastshare", "", "nesmysl"):
+            self.assertNotIn("fs_provider", config.from_mapping({"fs_provider": hodnota}))

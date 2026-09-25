@@ -45,6 +45,8 @@ PROSTREDI = {
     "NOKTURNO_ST_PASSWORD": "st_password",
     "NOKTURNO_FS_USERNAME": "fs_username",
     "NOKTURNO_FS_PASSWORD": "fs_password",
+    # „sdilej" = účet ze Sdilej.cz, týž katalog jako FastShare (jádro lib/fastshare_api)
+    "NOKTURNO_FS_PROVIDER": "fs_provider",
     "NOKTURNO_PT_EMAIL": "pt_email",
     "NOKTURNO_PT_PASSWORD": "pt_password",
     # zapnuté katalogy, klíče oddělené čárkou — viz nokturno/katalogy.py
@@ -110,6 +112,9 @@ def from_mapping(raw):
     # nepovolená hodnota by v jádru propadla na výchozí, ale tiše — lepší ji srovnat tady
     if options.get("pref_lang") not in LANGS:
         options["pref_lang"] = ""
+    # výchozí FastShare v nastavení nenechávat, ať se otisk nastavení nezmění
+    if options.get("fs_provider") != "sdilej":
+        options.pop("fs_provider", None)
     if options.get("sort_streams") not in SORT_ORDERS:
         options["sort_streams"] = VYCHOZI["sort_streams"]
     # Přehraj.to je ve Stremiu per-uživatel jako ostatní zdroje — účet z adresy/prostředí.

@@ -375,7 +375,7 @@
           <h3>FastShare</h3>
           <span class="stitek">Voliteľné · kredit alebo paušál</span>
         </div>
-        <p>České úložisko súborov s veľkým výberom filmov a seriálov. Hľadá sa aj bez účtu, prehratie sa odpočíta z kreditu, ak nemáš neobmedzené sťahovanie.</p>
+        <p>České úložisko súborov s veľkým výberom filmov a seriálov. Hľadá sa aj bez účtu, prehratie sa odpočíta z kreditu, ak nemáš neobmedzené sťahovanie. Účet zo Sdilej.cz funguje tiež — súbory sú rovnaké, len prepni nižšie „Účet z“.</p>
         <div class="poznamka">
           <strong>Neprehrá sa vo webovom Stremiu.</strong> Súbor z FastShare chce na stiahnutie prihlásenie a tú hlavičku vie poslať len aplikácia — <strong>Stremio pre počítač, Android a Android TV</strong>, alebo Nuvio. V Stremiu v prehliadači sa taký stream nespustí; v zozname ich spoznáš podľa upozornenia pri popise. Dáta tečú z FastShare rovno k tebe, nie cez tento server.
         </div>
@@ -386,6 +386,10 @@
             <span class="heslo"><input type="password" name="fs_password" spellcheck="false">
               <button type="button" class="ukazat" aria-label="Ukázať heslo">ukázať</button></span></label>
         </div>
+        <label class="pole"><span>Účet z</span>
+          <select name="fs_provider">
+            <option value="fastshare">FastShare.cz</option><option value="sdilej">Sdilej.cz</option>
+          </select></label>
         <div class="overeni">
           <button type="button" class="male" id="overit-fs">Overiť účet</button>
           <span class="vysledek" id="vysledek-fs"></span>
@@ -842,7 +846,7 @@ form.addEventListener("input", (e) => {
   if (["ws_username", "ws_password"].includes(e.target.name)) vysledek("ws", "", "");
   if (["streamuj_username", "streamuj_password"].includes(e.target.name)) vysledek("su", "", "");
   if (["st_email", "st_password"].includes(e.target.name)) vysledek("st", "", "");
-  if (["fs_username", "fs_password"].includes(e.target.name)) vysledek("fs", "", "");
+  if (["fs_username", "fs_password", "fs_provider"].includes(e.target.name)) vysledek("fs", "", "");
   if (["pt_email", "pt_password"].includes(e.target.name)) vysledek("pt", "", "");
   if (/^dav\d_/.test(e.target.name || "")) vysledek("dav", "", "");
 });

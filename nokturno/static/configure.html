@@ -375,7 +375,7 @@
           <h3>FastShare</h3>
           <span class="stitek">Volitelné · kredit nebo tarif</span>
         </div>
-        <p>Česká úschovna souborů s velkým výběrem filmů a seriálů. Hledá se i bez účtu, přehrání se odečte z kreditu, pokud nemáš neomezené stahování.</p>
+        <p>Česká úschovna souborů s velkým výběrem filmů a seriálů. Hledá se i bez účtu, přehrání se odečte z kreditu, pokud nemáš neomezené stahování. Účet ze Sdilej.cz funguje taky — soubory jsou stejné, jen přepni níž „Účet z“.</p>
         <div class="poznamka">
           <strong>Nepřehraje se ve webovém Stremiu.</strong> Soubor z FastShare chce ke stažení přihlášení a tu hlavičku umí poslat jen aplikace — <strong>Stremio pro počítač, Android a Android TV</strong>, nebo Nuvio. Ve Stremiu v prohlížeči se takový stream nespustí; v seznamu je poznáš podle upozornění u popisu. Data tečou z FastShare rovnou k tobě, ne přes tenhle server.
         </div>
@@ -386,6 +386,10 @@
             <span class="heslo"><input type="password" name="fs_password" spellcheck="false">
               <button type="button" class="ukazat" aria-label="Ukázat heslo">ukázat</button></span></label>
         </div>
+        <label class="pole"><span>Účet z</span>
+          <select name="fs_provider">
+            <option value="fastshare">FastShare.cz</option><option value="sdilej">Sdilej.cz</option>
+          </select></label>
         <div class="overeni">
           <button type="button" class="male" id="overit-fs">Ověřit účet</button>
           <span class="vysledek" id="vysledek-fs"></span>
@@ -842,7 +846,7 @@ form.addEventListener("input", (e) => {
   if (["ws_username", "ws_password"].includes(e.target.name)) vysledek("ws", "", "");
   if (["streamuj_username", "streamuj_password"].includes(e.target.name)) vysledek("su", "", "");
   if (["st_email", "st_password"].includes(e.target.name)) vysledek("st", "", "");
-  if (["fs_username", "fs_password"].includes(e.target.name)) vysledek("fs", "", "");
+  if (["fs_username", "fs_password", "fs_provider"].includes(e.target.name)) vysledek("fs", "", "");
   if (["pt_email", "pt_password"].includes(e.target.name)) vysledek("pt", "", "");
   if (/^dav\d_/.test(e.target.name || "")) vysledek("dav", "", "");
 });
