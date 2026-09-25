@@ -56,6 +56,13 @@
   .podpora { margin-top: 2.25rem; }
   .podpora img { display: block; width: 100%; height: auto; border-radius: 16px; border: 1px solid var(--okraj); }
   .podpora .tlacitka { justify-content: center; padding-top: .9rem; }
+  .verze { display: inline-flex; align-items: center; gap: .45rem; font-size: .8rem; color: var(--tlumene);
+           text-decoration: none; margin: -.3rem 0 .8rem; }
+  .verze[hidden] { display: none; }
+  .verze strong { color: var(--text); font-weight: 600; }
+  .verze::before { content: ""; width: .5rem; height: .5rem; border-radius: 50%; background: var(--ok);
+                   box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent); }
+  .verze:hover strong { color: var(--akcent); }
   .ik { width: 1.2em; height: 1.2em; flex: none; color: var(--akcent); vertical-align: -.2em; }
   .jazyky { margin-left: auto; align-self: flex-start; font-size: .8rem; color: var(--tlumene); white-space: nowrap; }
   .jazyky a { color: var(--tlumene); text-decoration: none; padding: .1rem .2rem; }
@@ -82,6 +89,7 @@
     <div class="karta">
       <h3><svg xmlns="http://www.w3.org/2000/svg" class="ik" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">  <path d="M3 9a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2l0 -9"/> <path d="M16 3l-4 4l-4 -4"/> </svg>Kodi</h3>
       <p class="kde">Android TV, CoreELEC, LibreELEC, Windows, Linux</p>
+      <a class="verze" data-repo="matata86/plugin.video.nokturno" target="_blank" rel="noopener" hidden></a>
       <p>Plnohodnotný doplněk s menu, hledáním, Traktem, stahováním, titulky z OpenSubtitles, synchronizací více Kodi a pokračováním ve sledování.</p>
       <ol>
         <li>Kodi → Nastavení → Správce souborů → Přidat zdroj:<br><code>https://nokturno.stream/repo/</code></li>
@@ -98,6 +106,7 @@
     <div class="karta">
       <h3><svg xmlns="http://www.w3.org/2000/svg" class="ik" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">  <path d="M4 6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2l0 -12"/> <path d="M8 4l0 16"/> <path d="M16 4l0 16"/> <path d="M4 8l4 0"/> <path d="M4 16l4 0"/> <path d="M4 12l16 0"/> <path d="M16 8l4 0"/> <path d="M16 16l4 0"/> </svg>Stremio a spol.</h3>
       <p class="kde">Počítač, telefon, TV — všude, kde jdou doplňky Stremia</p>
+      <a class="verze" data-repo="matata86/nokturno-stremio" target="_blank" rel="noopener" hidden></a>
       <div class="aplikace"><span>Stremio</span><span>Nuvio</span><span>Streamlet</span></div>
       <p>Streamy Nokturna se objeví v detailu filmu nebo dílu mezi ostatními. Účty vyplníš ve formuláři,
         ten ti vyrobí vlastní adresu doplňku a rovnou ho přidá do aplikace.</p>
@@ -111,6 +120,7 @@
     <div class="karta">
       <h3><svg xmlns="http://www.w3.org/2000/svg" class="ik" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">  <path d="M19 8.71l-5.333 -4.148a2.666 2.666 0 0 0 -3.274 0l-5.334 4.148a2.665 2.665 0 0 0 -1.029 2.105v7.2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-7.2c0 -.823 -.38 -1.6 -1.03 -2.105"/> <path d="M16 15c-2.21 1.333 -5.792 1.333 -8 0"/> </svg>Home Assistant</h3>
       <p class="kde">Integrace přes HACS a karta do dashboardu</p>
+      <a class="verze" data-repo="matata86/nokturno-ha" target="_blank" rel="noopener" hidden></a>
       <p>Hledání z karty, přehrání v Kodi, stahování s titulky, odkaz do mobilu, sledované seriály
         a seznam k zhlédnutí i pro filmy, které teprve vyjdou. Synchronizuje se s Kodi.</p>
       <div class="tlacitka">
@@ -163,6 +173,42 @@ document.querySelectorAll("[data-kopirovat]").forEach((tl) => tl.addEventListene
     stav.textContent = "Kopírování prohlížeč nedovolil — adresu opiš z návodu.";
   }
 }));
+</script>
+<script>
+// Poslední stabilní vydání živě z GitHubu (releases/latest pre-release vynechá).
+// Cache v sessionStorage kvůli limitu 60 dotazů/h na adresu; bez odpovědi zůstane řádek skrytý.
+(() => {
+  const L = document.documentElement.lang === "sk"
+    ? { v: "verzia", d: "vydané" } : { v: "verze", d: "vydáno" };
+  const rtf = new Intl.RelativeTimeFormat(document.documentElement.lang || "cs", { numeric: "auto" });
+  const kdy = (iso) => {
+    const s = (new Date(iso) - Date.now()) / 1000;
+    for (const [j, n] of [["year", 31536000], ["month", 2592000], ["week", 604800], ["day", 86400], ["hour", 3600], ["minute", 60]])
+      if (Math.abs(s) >= n) return rtf.format(Math.round(s / n), j);
+    return rtf.format(0, "minute");
+  };
+  document.querySelectorAll("[data-repo]").forEach(async (el) => {
+    const klic = "rel:" + el.dataset.repo;
+    let r;
+    try { r = JSON.parse(sessionStorage.getItem(klic)); } catch {}
+    if (!r || Date.now() - r.t > 600000) {
+      try {
+        const o = await fetch("https://api.github.com/repos/" + el.dataset.repo + "/releases/latest");
+        if (!o.ok) return;
+        const j = await o.json();
+        r = { tag: j.tag_name, at: j.published_at, url: j.html_url, t: Date.now() };
+        try { sessionStorage.setItem(klic, JSON.stringify(r)); } catch {}
+      } catch { return; }
+    }
+    el.href = r.url;
+    el.title = new Date(r.at).toLocaleString(document.documentElement.lang || "cs");
+    el.innerHTML = "";
+    const b = document.createElement("strong");
+    b.textContent = L.v + " " + r.tag.replace(/^v/, "");
+    el.append(b, " · " + L.d + " " + kdy(r.at));
+    el.hidden = false;
+  });
+})();
 </script>
 </body>
 </html>
