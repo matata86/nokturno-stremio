@@ -115,7 +115,6 @@ class Provoz:
         self._zpravy = []   # [(id, text, odkaz)] z dashboardu, od nejnovější
         self._zobrazeni = {}   # id zprávy → {"views", "clicks", "klice"}; posílá se v dávce
         self.na_zakazane = None   # volá se se seznamem adres zakázaných v dashboardu
-        self._hlasy = {}
         self._zamek = threading.Lock()
         self._vlakno = None
         self._konec = threading.Event()
@@ -198,14 +197,6 @@ class Provoz:
             if z is not None:
                 z["clicks"] += 1
 
-    def zaznamenej_hlas(self, anketa, hlasujici, volba):
-        """Hlas v anketě → dávka pro dashboard (poslední hlas hlasujícího platí)."""
-        if not self.zapnuto:
-            return
-        with self._zamek:
-            if len(self._hlasy) < 1000 or (anketa, hlasujici) in self._hlasy:
-                self._hlasy[(anketa, hlasujici)] = volba
-
     def _nacti_zpravu(self):
         adresa = self.url.rsplit("/", 1)[0] + "/traffic/message" if self.url.endswith("/traffic") else self.url + "/message"
         req = urllib.request.Request(adresa, headers={"X-Nokturno-Token": self.token, "User-Agent": "Nokturno provoz"})
@@ -270,7 +261,6 @@ class Provoz:
         with self._zamek:
             fronta, self._fronta = self._fronta, []
             utoky, self._utoky = self._utoky, {}
-            hlasy, self._hlasy = self._hlasy, {}
             # `views`/`clicks` jsou přírůstky od minulé dávky (nulují se), `uniq` je stav
             # od startu procesu (množina zůstává, dashboard bere maximum)
             zobrazeni = []
@@ -279,9 +269,8 @@ class Provoz:
                     zobrazeni.append({"id": id_zpravy, "views": z["views"],
                                       "uniq": len(z["klice"]), "clicks": z["clicks"]})
                 z["views"] = z["clicks"] = 0
-        if utoky or hlasy or zobrazeni:
+        if utoky or zobrazeni:
             self._posli_davku([], [{"ip": k[0], "fp": k[1], "reason": k[2], **v} for k, v in utoky.items()],
-                              [{"poll": k[0], "voter": k[1], "choice": v} for k, v in hlasy.items()],
                               zobrazeni)
         odeslano = 0
         for i in range(0, len(fronta), DAVKA):
@@ -293,8 +282,8 @@ class Provoz:
             odeslano += len(davka)
         return odeslano
 
-    def _posli_davku(self, davka, utoky=None, hlasy=None, zobrazeni=None):
-        telo = json.dumps({"events": davka, "abuse": utoky or [], "votes": hlasy or [],
+    def _posli_davku(self, davka, utoky=None, zobrazeni=None):
+        telo = json.dumps({"events": davka, "abuse": utoky or [],
                            "message_views": zobrazeni or []}).encode("utf-8")
         req = urllib.request.Request(self.url, data=telo, method="POST", headers={
             "Content-Type": "application/json",

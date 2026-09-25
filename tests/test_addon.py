@@ -2087,7 +2087,7 @@ class TestProvoz(unittest.TestCase):
         p.zaznamenej_utok("2001:db8::2", None, None, "blokováno")
         self.assertEqual(p._fronta, [])
         poslano = []
-        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None, h=None, z=None: poslano.append((d, u)) or True):
+        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None, z=None: poslano.append((d, u)) or True):
             p.odesli()
         [(davka, utoky)] = poslano
         self.assertEqual(davka, [])
@@ -2103,7 +2103,7 @@ class TestProvoz(unittest.TestCase):
         p.zaznamenej_utok("b", "x", "fp", "limit", ma_id=False)
         p.zaznamenej_utok("c", "x", "fp", "limit")
         poslano = []
-        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None, h=None, z=None: poslano.append(u) or True):
+        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None, z=None: poslano.append(u) or True):
             p.odesli()
         self.assertEqual({u["ip"]: u["has_id"] for u in poslano[0]}, {"a": 1, "b": 0, "c": -1})
 
@@ -2141,7 +2141,7 @@ class TestProvoz(unittest.TestCase):
         """Se známým id vede řádek přes `/z/<id>`, aby šel spočítat proklik; zobrazení se
         započte při každém vložení, s klíčem uživatele kvůli počtu unikátních."""
         r = router()
-        r.zprava = lambda: [(12, "Novinka", "/anketa")]
+        r.zprava = lambda: [(12, "Novinka", "/configure")]
         videno, kliky = [], []
         r.zobrazeni = lambda i, k="": videno.append((i, k))
         r.klik = lambda i: kliky.append(i)
@@ -2151,7 +2151,7 @@ class TestProvoz(unittest.TestCase):
         self.assertEqual(videno[0][0], 12)
         self.assertTrue(videno[0][1])   # klíč uživatele (otisk s účty) — ven nikdy nejde
         odp = r.route(s["externalUrl"][len(ZAKLAD):], ZAKLAD, klient="1.2.3.4")
-        self.assertEqual((odp.status, odp.location), (302, ZAKLAD + "/anketa"))
+        self.assertEqual((odp.status, odp.location), (302, ZAKLAD + "/configure"))
         self.assertEqual(kliky, [12])
         self.assertEqual(r.route("/z/999", ZAKLAD, klient="1.2.3.4").location, ZAKLAD + "/")   # neznámá → úvod
         self.assertEqual(r.route("/z/abc", ZAKLAD, klient="1.2.3.4").status, 404)
@@ -2166,7 +2166,7 @@ class TestProvoz(unittest.TestCase):
         Server pozná uživatele podle značky v odkazu, ne podle adresy."""
         from nokturno.kliky import Kliky
         r = router()
-        r.zprava = lambda: [(12, "Novinka", "/anketa"), (11, "Druhá", "")]
+        r.zprava = lambda: [(12, "Novinka", "/configure"), (11, "Druhá", "")]
         r.kliky = Kliky(tajemstvi="t")
         prvni = self._zpravy_ve_vypisu(r)
         self.assertEqual(len(prvni), 2)
@@ -2234,10 +2234,10 @@ class TestProvoz(unittest.TestCase):
     def test_zprava_bez_id_vede_na_puvodni_odkaz(self):
         # starší dashboard id neposílá — měření odpadá, chování zůstane jako dřív
         r = router()
-        r.zprava = lambda: [(0, "Novinka", "/anketa")]
+        r.zprava = lambda: [(0, "Novinka", "/configure")]
         r.zobrazeni = lambda i, k="": self.fail("bez id se nic nepočítá")
         s = r.route(f"/c/{KOUSEK}/stream/movie/tt0133093.json", ZAKLAD).data["streams"][0]
-        self.assertEqual(s["externalUrl"], ZAKLAD + "/anketa")
+        self.assertEqual(s["externalUrl"], ZAKLAD + "/configure")
 
     def test_provoz_pocita_zobrazeni_a_kliky(self):
         from unittest import mock
@@ -2248,52 +2248,27 @@ class TestProvoz(unittest.TestCase):
         p.zaznamenej_zobrazeni(12, "fp:bbb")
         p.zaznamenej_klik(12)
         poslano = []
-        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None, h=None, z=None: poslano.append(z) or True):
+        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None, z=None: poslano.append(z) or True):
             p.odesli()
         self.assertEqual(poslano, [[{"id": 12, "views": 3, "uniq": 2, "clicks": 1}]])
         # klíče uživatelů zůstávají v paměti procesu, ven jde jen počet
         self.assertNotIn("fp:aaa", json.dumps(poslano))
         poslano.clear()
         p.zaznamenej_zobrazeni(12, "fp:ccc")
-        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None, h=None, z=None: poslano.append(z) or True):
+        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None, z=None: poslano.append(z) or True):
             p.odesli()
         # views je přírůstek od minulé dávky, uniq stav od startu procesu
         self.assertEqual(poslano, [[{"id": 12, "views": 1, "uniq": 3, "clicks": 0}]])
 
-    def test_zprava_s_odkazem_na_anketu(self):
+    def test_uvodni_stranka_neutralni_a_bez_ankety(self):
         r = router()
-        r.zprava = lambda: [(0, "Hlasuj", "/anketa")]
-        s = r.route(f"/c/{KOUSEK}/stream/movie/tt0133093.json", ZAKLAD).data["streams"][0]
-        self.assertEqual(s["externalUrl"], ZAKLAD + "/anketa")
-
-    def test_anketa_stranka_a_hlas(self):
-        r = router()
-        hlasy = []
-        r.hlas = lambda *a: hlasy.append(a)
         # úvodní stránka je od 2026-09-24 neutrální: bez ankety, bez názvů zdrojů, neindexovat
         for jazyk in ("cs", "sk"):
             html = r.route("/", ZAKLAD, jazyk=jazyk).html
             self.assertIn('name="robots" content="noindex', html)
             for zdroj in ("CZtor", "WebShare", "HellSpy", "Sosáč", "FastShare", "Sledujteto", "Luna"):
                 self.assertNotIn(zdroj, html)
-        self.assertEqual(r.route("/anketa", ZAKLAD).status, 302)
-        v = "0123456789abcdef0123456789abcdef"
-        self.assertEqual(r.route(f"/anketa/hlas?v={v}&volba=ano", ZAKLAD, klient="1.2.3.4").status, 200)
-        self.assertEqual(hlasy, [("cztor-stremio", v, "ano")])
-        for spatne in (f"/anketa/hlas?v={v}&volba=mozna", "/anketa/hlas?v=xyz&volba=ano", "/anketa/hlas"):
-            self.assertEqual(r.route(spatne, ZAKLAD, klient="1.2.3.4").status, 400)
-        self.assertEqual(len(hlasy), 1)
-
-    def test_provoz_posila_hlasy(self):
-        from unittest import mock
-        from nokturno.provoz import Provoz
-        p = Provoz(token="t")
-        p.zaznamenej_hlas("cztor-stremio", "a" * 32, "ne")
-        p.zaznamenej_hlas("cztor-stremio", "a" * 32, "ano")   # poslední hlas platí
-        poslano = []
-        with mock.patch.object(Provoz, "_posli_davku", lambda self, d, u=None, h=None, z=None: poslano.append(h) or True):
-            p.odesli()
-        self.assertEqual(poslano, [[{"poll": "cztor-stremio", "voter": "a" * 32, "choice": "ano"}]])
+        self.assertEqual(r.route("/anketa", ZAKLAD).status, 404)
 
     def test_provoz_nacte_zpravu_z_dashboardu(self):
         from unittest import mock

@@ -373,8 +373,6 @@ class Router:
         self.zobrazeni = None   # volatelná (id, klíč uživatele) → započítá zobrazení zprávy
         self.klik = None     # volatelná (id) → započítá proklik zprávy (viz `/z/<id>`)
         self.kliky = Kliky()   # komu se zpráva už neukazuje, protože na ni klikl
-        self.hlas = None     # volatelná (anketa, hlasující, volba) → hlas do dashboardu (nastaví server)
-        self.hlas_okno = Okno(30, 3600)   # hlasů z jedné adresy za hodinu
         self.klik_okno = Okno(60, 10 * 60)   # prokliků zpráv z jedné adresy za 10 min
         self.id_okno = Okno(*ID_LIMIT)
         self.cz_pin_okno = Okno(*CZ_PIN_LIMIT)
@@ -666,20 +664,6 @@ class Router:
             return Odpoved(data={"stav": "chyba", "zprava": str(err)})
         return Odpoved(data={"stav": "ok", "ucet": api.account()})
 
-    ANKETA = "cztor-stremio"
-
-    def hlasovat(self, q, klient):
-        """Hlas z `/anketa`: anonymní id z prohlížeče + ano/ne. Limit na adresu, nic se neukládá tady."""
-        hlasujici = (q.get("v") or [""])[0]
-        volba = (q.get("volba") or [""])[0]
-        if not re.fullmatch(r"[0-9a-f]{32}", hlasujici) or volba not in ("ano", "ne"):
-            return chyba(400, "Neplatný hlas")
-        if not self.hlas_okno.povolit(klic_klienta(klient) or "?"):
-            return chyba(429, "Příliš mnoho hlasů z jedné adresy, zkus to později.")
-        if callable(self.hlas):
-            self.hlas(self.ANKETA, hlasujici, volba)
-        return Odpoved(data={"ok": True})
-
     def proklik(self, kus, zaklad, klient):
         """Klik na řádek se zprávou (`externalUrl` = `/z/<id>/<značka>`): započítá se,
         uživateli se zpráva přestane ukazovat a odpověď přesměruje tam, kam zpráva mířila.
@@ -875,10 +859,6 @@ class Router:
             return self.health()
         if cesta == "/terms":
             return self.terms(zaklad, jazyk)
-        if cesta == "/anketa":
-            return Odpoved(status=302, location=zaklad + "/")   # anketa je nahoře na úvodní stránce
-        if cesta == "/anketa/hlas":
-            return self.hlasovat(urllib.parse.parse_qs(dotaz), klient)
         if cesta.startswith("/z/"):
             return self.proklik(cesta[len("/z/"):], zaklad, klient)
         if cesta == "/identita/vyzva":
