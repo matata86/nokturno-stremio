@@ -18,6 +18,11 @@ takže server jednou za 6 h projde seriály s nově přidanými díly (`SosacDir
 a u nejnovějšího dílu se podívá na streamy výchozího jádra (účty instance z `.env`, jako klíč
 TMDB) — jazyk jen z popisků a názvů souborů, bez čtení hlaviček. Běží na pozadí jedním vláknem;
 dotaz na katalog vrátí poslední hotový výsledek (i starší, do `JAZYK_STALE`) a přepočet jen spustí.
+
+Katalogy z dashboardu (obrazovka Katalogy — Vánoce, Film pro dnešní den…) se ve formuláři
+nenabízejí a jsou v manifestu vždy, první v pořadí. Mění se bez vydání doplňku: platnost
+i pořadí počítá server. Složku Stremio neumí, takže podkategorie jdou jako samostatné
+katalogy s názvem „Vánoce: Komedie“.
 """
 import logging
 import os
@@ -110,8 +115,23 @@ def nahled(typ, meta):
     return out
 
 
+DASH = "dash."   # klíč katalogu z dashboardu: `dash.<slug>`
+
+
+def katalogy_dashboardu(polozky, predpona=""):
+    """Strom menu z `DashApi.menu()` → ploché (slug, typ, název); složka se rozloží na potomky."""
+    out = []
+    for p in polozky:
+        nazev = f"{predpona}{p['title']}"
+        if p["children"]:
+            out += katalogy_dashboardu(p["children"], f"{nazev}: ")
+        else:
+            out.append((p["slug"], p["kind"], nazev))
+    return out
+
+
 class Katalogy:
-    def __init__(self, data_dir, tmdb_key="", ttl=TTL, engine=None):
+    def __init__(self, data_dir, tmdb_key="", ttl=TTL, engine=None, dash=None):
         """`engine`: funkce vracející jádro s účty instance — bez něj se seriály podle jazyka nenabízejí."""
         self.store = Store(os.path.join(data_dir, "katalogy"))
         self.ttl = ttl
@@ -119,6 +139,7 @@ class Katalogy:
         self.tmdb = TmdbApi(tmdb_key, cache=self.store) if str(tmdb_key or "").strip() else None
         self.trend = TrendApi(cache=self.store)
         self.engine = engine
+        self.dash = dash   # DashApi, None = katalogy z dashboardu se nenabízejí
         self._jazyk_bezi = threading.Lock()
 
     def dostupne(self):
@@ -187,13 +208,32 @@ class Katalogy:
         chtene = {x.strip() for x in str((options or {}).get("katalogy") or "").split(",") if x.strip()}
         return [radek for radek in self.dostupne() if radek[0] in chtene]
 
+    def z_dashboardu(self):
+        if self.dash is None:
+            return []
+        try:
+            return katalogy_dashboardu(self.dash.menu())
+        except Exception as err:  # noqa: BLE001 – výpadek dashboardu nesmí shodit manifest
+            _LOGGER.warning("katalogy z dashboardu: %s", err)
+            return []
+
     def manifest(self, options):
-        return [{"type": typ, "id": PREFIX + klic, "name": cs, "extra": [{"name": "skip", "isRequired": False}]}
+        return [{"type": typ, "id": PREFIX + DASH + slug, "name": nazev}
+                for slug, typ, nazev in self.z_dashboardu()] + [{"type": typ, "id": PREFIX + klic, "name": cs, "extra": [{"name": "skip", "isRequired": False}]}
                 for klic, typ, _zdroj, _cid, cs, _sk in self.vybrane(options)]
 
     def polozky(self, typ, katalog_id, skip=0):
         """Náhledy jedné stránky katalogu. None = takový katalog tahle instance nemá."""
         klic = katalog_id[len(PREFIX):] if str(katalog_id).startswith(PREFIX) else ""
+        if klic.startswith(DASH) and self.dash is not None:
+            # celý katalog najednou (server drží nejvýš 60 položek), cache má `DashApi`
+            if skip:
+                return []
+            try:
+                return [p for p in (nahled(typ, m) for m in self.dash.catalog(typ, klic[len(DASH):])) if p]
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.warning("katalog %s: %s", klic, err)
+                return []
         radek = next((r for r in self.dostupne() if r[0] == klic and r[1] == typ), None)
         if radek is None:
             return None

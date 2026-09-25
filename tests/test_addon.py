@@ -639,6 +639,37 @@ class TestKoncerty(unittest.TestCase):
         self.assertEqual(self.r.route(f"/c/{KOUSEK}/koncerty/manifest.json", ZAKLAD).status, 404)
 
 
+class TestKatalogyDashboardu(unittest.TestCase):
+    """Katalogy z dashboardu jsou v manifestu vždy (bez volby), první, složka rozložená."""
+
+    def test_vzdy_v_manifestu_a_polozky(self):
+        from nokturno.katalogy import Katalogy
+
+        class Dash:
+            def menu(self):
+                return [{"slug": "film-dne", "title": "Film pro dnešní den", "kind": "movie", "children": []},
+                        {"slug": "vanoce", "title": "Vánoce", "kind": "movie", "children": [
+                            {"slug": "vanoce-komedie", "title": "Komedie", "kind": "movie", "children": []}]}]
+
+            def catalog(self, ctype, slug):
+                return [{"id": "tt0167331", "name": "Pelíšky", "year": "1999"}] if slug == "vanoce-komedie" else []
+        k = Katalogy(tempfile.mkdtemp(), dash=Dash())
+        m = k.manifest({})
+        self.assertEqual([(c["id"], c["name"]) for c in m],
+                         [("nokturno.dash.film-dne", "Film pro dnešní den"),
+                          ("nokturno.dash.vanoce-komedie", "Vánoce: Komedie")])
+        self.assertEqual([p["id"] for p in k.polozky("movie", "nokturno.dash.vanoce-komedie")], ["tt0167331"])
+        self.assertEqual(k.polozky("movie", "nokturno.dash.vanoce-komedie", skip=50), [])
+
+    def test_vypadek_dashboardu_neshodi_manifest(self):
+        from nokturno.katalogy import Katalogy
+
+        class Dash:
+            def menu(self):
+                raise OSError("down")
+        self.assertEqual(Katalogy(tempfile.mkdtemp(), dash=Dash()).manifest({}), [])
+
+
 class TestKatalogy(unittest.TestCase):
     """Volitelné katalogy: jen zvolené v manifestu, jedna sdílená cache, bez jádra."""
 

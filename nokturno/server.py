@@ -413,15 +413,16 @@ def vytvor_server(host="0.0.0.0", port=VYCHOZI_PORT, data_dir=VYCHOZI_DATA, opti
     server = Server((host, port), Handler)
     # katalogy sdílí jednu cache pro všechny adresy; TMDB jen s klíčem instance (viz katalogy.py)
     # seriály podle jazyka ověřuje výchozí (domácí) jádro s účty instance, viz katalogy.py
-    katalogy = Katalogy(data_dir, os.environ.get("NOKTURNO_TMDB_KEY", ""), engine=enginy.pro)
+    provoz = Provoz.z_prostredi()
+    dash = dash_koncertu(provoz, enginy.spolecne)
+    katalogy = Katalogy(data_dir, os.environ.get("NOKTURNO_TMDB_KEY", ""), engine=enginy.pro, dash=dash)
     if options is None:
         # ať první dotaz po restartu nevrátí prázdný seznam seriálů; jen služba z prostředí (testy jdou bez sítě)
         katalogy.zahrat()
-    provoz = Provoz.z_prostredi()
     blokovane = {o.strip() for o in os.environ.get("NOKTURNO_BLOCKED_FINGERPRINTS", "").split(",") if o.strip()}
     server.router = Router(enginy, predvyplnit=predvyplnit, statistiky=Statistiky.z_prostredi(VERZE),
                            katalogy=katalogy, blokovane=blokovane, identita=Identita.z_prostredi(),
-                           koncerty=Koncerty(dash_koncertu(provoz, enginy.spolecne)),
+                           koncerty=Koncerty(dash),
                            blokace=Blokace(soubor=os.path.join(data_dir, "odebrane_identity.txt"),
                                            adresy_soubor=os.path.join(data_dir, "zakazane_adresy.txt")))
     server.pady = Pady.z_prostredi(data_dir, VERZE)
