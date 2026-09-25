@@ -195,6 +195,12 @@
   .jazyky a:hover { color: var(--text); }
   .jazyky a[aria-current] { color: var(--text); font-weight: 600; }
   footer { margin: 2rem 0 7rem; color: var(--tlumene); font-size: .8rem; text-align: center; }
+  button.bez-souhlasu { opacity: .55; }
+  label.prepinac.pripomenout { outline: 2px solid var(--chyba); outline-offset: 4px; border-radius: 8px;
+                               animation: zatres .45s ease; }
+  label.prepinac.pripomenout input { box-shadow: 0 0 0 3px var(--chyba); }
+  @keyframes zatres { 0%, 100% { transform: none; } 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+  @media (prefers-reduced-motion: reduce) { label.prepinac.pripomenout { animation: none; } }
 </style>
 </head>
 <body>
@@ -717,9 +723,9 @@
     <span>Potvrzuji, že budu doplněk používat pouze k obsahu, ke kterému mám právo přístupu, a souhlasím s <a href="__ZAKLAD__/terms" target="_blank" rel="noopener">podmínkami použití</a>.</span>
   </label>
   <div class="akce-radek">
-    <button type="button" class="hlavni" id="instalovat" disabled><span class="dlouhe">Přidat do Stremia</span><span class="kratke">Stremio</span></button>
-    <button type="button" class="hlavni" id="nuvio" disabled><span class="dlouhe">Přidat do Nuvia</span><span class="kratke">Nuvio</span></button>
-    <button type="button" id="kopirovat" disabled>Zkopírovat<span class="dlouhe"> adresu</span></button>
+    <button type="button" class="hlavni" id="instalovat"><span class="dlouhe">Přidat do Stremia</span><span class="kratke">Stremio</span></button>
+    <button type="button" class="hlavni" id="nuvio"><span class="dlouhe">Přidat do Nuvia</span><span class="kratke">Nuvio</span></button>
+    <button type="button" id="kopirovat">Zkopírovat<span class="dlouhe"> adresu</span></button>
     <span class="akce-souhrn" id="souhrn-zdroju"></span>
   </div>
   <div class="stav" id="stav"></div>
@@ -1135,9 +1141,25 @@ $("zrusit-cz").addEventListener("click", () => {
 // zaškrtnutý — na tuhle stránku se dostane, jen kdo si adresu už dřív vyrobil. ---
 const souhlas = $("souhlas-podminky");
 if (Object.keys(soucasne).length > 0) souhlas.checked = true;
-for (const id of ["instalovat", "nuvio", "kopirovat"]) $(id).disabled = !souhlas.checked;
+// Tlačítka nejsou `disabled`: na zakázané tlačítko prohlížeč klik vůbec nepošle a nešlo by
+// připomenout, co chybí. Posluchač je zaregistrovaný dřív než instalace, takže ji zastaví.
+const bezSouhlasu = () => {
+  for (const id of ["instalovat", "nuvio", "kopirovat"]) $(id).classList.toggle("bez-souhlasu", !souhlas.checked);
+};
+const pripomen = (e) => {
+  if (souhlas.checked) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  nastavStav("Nejdřív zaškrtni souhlas s podmínkami použití.", true);
+  const l = document.querySelector('label[for="souhlas-podminky"]');
+  l.classList.remove("pripomenout"); void l.offsetWidth; l.classList.add("pripomenout");
+  souhlas.focus({ preventScroll: true });
+};
+for (const id of ["instalovat", "nuvio", "kopirovat"]) $(id).addEventListener("click", pripomen);
+document.querySelector("details.adresa > summary").addEventListener("click", pripomen);
+bezSouhlasu();
 souhlas.addEventListener("change", () => {
-  for (const id of ["instalovat", "nuvio", "kopirovat"]) $(id).disabled = !souhlas.checked;
+  bezSouhlasu();
+  if (souhlas.checked) { document.querySelector('label[for="souhlas-podminky"]').classList.remove("pripomenout"); nastavStav(""); }
   prekresli();   // adresa v "Zobrazit adresu doplňku" se bez souhlasu neukazuje ani tady
 });
 prekresli();   // souhlas u editace je zaškrtnutý od začátku — adresa se má ukázat hned
