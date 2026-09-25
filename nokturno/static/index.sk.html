@@ -69,6 +69,28 @@
   .jazyky a:hover { color: var(--text); }
   .jazyky a[aria-current] { color: var(--text); font-weight: 600; }
   footer { margin: 2.5rem 0 2rem; color: var(--tlumene); font-size: .82rem; text-align: center; }
+  /* animace: nástup obsahu, pulzující tečka živé verze, zvednutí karet */
+  @keyframes nastup { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes puls { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 60%, transparent); }
+                    70% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--ok) 0%, transparent); }
+                    100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 0%, transparent); } }
+  @keyframes vznast { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+  header, main > p, h2, .tabulka, .podpora { animation: nastup .6s ease-out both; }
+  .mrizka .karta { animation: nastup .6s ease-out both; }
+  .mrizka .karta:nth-child(2) { animation-delay: .1s; }
+  .mrizka .karta:nth-child(3) { animation-delay: .2s; }
+  header img { animation: vznast 4s ease-in-out infinite; }
+  .karta { transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease; }
+  .karta:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--akcent) 55%, var(--okraj));
+                 box-shadow: 0 12px 30px -12px color-mix(in srgb, var(--akcent) 45%, transparent); }
+  .karta:hover .ik { transform: scale(1.15) rotate(-6deg); }
+  .ik { transition: transform .25s ease; }
+  .tl { transition: background .2s, border-color .2s, transform .15s; }
+  .tl:hover { transform: translateY(-1px); }
+  .tl:active { transform: scale(.97); }
+  .verze:not([hidden]) { animation: nastup .5s ease-out both; }
+  .verze::before { animation: puls 2s ease-out infinite; }
+  @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
