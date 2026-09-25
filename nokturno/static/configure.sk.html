@@ -196,9 +196,12 @@
   .jazyky a[aria-current] { color: var(--text); font-weight: 600; }
   footer { margin: 2rem 0 7rem; color: var(--tlumene); font-size: .8rem; text-align: center; }
   button.bez-souhlasu { opacity: .55; }
-  label.prepinac.pripomenout { outline: 2px solid var(--chyba); outline-offset: 4px; border-radius: 8px;
-                               animation: zatres .45s ease; }
-  label.prepinac.pripomenout input { box-shadow: 0 0 0 3px var(--chyba); }
+  /* zvýraznění uvnitř lišty: záporný okraj vyváží padding, rozměry lišty se nemění a nic nepřetéká */
+  label.prepinac.pripomenout { border-radius: 8px; animation: zatres .45s ease;
+                               padding: .45rem .6rem !important; margin: -.45rem -.6rem .05rem;
+                               background: color-mix(in srgb, var(--chyba) 10%, transparent);
+                               box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--chyba) 70%, transparent); }
+  label.prepinac.pripomenout input { outline: 2px solid var(--chyba); outline-offset: 1px; }
   @keyframes zatres { 0%, 100% { transform: none; } 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
   @media (prefers-reduced-motion: reduce) { label.prepinac.pripomenout { animation: none; } }
 </style>
