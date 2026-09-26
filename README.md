@@ -16,7 +16,7 @@ Jako volitelnou doplňkovou službu si zapneš i vyhledávače třetích stran
 
 <img src="docs/formular.jpg" alt="Formulář nastavení doplňku" width="400">
 
-Nic se neinstaluje a nespouští — server běží u nás. Adresu, kterou formulář vydá, si uschovej:
+Nic se neinstaluje a nespouští – server běží u nás. Adresu, kterou formulář vydá, si uschovej:
 je v ní tvoje nastavení a nikomu ji neposílej. Postup s obrázky je ve [wiki](https://github.com/matata86/nokturno-stremio/wiki/Instalace).
 
 ## Rodina Nokturno
@@ -27,30 +27,30 @@ Nokturno má tři klienty, všechny stojí na společném jádru [nokturno-core]
 |---|---|---|
 | [**Nokturno pro Kodi**](https://github.com/matata86/plugin.video.nokturno) | plnohodnotný doplněk s menu, výběrem streamu, stahováním, Hlídanými, SyncWatch, Traktem a TV programem | Luna, titulky z OpenSubtitles, synchronizace mezi zařízeními |
 | [**Nokturno pro Home Assistant**](https://github.com/matata86/nokturno-ha) | HACS integrace, karta a služby; přehrává přes doplněk pro Kodi, hlídá nové díly sledovaných seriálů | Luna, torrenty (Prowlarr), stahování do HA |
-| **Nokturno pro Stremio** (tento repozitář) | jen JSON pro Stremio, Nuvio a Streamlet, žádná instalace | — |
+| **Nokturno pro Stremio** (tento repozitář) | jen JSON pro Stremio, Nuvio a Streamlet, žádná instalace | – |
 
 Stremio je záměrně nejjednodušší: nemá Lunu (ta má vlastní oficiální doplněk). CZtor (od 8.4.0)
 se páruje PINem ve formuláři a server drží přihlášení zašifrované klíčem, který je jen v adrese doplňku.
-Kdo chce víc — stahování, titulky z OpenSubtitles, Trakt, TV program — použije Kodi.
+Kdo chce víc – stahování, titulky z OpenSubtitles, Trakt, TV program – použije Kodi.
 
 ## Co umí
 
 - **Streamy ke všemu s IMDb id.** Doplněk se chytá na všem, co má identifikátor IMDb (i `tmdb:` id od klientů), a k tomu přihodí své streamy. Detail titulu a díly seriálů dodá Stremio z Cinemety.
-- **Vlastní úložiště** (od 3.1.0) — až tři WebDAV složky s vlastními soubory ve formuláři (s ověřením). Soubory jsou mezi streamy první.
-- **Sedm volitelných vyhledávačů třetích stran** — WebShare, Sosáč, HellSpy, Sledujteto, FastShare / Sdilej.cz, Přehraj.to a CZtor; žádný není povinný. Přehraj.to (od 7.0.4) chce ve formuláři vlastní účet jako WebShare nebo Sledujteto: bez přihlášení API nevydá token a HTML z jedné serverové adresy dostane HTTP 429.
-- **Volitelné katalogy** (od 5.1.0) — seznamy ze Sosáče a TMDB, žebříček „Nejsledovanější tento týden“, nové seriály s CZ/SK dabingem / titulky a **Koncerty** (od 8.1.0); každý se zapíná zvlášť ve formuláři. Sezónní katalogy (Vánoce, Film pro dnešní den) jsou v doplňku vždy, když platí.
-- **Přímé přehrávání** (od 5.2.26) — vlastní úložiště a FastShare se přehrávají přímo ze zdroje (`behaviorHints.proxyHeaders` nese přihlášení), žádná proxy. Úložiště proto musí být dosažitelné ze serveru (hledání) i ze zařízení, kde se přehrává. ⚠️ Ve webovém přehrávači Stremia se tyto streamy nepřehrají, jen v aplikaci. Veřejná instance ignoruje úložiště s adresou na server samotný nebo link-local. Podrobně ve [wiki](https://github.com/matata86/nokturno-stremio/wiki/Zdroje-a-nastaveni#vlastní-úložiště).
-- **Zprávy z dashboardu** — položka „📢 Nokturno" jako první stream; **jazyky** čeština, slovenština, angličtina i maďarština.
+- **Vlastní úložiště** (od 3.1.0) – až tři WebDAV složky s vlastními soubory ve formuláři (s ověřením). Soubory jsou mezi streamy první.
+- **Sedm volitelných vyhledávačů třetích stran** – WebShare, Sosáč, HellSpy, Sledujteto, FastShare / Sdilej.cz, Přehraj.to a CZtor; žádný není povinný. Přehraj.to (od 7.0.4) chce ve formuláři vlastní účet jako WebShare nebo Sledujteto: bez přihlášení API nevydá token a HTML z jedné serverové adresy dostane HTTP 429.
+- **Volitelné katalogy** (od 5.1.0) – seznamy ze Sosáče a TMDB, žebříček „Nejsledovanější tento týden“, nové seriály s CZ/SK dabingem / titulky a **Koncerty** (od 8.1.0); každý se zapíná zvlášť ve formuláři. Sezónní katalogy (Vánoce, Film pro dnešní den) jsou v doplňku vždy, když platí.
+- **Přímé přehrávání** (od 5.2.26) – vlastní úložiště a FastShare se přehrávají přímo ze zdroje (`behaviorHints.proxyHeaders` nese přihlášení), žádná proxy. Úložiště proto musí být dosažitelné ze serveru (hledání) i ze zařízení, kde se přehrává. ⚠️ Ve webovém přehrávači Stremia se tyto streamy nepřehrají, jen v aplikaci. Veřejná instance ignoruje úložiště s adresou na server samotný nebo link-local. Podrobně ve [wiki](https://github.com/matata86/nokturno-stremio/wiki/Zdroje-a-nastaveni#vlastní-úložiště).
+- **Zprávy z dashboardu** – položka „📢 Nokturno" jako první stream; **jazyky** čeština, slovenština, angličtina i maďarština.
 
 | | |
 |---|---|
 | Filmy | ano |
 | Seriály | ano, včetně jednotlivých dílů |
 | Titulky | ano, z WebShare a Sledujteto |
-| Zvuk | jazyk, kanály a kodek — z hlavičky souboru, u Sledujteto přímo z API; u FastShare jen s neomezeným stahováním (na kredit by čtení hlaviček ubíralo kredit) |
-| Katalogy | volitelně (od 5.1.0): Sosáč — nejpopulárnější filmy a seriály, nově přidané (i filmy s CZ/SK dabingem / titulky); nově přidané seriály s CZ/SK dabingem / titulky (jazyk ověřuje server podle streamů); TMDB — trendy, populární, nejlépe hodnocené (jen s klíčem instance `NOKTURNO_TMDB_KEY`); Koncerty — nově přidané a všechny. Jedna cache pro všechny, obnova po 6 h. Sezónní katalogy bez přepínače |
-| Torrenty | ne — jen v integraci pro Home Assistant |
-| Popisy titulů | ne — detail k položkám katalogů i k ostatním titulům dodává Cinemeta |
+| Zvuk | jazyk, kanály a kodek – z hlavičky souboru, u Sledujteto přímo z API; u FastShare jen s neomezeným stahováním (na kredit by čtení hlaviček ubíralo kredit) |
+| Katalogy | volitelně (od 5.1.0): Sosáč – nejpopulárnější filmy a seriály, nově přidané (i filmy s CZ/SK dabingem / titulky); nově přidané seriály s CZ/SK dabingem / titulky (jazyk ověřuje server podle streamů); TMDB – trendy, populární, nejlépe hodnocené (jen s klíčem instance `NOKTURNO_TMDB_KEY`); Koncerty – nově přidané a všechny. Jedna cache pro všechny, obnova po 6 h. Sezónní katalogy bez přepínače |
+| Torrenty | ne – jen v integraci pro Home Assistant |
+| Popisy titulů | ne – detail k položkám katalogů i k ostatním titulům dodává Cinemeta |
 
 Streamy se řadí podle kvality a preferovaného jazyka, protože ve Stremiu je vidět
 jen několik prvních řádků. Kvalitu, velikost, bitrate, jazyky zvuku i titulky
@@ -60,9 +60,9 @@ odhaduje jádro a co neví ze zdroje, přiznaně označí vlnkou (`~Full HD`).
 
 Doplněk posílá anonymní statistiky na stejný sběrný bod jako Nokturno pro Kodi
 a Home Assistant: náhodný identifikátor nastavení, verzi, které zdroje jsou
-zapnuté a u kterých titulů se otevřely streamy — nejvýš jednou za 6 hodin.
+zapnuté a u kterých titulů se otevřely streamy – nejvýš jednou za 6 hodin.
 Jedna „instalace" je jedno nastavení doplňku (vlastní adresa), ne celý server.
-Účty ani adresa doplňku se neposílají. Vypnutí: `NOKTURNO_STATS=0`. I po vypnutí se nejvýš jednou za 6 hodin pošle jen náhodný identifikátor a verze, aby bylo vidět, že nastavení žije — žádné tituly ani zdroje.
+Účty ani adresa doplňku se neposílají. Vypnutí: `NOKTURNO_STATS=0`. I po vypnutí se nejvýš jednou za 6 hodin pošle jen náhodný identifikátor a verze, aby bylo vidět, že nastavení žije – žádné tituly ani zdroje.
 
 ## Hlášení o pádech
 
@@ -87,7 +87,7 @@ Aktuální verzi najdeš v [Releases](https://github.com/matata86/nokturno-strem
 
 ## Vlastní instance (pro vývojáře a pokročilé)
 
-**Běžný uživatel tuhle část nepotřebuje** — stačí [Jak přidat](#jak-přidat). Níže je návod
+**Běžný uživatel tuhle část nepotřebuje** – stačí [Jak přidat](#jak-přidat). Níže je návod
 pro toho, kdo chce doplněk provozovat na vlastním serveru.
 
 ### Spuštění
@@ -117,7 +117,7 @@ jen zašifrované přihlášení k CZtoru; klíč k němu je v adrese.
 http://<stroj>:7127/c/<nastavení>/manifest.json
 ```
 
-Tu adresu vyrobí formulář na `/configure`. Uschovej si ji — bez ní se ke svému
+Tu adresu vyrobí formulář na `/configure`. Uschovej si ji – bez ní se ke svému
 nastavení nedostaneš a vyrobíš si prostě novou.
 
 > Kódování **není šifra**. Kdo adresu má, stahuje z tvého WebShare. Nikomu ji
@@ -133,11 +133,11 @@ Hodnoty jsou stejné jako v doplňku pro Kodi, takže se dají opsat z jeho
 |---|---|
 | `NOKTURNO_WS_USERNAME`, `NOKTURNO_WS_PASSWORD` | WebShare; místo hesla jde vložit i 40znakový salted hash |
 | `NOKTURNO_STREAMUJ_USERNAME`, `NOKTURNO_STREAMUJ_PASSWORD` | Streamuj, kvůli Sosáči; místo hesla i hotový `md5(md5(heslo))` |
-| ~~`NOKTURNO_LUNA_URL`, `NOKTURNO_LUNA_TOKEN`~~ | od 0.2.5 se nečtou — Luna má vlastní doplněk do Stremia |
-| `NOKTURNO_ST_EMAIL`, `NOKTURNO_ST_PASSWORD` | Sledujteto — hledání chce účet, přehrávání Premium |
-| `NOKTURNO_FS_USERNAME`, `NOKTURNO_FS_PASSWORD` | FastShare (od 5.1.0) — hledá se i bez účtu, přehrání jde z kreditu nebo neomezeného tarifu. Soubor si přehrávač stáhne přímo, cookie z přihlášení nese `behaviorHints.proxyHeaders` |
+| ~~`NOKTURNO_LUNA_URL`, `NOKTURNO_LUNA_TOKEN`~~ | od 0.2.5 se nečtou – Luna má vlastní doplněk do Stremia |
+| `NOKTURNO_ST_EMAIL`, `NOKTURNO_ST_PASSWORD` | Sledujteto – hledání chce účet, přehrávání Premium |
+| `NOKTURNO_FS_USERNAME`, `NOKTURNO_FS_PASSWORD` | FastShare (od 5.1.0) – hledá se i bez účtu, přehrání jde z kreditu nebo neomezeného tarifu. Soubor si přehrávač stáhne přímo, cookie z přihlášení nese `behaviorHints.proxyHeaders` |
 | `NOKTURNO_FS_PROVIDER` | `sdilej` = účet výš je ze Sdilej.cz (týž katalog, jiné účty); prázdné = FastShare |
-| `NOKTURNO_PT_EMAIL`, `NOKTURNO_PT_PASSWORD` | Přehraj.to (od 7.0.4) — s Premium účtem přijde původní soubor, bez něj jen překódovaný. Na veřejné instanci se nenastavuje: účet je per-uživatel ve formuláři, jako u ostatních zdrojů |
+| `NOKTURNO_PT_EMAIL`, `NOKTURNO_PT_PASSWORD` | Přehraj.to (od 7.0.4) – s Premium účtem přijde původní soubor, bez něj jen překódovaný. Na veřejné instanci se nenastavuje: účet je per-uživatel ve formuláři, jako u ostatních zdrojů |
 | `NOKTURNO_TMDB_KEY` | klíč TMDB instance pro katalogy TMDB (od 5.1.0); bez něj se nabízejí jen katalogy Sosáče. Ve formuláři se nezadává |
 | `NOKTURNO_HS_ENABLED` | HellSpy je veřejný, stačí přepínač; zapnutý ve výchozím stavu |
 | `NOKTURNO_DAV1_URL` … `NOKTURNO_DAV3_NAME` | až tři vlastní úložiště (WebDAV): `_URL`, `_USERNAME`, `_PASSWORD`, `_NAME` |
@@ -147,7 +147,7 @@ Hodnoty jsou stejné jako v doplňku pro Kodi, takže se dají opsat z jeho
 | `NOKTURNO_STATS` | `0` vypne anonymní statistiky, viz níže |
 | `NOKTURNO_CRASH_REPORTS` | `0` vypne hlášení o pádech služby, viz níže |
 | `NOKTURNO_HOST`, `NOKTURNO_PORT`, `NOKTURNO_DATA` | na čem poslouchat (v Dockeru `0.0.0.0`, za reverzní proxy `127.0.0.1`), port a složka s cache |
-| `NOKTURNO_CONFIGURE_PREFILL` | `1` předvyplní formulář účty z prostředí — jen na vlastní instanci, nikdy na veřejné |
+| `NOKTURNO_CONFIGURE_PREFILL` | `1` předvyplní formulář účty z prostředí – jen na vlastní instanci, nikdy na veřejné |
 
 Žádný zdroj není povinný. Bez nastavení běží doplněk jen s HellSpy.
 
@@ -202,11 +202,11 @@ Nesahají na síť a nepotřebují účty. Jádro má vlastní testy ve svém re
 
 ## Právní upozornění
 
-Nokturno je především přehrávač a správce tvého vlastního úložiště — obsah, který
+Nokturno je především přehrávač a správce tvého vlastního úložiště – obsah, který
 si nahraješ a zpřístupníš (např. přes WebDAV), přehrává napřímo. Jako doplňkovou
 službu si můžeš volitelně napojit i některé veřejně dostupné vyhledávače třetích
 stran (WebShare, Sosáč, HellSpy, Sledujteto, FastShare, Přehraj.to, CZtor, Luna,
-OpenSubtitles) — v tom případě je Nokturno jen technické rozhraní, samo žádný
+OpenSubtitles) – v tom případě je Nokturno jen technické rozhraní, samo žádný
 obsah nehostuje, neukládá ani neposkytuje.
 
 Nokturno smíš používat jen k obsahu, ke kterému máš zákonné oprávnění, licenci
@@ -224,13 +224,13 @@ Plný text a kontakty pro nahlášení nelegálního obsahu u jednotlivých zdro
 
 Zdrojový kód je veřejně čitelný pro transparentnost a instalaci přes oficiální
 kanály (GitHub Releases, repozitář zipů). Kopírování, úpravy a šíření bez
-svolení autora nejsou dovolené — viz [LICENSE](LICENSE).
+svolení autora nejsou dovolené – viz [LICENSE](LICENSE).
 
 ---
 
 ## Podpora
 
-[![Podpoř Nokturno — Ko-fi, PayPal, Bitcoin](https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/.github/podpora.png)](https://ko-fi.com/matata86)
+[![Podpoř Nokturno – Ko-fi, PayPal, Bitcoin](https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/.github/podpora.png)](https://ko-fi.com/matata86)
 
 - **Ko-fi:** https://ko-fi.com/matata86
 - **PayPal:** https://paypal.me/matata86
