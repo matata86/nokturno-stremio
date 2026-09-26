@@ -1072,16 +1072,22 @@ class TestVlastniUloziste(unittest.TestCase):
         r.route(f"/c/{KOUSEK}/stream/movie/tmdb:37738.json", ZAKLAD)
         self.assertEqual(r.engine.dotazy[-1], ("movie", "tt1592598"))
 
-    def test_tmdb_id_bez_klice_nebo_bez_imdb_vraci_prazdno(self):
+    def test_tmdb_id_bez_klice_vraci_prazdno(self):
         r = router()
-        r.engine.tmdb = None                     # uživatel nemá vlastní klíč TMDB
+        r.engine.tmdb = None                     # instance bez klíče TMDB
         self.assertEqual(r.route(f"/c/{KOUSEK}/stream/movie/tmdb:1.json", ZAKLAD).data, {"streams": []})
+        self.assertEqual(r.route(f"/c/{KOUSEK}/stream/movie/tmdb:x.json", ZAKLAD).data, {"streams": []})
 
+    def test_tmdb_id_bez_imdb_hleda_podle_nazvu(self):
+        """Nový seriál bez IMDb id (Vraždy v dolinách, 2026-09-26): jádro dostane `tmdb:` id
+        a hledá fulltextem, dřív doplněk vracel prázdno."""
         class BezImdb:
             def imdb_id(self, ctype, tmdb_id):
                 return ""                        # TMDB titul zná, IMDb id nemá
+        r = router()
         r.engine.tmdb = BezImdb()
-        self.assertEqual(r.route(f"/c/{KOUSEK}/stream/movie/tmdb:1.json", ZAKLAD).data, {"streams": []})
+        r.route(f"/c/{KOUSEK}/stream/series/tmdb:333454:1:1.json", ZAKLAD)
+        self.assertEqual(r.engine.dotazy[-1], ("series", "tmdb:333454:1:1"))
 
     def test_vypis_streamu_vyda_primou_adresu(self):
         """Celá cesta `/stream/…`: úložiště se do odpovědi dostane jako přímá adresa

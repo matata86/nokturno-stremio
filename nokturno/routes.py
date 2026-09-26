@@ -54,7 +54,7 @@ from .kliky import Kliky
 
 _LOGGER = logging.getLogger(__name__)
 
-VERZE = "8.4.0"
+VERZE = "8.5.0b1"
 TYPY = ("movie", "series")
 CHECK_LIMIT = (10, 5 * 60)   # ověření účtů z jedné adresy za 5 minut — jinak je /check relay pro hádání hesel
 # streamy z jedné IP klienta (IPv6 po /64, viz `klic_klienta`). Reálná data 2026-09-19: medián
@@ -709,11 +709,14 @@ class Router:
             return chyba(404, f"Neznámý typ obsahu: {ctype}")
         base_id, season, episode = split_episode_id(item_id)
         if base_id.startswith(TMDB_PREFIX):
-            base_id = _imdb_z_tmdb(engine, ctype, base_id[len(TMDB_PREFIX):])
-            if not base_id:
+            tmdb_id = base_id[len(TMDB_PREFIX):]
+            if not tmdb_id.isdigit() or getattr(engine, "tmdb", None) is None:
                 return Odpoved(data={"streams": []})
+            # bez IMDb id (nové české a slovenské seriály) zůstává `tmdb:` – jádro vezme
+            # metadata z TMDB a hledá jen podle názvu (WebShare, HellSpy, FastShare…)
+            base_id = _imdb_z_tmdb(engine, ctype, tmdb_id) or base_id
             item_id = base_id if season is None else f"{base_id}:{season}:{episode}"
-        if not (base_id.startswith("tt") or is_sosac_id(base_id)):
+        if not (base_id.startswith(("tt", TMDB_PREFIX)) or is_sosac_id(base_id)):
             # titul z cizího katalogu, jehož id neumíme přeložit na název — hledat
             # fulltextem není podle čeho. Zapíšeme si, co chodí: kdyby se nějaký
             # tvar opakoval, vyplatí se ho podpořit.
