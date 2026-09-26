@@ -532,7 +532,7 @@ class Router:
         ip = klic_klienta(klient)
         for klic in {adresa, ip} - {""}:
             if self.blokace.blokovana(klic):
-                odp = chyba(403, "Tvoje adresa je kvůli množství požadavků na hodinu zablokovaná.")
+                odp = chyba(403, "Kvůli velkému množství požadavků je přístup na hodinu zablokovaný. Zkus to později.")
                 odp.utok = ("auto-blok", fp)
                 return odp
         vlastni_ok = okno.povolit(adresa or fp)
@@ -719,7 +719,7 @@ class Router:
             _LOGGER.info("neznámý tvar id, vracím prázdno: %s", item_id[:60])
             return Odpoved(data={"streams": []})
         if ctype == "series" and season is None:
-            return chyba(400, "U seriálu čekám id ve tvaru tt…:sezóna:díl")
+            return chyba(400, "Seriál potřebuje id ve tvaru tt…:série:díl")
 
         try:
             # jen přísná shoda, stejně jako v Kodi a HA: volnější fulltext si má
@@ -770,7 +770,7 @@ class Router:
             # se vydává přímá adresa zdroje s `behaviorHints.proxyHeaders` (viz
             # `mapping.stream_object`) — hlavičky posílá přehrávač sám. Sem se dostane jen
             # odkaz uložený ve starém „pokračovat ve sledování"; ten se musí načíst znovu.
-            return chyba(410, "Tenhle odkaz už neplatí — otevři titul znovu a vyber stream.")
+            return chyba(410, "Odkaz už neplatí — otevři titul znovu a vyber stream.")
         try:
             skutecna = engine.resolve(vnitrni)
         except NokturnoError as err:
@@ -824,7 +824,7 @@ class Router:
                 return odp
             return Odpoved(data=self.koncerty.streamy(options, casti[2][:-len(".json")],
                                                       self._odkaz(zaklad, kousek), _primy(engine)))
-        return chyba(404, "Tady nic není.")
+        return chyba(404, "Nic tu není.")
 
     @staticmethod
     def _extra_koncertu(polozka):
@@ -845,7 +845,7 @@ class Router:
         (viz `klient_z_useragent`) pro statistiky u `/stream/`.
         Parametr `?lang=cs|sk` v adrese má přednost, bez obojího čeština."""
         if self.blokace.adresa_zakazana(klic_klienta(klient)):
-            odp = chyba(403, "Tahle adresa je zakázaná.")
+            odp = chyba(403, "Tato adresa je zakázaná.")
             odp.utok = ("zakázaná adresa", None)
             return odp
         cesta, _, dotaz = cesta.partition("?")
@@ -885,11 +885,11 @@ class Router:
                 odp.utok = ("neplatné id", config.fingerprint(options))
                 return odp
             elif odebrana:
-                odp = chyba(403, "Tahle identita byla kvůli opakovanému zneužití odebrána. Vyrob si novou na /configure")
+                odp = chyba(403, "Tato identita byla kvůli opakovanému zneužití odebrána. Vyrob si novou na /configure")
                 odp.utok = ("odebráno", config.fingerprint(options))
                 return odp
         if kousek and self.blokovane and config.fingerprint(options) in self.blokovane:
-            odp = chyba(403, "Tahle adresa doplňku je zablokovaná.")
+            odp = chyba(403, "Tato adresa doplňku je zablokovaná.")
             odp.utok = ("blokováno", config.fingerprint(options))
             return odp
         if verejny and options:
@@ -925,14 +925,14 @@ class Router:
 
         if kousek and self.koncerty is not None and zbytek.startswith("/koncerty/"):
             if stara:
-                return chyba(410, "Tahle adresa doplňku je zastaralá. Otevři Nastavení doplňku, odeber ho a přidej nový.")
+                return chyba(410, mapping.ZASTARALA_ADRESA)
             return self._koncerty(options, zbytek[len("/koncerty"):], zaklad, kousek, klient, verejny)
 
         casti = [c for c in zbytek.split("/") if c]
         if (kousek and self.koncerty is not None and len(casti) >= 3
                 and casti[0] in ("catalog", "meta", "stream") and casti[1] == koncerty_mod.TYP):
             if stara:
-                return chyba(410, "Tahle adresa doplňku je zastaralá. Otevři Nastavení doplňku, odeber ho a přidej nový.")
+                return chyba(410, mapping.ZASTARALA_ADRESA)
             return self._koncerty(options, zbytek, zaklad, kousek, klient, verejny)
         if casti and casti[0] == "catalog":
             # katalog na účtech nezávisí — jádro se nezakládá, cache je jedna pro všechny
@@ -948,7 +948,7 @@ class Router:
             # odpověď je levná a bot na staré adrese na ni tluče desítky za vteřinu — nepatří do
             # provozu ani chybovosti, jen do přehledu útočníků (`utok`)
             if casti[0] == "play":
-                odp = chyba(410, "Tahle adresa doplňku je zastaralá. Otevři Nastavení doplňku, odeber ho a přidej nový.")
+                odp = chyba(410, mapping.ZASTARALA_ADRESA)
             else:
                 odp = Odpoved(data={"streams": [mapping.upozorneni_nova_adresa(nova)]})
             odp.utok = ("stará adresa", config.fingerprint(options))
@@ -1001,4 +1001,4 @@ class Router:
                     if id_zpravy and callable(self.zobrazeni):
                         self.zobrazeni(id_zpravy, uzivatel)
             return odp
-        return chyba(404, "Tady nic není. Doplněk se nastavuje na /configure")
+        return chyba(404, "Nic tu není. Doplněk se nastavuje na /configure")

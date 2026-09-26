@@ -2110,7 +2110,7 @@ class TestProvoz(unittest.TestCase):
     def test_upozorneni_na_novou_adresu(self):
         from nokturno import mapping
         nova = "https://x.example/configure"
-        self.assertIn("Nastavení", mapping.manifest("6.4.6", (), nova_adresa=nova)["description"])
+        self.assertIn("zastaralá", mapping.manifest("6.4.6", (), nova_adresa=nova)["description"])
         self.assertNotIn("⚠️", mapping.manifest("6.4.6", ())["description"])
         u = mapping.upozorneni_nova_adresa(nova)
         self.assertEqual(u["externalUrl"], nova)
@@ -2311,7 +2311,7 @@ class TestProvoz(unittest.TestCase):
         r.identita = Identita("tajne")
         st = r.route(f"/c/{KOUSEK_HS}/stream/movie/tt0133093.json", ZAKLAD)
         self.assertEqual(len(st.data["streams"]), 1)
-        self.assertIn("Nastavení", st.data["streams"][0]["title"])
+        self.assertIn("zastaralá", st.data["streams"][0]["title"])
         self.assertEqual(r.route(f"/c/{KOUSEK_HS}/play/abc", ZAKLAD).status, 410)
         # s vlastními účty se stará adresa nechává
         self.assertNotIn("Nastavení", str(r.route(f"/c/{KOUSEK}/stream/movie/tt0133093.json", ZAKLAD).data))

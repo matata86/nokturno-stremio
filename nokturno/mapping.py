@@ -244,9 +244,14 @@ def streams_response(popisy, odkaz, primy=None):
     return {"streams": out}
 
 
+# Jeden text pro zastaralou adresu — položka ve streamech, popis manifestu i odpověď 410.
+ZASTARALA_ADRESA = ("Adresa doplňku je zastaralá. Otevři nastavení doplňku (ozubené kolo) — vytvoří se "
+                    "nová adresa. Pak tento doplněk odeber a přidej ho znovu.")
+
+
 def upozorneni_nova_adresa(nova_adresa):
     """První položka v seznamu streamů u adresy bez identity: co má uživatel udělat."""
-    text = "Klikni na Nastavení doplňku. Pak tento doplněk odeber a přidej nový."
+    text = ZASTARALA_ADRESA
     return {"name": "⚠️ Nokturno", "title": text, "description": text, "externalUrl": nova_adresa}
 
 
@@ -293,7 +298,7 @@ def manifest(verze, zdroje=(), nastaveno=True, katalogy=(), nova_adresa=None):
     if zdroje:
         popis += " Nastavené zdroje: " + ", ".join(zdroje) + "."
     if nova_adresa:
-        popis += " ⚠️ Klikni na Nastavení, tím se vytvoří nová adresa doplňku. Pak tento doplněk odeber a přidej nový."
+        popis += " ⚠️ " + ZASTARALA_ADRESA
     return {
         "id": "community.nokturno",
         "version": manifest_version(verze),
