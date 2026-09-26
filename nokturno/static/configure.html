@@ -4,7 +4,7 @@
 <script>try{var t=localStorage.getItem("nokturno-tema");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nokturno — nastavení doplňku pro Stremio</title>
+<title>Nokturno – nastavení doplňku pro Stremio</title>
 <link rel="icon" href="https://raw.githubusercontent.com/matata86/plugin.video.nokturno/main/resources/media/icon2.png">
 <style>
   :root {
@@ -218,7 +218,7 @@
   </header>
 
   <p class="uvod">
-    Nokturno přehrává ve Stremiu <strong>tvoje vlastní úložiště</strong> — soubory z WebDAV serveru, NASu
+    Nokturno přehrává ve Stremiu <strong>tvoje vlastní úložiště</strong> – soubory z WebDAV serveru, NASu
     nebo domácího disku. Volitelně k němu připojíš i veřejné vyhledávače třetích stran (WebShare, Sosáč,
     Sledujteto, FastShare, HellSpy, Přehraj.to, CZtor). Tituly hledáš ve Stremiu jako obvykle, streamy Nokturna
     se objeví v detailu filmu nebo dílu mezi ostatními.
@@ -236,7 +236,7 @@
     <!-- ============================== 1. ZDROJE ============================== -->
     <section id="zdroje">
       <h2><b>1</b>Vlastní úložiště a zdroje</h2>
-      <p class="popis">Nokturno je především přehrávač <strong>tvého vlastního úložiště</strong> — nastav ho hned první kartou. Volitelně k němu můžeš připojit i veřejné vyhledávače třetích stran; účty zůstávají jen v adrese doplňku, server je nikam neukládá (výjimka je přihlášení CZtor, viz Časté otázky).</p>
+      <p class="popis">Nokturno je především přehrávač <strong>tvého vlastního úložiště</strong> – nastav ho hned první kartou. Volitelně k němu můžeš připojit i veřejné vyhledávače třetích stran; účty zůstávají jen v adrese doplňku, server je nikam neukládá (výjimka je přihlášení CZtor, viz Časté otázky).</p>
 
       <!-- Vlastní úložiště -->
       <div class="karta">
@@ -246,7 +246,7 @@
         </div>
         <p>Tvoje vlastní filmy a seriály na NAS, Nextcloudu nebo serveru s WebDAV. Nokturno projde složky a soubory přiřadí k titulům podle názvu souboru a složky nad ním („Sherlock/S01E02.mkv“).</p>
         <div class="poznamka">
-          <strong>Nepřehraje se ve webovém Stremiu.</strong> Soubor z úložiště chce heslo a tu hlavičku umí poslat jen aplikace — <strong>Stremio pro počítač, Android a Android TV</strong>, nebo Nuvio. Ve Stremiu v prohlížeči se takový stream nespustí; v seznamu je poznáš podle upozornění u popisu. Data tečou z tvého úložiště rovnou k tobě, ne přes tento server.
+          <strong>Nepřehraje se ve webovém Stremiu.</strong> Soubor z úložiště chce heslo a tu hlavičku umí poslat jen aplikace – <strong>Stremio pro počítač, Android a Android TV</strong>, nebo Nuvio. Ve Stremiu v prohlížeči se takový stream nespustí; v seznamu je poznáš podle upozornění u popisu. Data tečou z tvého úložiště rovnou k tobě, ne přes tento server.
         </div>
         <details class="uloziste" open>
           <summary>Úložiště 1</summary>
@@ -295,7 +295,7 @@
           <span class="vysledek" id="vysledek-dav"></span>
         </div>
         <details class="navod">
-          <summary>Jak na to — adresa, heslo, jak pojmenovat soubory</summary>
+          <summary>Jak na to – adresa, heslo, jak pojmenovat soubory</summary>
           <div class="obsah">
             <ol>
               <li>Adresa je složka na WebDAV, třeba <code>https://nas.example.cz/remote.php/dav/files/jmeno/Video/</code> (Nextcloud) nebo <code>https://server:10000/</code>. Tvar <code>davs://</code> z Kodi jde taky.</li>
@@ -307,7 +307,7 @@
         </details>
       </div>
 
-      <p class="popis">Vyhledávače třetích stran — volitelná doplňková služba. Nokturno u nich žádný obsah nehostí ani neposkytuje, jen se na ně dotazuje tvým účtem.</p>
+      <p class="popis">Vyhledávače třetích stran – volitelná doplňková služba. Nokturno u nich žádný obsah nehostí ani neposkytuje, jen se na ně dotazuje tvým účtem.</p>
 
       <!-- WebShare -->
       <div class="karta">
@@ -328,13 +328,13 @@
           <span class="vysledek" id="vysledek-ws"></span>
         </div>
         <details class="navod">
-          <summary>Jak na to — nemám účet / nevím, co vyplnit</summary>
+          <summary>Jak na to – nemám účet / nevím, co vyplnit</summary>
           <div class="obsah">
             <ol>
-              <li>Zaregistruj se na <a href="https://webshare.cz/" target="_blank" rel="noopener">webshare.cz</a> — odkaz <em>Registrace</em> je nahoře na stránce, registrace je zdarma.</li>
+              <li>Zaregistruj se na <a href="https://webshare.cz/" target="_blank" rel="noopener">webshare.cz</a> – odkaz <em>Registrace</em> je nahoře na stránce, registrace je zdarma.</li>
               <li>Po přihlášení si tamtéž kup <strong>VIP</strong>. Bez něj WebShare stahování zpomalí natolik, že se film nedá plynule přehrávat.</li>
               <li>Sem vyplň stejné jméno (nebo e-mail) a heslo, jakým se přihlašuješ na web.</li>
-              <li>Klikni na <strong>Ověřit účet</strong> — ukáže, jestli přihlášení prošlo a kolik dní VIP ti zbývá.</li>
+              <li>Klikni na <strong>Ověřit účet</strong> – ukáže, jestli přihlášení prošlo a kolik dní VIP ti zbývá.</li>
             </ol>
             <p><strong>Nechceš mít heslo v adrese čitelné?</strong> Místo hesla jde vložit 40znakový „salted hash“,
               který používají i jiné doplňky (WebShare pro Kodi / Stremio). Doplněk ho pozná sám.</p>
@@ -361,14 +361,14 @@
           <span class="vysledek" id="vysledek-su"></span>
         </div>
         <details class="navod">
-          <summary>Jak na to — účet Streamuj.tv</summary>
+          <summary>Jak na to – účet Streamuj.tv</summary>
           <div class="obsah">
             <ol>
               <li>Založ si účet na <a href="https://www.streamuj.tv" target="_blank" rel="noopener">streamuj.tv</a>.</li>
               <li>Bez účtu se Sosáč nepoužívá. Rychlost přehrávání určuje tvůj tarif na Streamuj.tv.</li>
               <li>Vyplň jméno a heslo ze Streamuj.tv. Streamuj neumí přihlášení ověřit dopředu; špatné heslo se pozná až při přehrání.</li>
             </ol>
-            <p><strong>Místo hesla</strong> jde vložit i jeho 32znakový otisk — ten ukládá doplněk Nokturno pro Kodi, dá se odtamtud opsat.</p>
+            <p><strong>Místo hesla</strong> jde vložit i jeho 32znakový otisk – ten ukládá doplněk Nokturno pro Kodi, dá se odtamtud opsat.</p>
           </div>
         </details>
       </div>
@@ -392,14 +392,14 @@
           <span class="vysledek" id="vysledek-st"></span>
         </div>
         <details class="navod">
-          <summary>Jak na to — účet Sledujteto</summary>
+          <summary>Jak na to – účet Sledujteto</summary>
           <div class="obsah">
             <ol>
               <li>Zaregistruj se na <a href="https://www.sledujteto.cz/account/registration/" target="_blank" rel="noopener">sledujteto.cz</a> (zdarma, jde i přes Google).</li>
-              <li>Aktivuj si <strong>Premium</strong> v <a href="https://www.sledujteto.cz/credits/buy/" target="_blank" rel="noopener">ceníku</a>. Bez něj Sledujteto odkaz na přehrání nevydá — streamy se ukážou, ale nepustí se.</li>
+              <li>Aktivuj si <strong>Premium</strong> v <a href="https://www.sledujteto.cz/credits/buy/" target="_blank" rel="noopener">ceníku</a>. Bez něj Sledujteto odkaz na přehrání nevydá – streamy se ukážou, ale nepustí se.</li>
               <li>Sem vyplň e-mail a heslo, jakým se přihlašuješ na web, a klikni na <strong>Ověřit účet</strong>.</li>
             </ol>
-            <p>Podle podmínek Sledujteto nesmí jeden účet používat lidé z různých domácností — adresu doplňku s účtem proto nikomu nedávej.</p>
+            <p>Podle podmínek Sledujteto nesmí jeden účet používat lidé z různých domácností – adresu doplňku s účtem proto nikomu nedávej.</p>
           </div>
         </details>
       </div>
@@ -410,9 +410,9 @@
           <h3>FastShare / Sdilej.cz</h3>
           <span class="stitek">Volitelné · kredit nebo tarif</span>
         </div>
-        <p>Česká úschovna souborů s velkým výběrem filmů a seriálů. Hledá se i bez účtu, přehrání se odečte z kreditu, pokud nemáš neomezené stahování. Účet ze Sdilej.cz funguje taky — soubory jsou stejné, jen přepni níž „Účet z“.</p>
+        <p>Česká úschovna souborů s velkým výběrem filmů a seriálů. Hledá se i bez účtu, přehrání se odečte z kreditu, pokud nemáš neomezené stahování. Účet ze Sdilej.cz funguje taky – soubory jsou stejné, jen přepni níž „Účet z“.</p>
         <div class="poznamka">
-          <strong>Nepřehraje se ve webovém Stremiu.</strong> Soubor z FastShare chce ke stažení přihlášení a tu hlavičku umí poslat jen aplikace — <strong>Stremio pro počítač, Android a Android TV</strong>, nebo Nuvio. Ve Stremiu v prohlížeči se takový stream nespustí; v seznamu je poznáš podle upozornění u popisu. Data tečou z FastShare rovnou k tobě, ne přes tento server.
+          <strong>Nepřehraje se ve webovém Stremiu.</strong> Soubor z FastShare chce ke stažení přihlášení a tu hlavičku umí poslat jen aplikace – <strong>Stremio pro počítač, Android a Android TV</strong>, nebo Nuvio. Ve Stremiu v prohlížeči se takový stream nespustí; v seznamu je poznáš podle upozornění u popisu. Data tečou z FastShare rovnou k tobě, ne přes tento server.
         </div>
         <div class="dvojice">
           <label class="pole"><span>Uživatel</span>
@@ -430,7 +430,7 @@
           <span class="vysledek" id="vysledek-fs"></span>
         </div>
         <details class="navod">
-          <summary>Jak na to — účet FastShare / Sdilej.cz</summary>
+          <summary>Jak na to – účet FastShare / Sdilej.cz</summary>
           <div class="obsah">
             <ol>
               <li>Zaregistruj se na <a href="https://fastshare.cz/" target="_blank" rel="noopener">fastshare.cz</a> nebo <a href="https://sdilej.cz/" target="_blank" rel="noopener">sdilej.cz</a> (u Sdilej.cz pak přepni „Účet z“).</li>
@@ -447,7 +447,7 @@
           <h3>Přehraj.to</h3>
           <span class="stitek">Volitelné · účet nutný</span>
         </div>
-        <p>Česká úschovna s velkým výběrem. Ve Stremiu potřebuje <strong>účet</strong> (na rozdíl od Kodi, kde jede i bez něj) — server je jedna IP a bez přihlášení by ho Přehraj.to hned omezil. S Premium účtem se hraje původní soubor včetně 4K, jinak překódovaná verze v 1080p. <strong>Hraje i ve webovém přehrávači</strong> (přímá adresa na CDN, žádná proxy).</p>
+        <p>Česká úschovna s velkým výběrem. Ve Stremiu potřebuje <strong>účet</strong> (na rozdíl od Kodi, kde jede i bez něj) – server je jedna IP a bez přihlášení by ho Přehraj.to hned omezil. S Premium účtem se hraje původní soubor včetně 4K, jinak překódovaná verze v 1080p. <strong>Hraje i ve webovém přehrávači</strong> (přímá adresa na CDN, žádná proxy).</p>
         <div class="dvojice">
           <label class="pole"><span>E-mail</span>
             <input type="text" name="pt_email" autocapitalize="off" spellcheck="false"></label>
@@ -460,7 +460,7 @@
           <span class="vysledek" id="vysledek-pt"></span>
         </div>
         <details class="navod">
-          <summary>Jak na to — účet Přehraj.to</summary>
+          <summary>Jak na to – účet Přehraj.to</summary>
           <div class="obsah">
             <ol>
               <li>Zaregistruj se na <a href="https://prehraj.to/" target="_blank" rel="noopener">prehraj.to</a>.</li>
@@ -486,13 +486,13 @@
           <span class="vysledek" id="vysledek-cz"></span>
         </div>
         <details class="navod">
-          <summary>Jak na to — účet CZtor</summary>
+          <summary>Jak na to – účet CZtor</summary>
           <div class="obsah">
             <ol>
               <li>Na <a href="https://cztor.com/" target="_blank" rel="noopener">cztor.com</a> si založ účet a aktivuj předplatné.</li>
               <li>Klikni na <strong>Spárovat CZtor</strong>. Ukáže se PIN a odkaz na cztor.com/activate.</li>
               <li>Tam se přihlas a PIN zadej. Formulář to za pár vteřin sám pozná.</li>
-              <li>Adresa doplňku se tím změní — doplněk pak <strong>nainstaluj znovu</strong> tlačítkem dole.</li>
+              <li>Adresa doplňku se tím změní – doplněk pak <strong>nainstaluj znovu</strong> tlačítkem dole.</li>
             </ol>
           </div>
         </details>
@@ -513,7 +513,7 @@
 
       <div class="poznamka">
         <strong>Máš ve Stremiu i doplněk Luna?</strong> Nokturno Lunu nepoužívá, oba doplňky mohou být nainstalované vedle sebe.
-        Některé soubory z WebShare pak uvidíš v seznamu dvakrát — jednou od Luny, jednou od Nokturna.
+        Některé soubory z WebShare pak uvidíš v seznamu dvakrát – jednou od Luny, jednou od Nokturna.
       </div>
     </section>
 
@@ -548,7 +548,7 @@
           <span><strong>Upřednostnit prostorový zvuk 5.1</strong>
             <small>Pro soundbar nebo domácí kino.</small></span>
         </label>
-        <label class="pole" style="margin:.7rem 0 0"><span>Nejvyšší datový tok (Mb/s) — nepovinné</span>
+        <label class="pole" style="margin:.7rem 0 0"><span>Nejvyšší datový tok (Mb/s) – nepovinné</span>
           <input type="number" name="max_bitrate_mbps" min="0" step="1" inputmode="numeric" placeholder="bez omezení"></label>
         <p class="drobne" style="margin:.35rem 0 0">Pro pomalejší internet: soubory, které by se nestihly načítat, se nenabídnou.
           Orientačně Full HD potřebuje 8–15 Mb/s, 4K 25–60 Mb/s.</p>
@@ -560,7 +560,7 @@
           <h3>Katalogy</h3>
           <span class="stitek">Volitelné · na domovské stránce Stremia</span>
         </div>
-        <p>Seznamy filmů a seriálů přímo ve Stremiu. Zapni jen ty, které chceš vidět — detail titulu i díly seriálů pak dodá Stremio samo a streamy Nokturno jako obvykle. Seznamy se na serveru obnovují jednou za 6 hodin.</p>
+        <p>Seznamy filmů a seriálů přímo ve Stremiu. Zapni jen ty, které chceš vidět – detail titulu i díly seriálů pak dodá Stremio samo a streamy Nokturno jako obvykle. Seznamy se na serveru obnovují jednou za 6 hodin.</p>
         <div id="katalogy"></div>
         <input type="hidden" name="katalogy">
         <input type="hidden" name="id">
@@ -580,7 +580,7 @@
         <h3><svg xmlns="http://www.w3.org/2000/svg" class="ik" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">  <path d="M3 19l18 0"/> <path d="M5 7a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v8a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1l0 -8"/> </svg>Počítač</h3>
         <ol>
           <li>Klikni na <strong>Přidat do Stremia</strong>.</li>
-          <li>Prohlížeč se zeptá, jestli otevřít Stremio — potvrď.</li>
+          <li>Prohlížeč se zeptá, jestli otevřít Stremio – potvrď.</li>
           <li>Ve Stremiu klikni na <strong>Instalovat</strong>.</li>
         </ol>
       </div>
@@ -596,7 +596,7 @@
         <h3><svg xmlns="http://www.w3.org/2000/svg" class="ik" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">  <path d="M3 9a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2l0 -9"/> <path d="M16 3l-4 4l-4 -4"/> </svg>Televize</h3>
         <ol>
           <li>Nainstaluj doplněk na počítači nebo telefonu <strong>pod stejným účtem Stremio</strong>.</li>
-          <li>Doplňky se mezi zařízeními synchronizují samy — na TV se objeví do minuty.</li>
+          <li>Doplňky se mezi zařízeními synchronizují samy – na TV se objeví do minuty.</li>
           <li>Ruční cesta: Stremio → <strong>Doplňky</strong> → pole nahoře → vložit adresu → <strong>Instalovat</strong>.</li>
         </ol>
       </div>
@@ -614,7 +614,7 @@
       <div class="karta">
         <h3><svg xmlns="http://www.w3.org/2000/svg" class="ik" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">  <path d="M3 19l.01 0"/> <path d="M7 19a4 4 0 0 0 -4 -4"/> <path d="M11 19a8 8 0 0 0 -8 -8"/> <path d="M15 19h3a3 3 0 0 0 3 -3v-8a3 3 0 0 0 -3 -3h-12a3 3 0 0 0 -2.8 2"/> </svg>Streamlet</h3>
         <ol>
-          <li>Streamlet odkaz pro přidání doplňku nemá — klikni na <strong>Zkopírovat adresu</strong>.</li>
+          <li>Streamlet odkaz pro přidání doplňku nemá – klikni na <strong>Zkopírovat adresu</strong>.</li>
           <li>Ve Streamletu přidej doplněk Stremia (modul) a vlož zkopírovanou adresu.</li>
           <li>Na TV adresu nejsnáz pošleš z telefonu, třeba zprávou pro sebe.</li>
         </ol>
@@ -623,7 +623,7 @@
 
     <div class="vystraha">
       <strong>Adresa doplňku obsahuje tvoje účty.</strong> Není zašifrovaná, jen zakódovaná.
-      Nikomu ji neposílej a nesdílej — kdo ji má, přehrává přes tvoje účty.
+      Nikomu ji neposílej a nesdílej – kdo ji má, přehrává přes tvoje účty.
     </div>
   </section>
 
@@ -635,8 +635,8 @@
       <summary>Nainstaloval jsem to, ale u filmu nevidím žádné streamy Nokturna</summary>
       <div class="obsah">
         <ul>
-          <li>Klikni výše na <strong>Ověřit účet</strong> — nejčastější příčinou je překlep v hesle nebo vypršelé VIP na WebShare.</li>
-          <li>Hledání trvá pár sekund. Stremio ukazuje streamy postupně, jak které doplňky odpovídají — chvilku počkej.</li>
+          <li>Klikni výše na <strong>Ověřit účet</strong> – nejčastější příčinou je překlep v hesle nebo vypršelé VIP na WebShare.</li>
+          <li>Hledání trvá pár sekund. Stremio ukazuje streamy postupně, jak které doplňky odpovídají – chvilku počkej.</li>
           <li>Titul nemusí na zdrojích vůbec být, hlavně úplné novinky a málo známé seriály.</li>
           <li>Nokturno bere jen soubory, které k titulu opravdu patří (název, rok, díl). Podobné, ale jiné filmy záměrně vynechá.</li>
         </ul>
@@ -647,9 +647,9 @@
       <summary>Stream se nechce přehrát nebo se často zasekává</summary>
       <div class="obsah">
         <ul>
-          <li>U WebShare bez VIP je rychlost omezená — přehrávání pak neustále čeká.</li>
+          <li>U WebShare bez VIP je rychlost omezená – přehrávání pak neustále čeká.</li>
           <li>Zkus menší soubor (nižší kvalitu), nebo v předvolbách nastav <strong>nejvyšší datový tok</strong> podle svého internetu.</li>
-          <li>WebShare občas hlásí „soubor dočasně nedostupný“ — stačí vybrat jiný stream.</li>
+          <li>WebShare občas hlásí „soubor dočasně nedostupný“ – stačí vybrat jiný stream.</li>
         </ul>
       </div>
     </details>
@@ -659,7 +659,7 @@
       <div class="obsah">
         <p>Ve Stremiu otevři <strong>Doplňky</strong> → <strong>Nokturno</strong> → ikona ozubeného kola (<em>Konfigurovat</em>).
           Otevře se tato stránka s tvým současným nastavením. Uprav, co potřebuješ, a znovu klikni na <strong>Přidat do Stremia</strong> (nebo Nuvia).</p>
-        <p>Změněné nastavení je nová adresa — starou verzi doplňku pak ve Stremiu odinstaluj, jinak tam Nokturno zůstane dvakrát.</p>
+        <p>Změněné nastavení je nová adresa – starou verzi doplňku pak ve Stremiu odinstaluj, jinak tam Nokturno zůstane dvakrát.</p>
       </div>
     </details>
 
@@ -676,7 +676,7 @@
     <details>
       <summary>Posílá doplněk nějaké statistiky?</summary>
       <div class="obsah">
-        <p>Ano, anonymní — stejně jako Nokturno pro Kodi a Home Assistant. Nejvýš jednou za 6 hodin odejde náhodný
+        <p>Ano, anonymní – stejně jako Nokturno pro Kodi a Home Assistant. Nejvýš jednou za 6 hodin odejde náhodný
           identifikátor tvého nastavení, verze doplňku, které zdroje máš zapnuté a u kterých titulů se otevřely streamy.
           Žádné účty, hesla ani adresa doplňku se neposílají. Slouží jen k tomu, abychom věděli, co se používá.</p>
       </div>
@@ -687,7 +687,7 @@
       <div class="obsah">
         <p>V nastavení doplňku je v kategorii <strong>Pokročilé → Údržba</strong> tlačítko
           <strong>Odeslat log Kodi</strong>. Pošle posledních pár set kilobajtů souboru
-          <code>kodi.log</code> na náš server — bez hesel a účtů, jen technický záznam toho,
+          <code>kodi.log</code> na náš server – bez hesel a účtů, jen technický záznam toho,
           co doplněk dělal. Před odesláním se ještě zeptá na potvrzení.</p>
         <p>Log pak sami zkontrolujeme. Napiš k tomu i pár slov, co se stalo a kdy
           (ve skupině Nokturno na Facebooku nebo do issue na GitHubu), ať víme, který log hledat.</p>
@@ -697,7 +697,7 @@
     <details>
       <summary>Má Nokturno vlastní katalogy?</summary>
       <div class="obsah">
-        <p>Volitelně ano — v kroku 2 zapneš žebříčky, novinky s CZ/SK dabingem nebo titulky a Koncerty. Plakáty a popisy dodá Stremio
+        <p>Volitelně ano – v kroku 2 zapneš žebříčky, novinky s CZ/SK dabingem nebo titulky a Koncerty. Plakáty a popisy dodá Stremio
           (Cinemeta). Nokturno k titulu najde streamy z tvého úložiště a ze zapnutých zdrojů.</p>
       </div>
     </details>
@@ -706,14 +706,14 @@
       <summary>Jaký je rozdíl mezi zdroji?</summary>
       <div class="obsah">
         <ul>
-          <li><strong>Vlastní úložiště</strong> — tvoje soubory na NAS, v Nextcloudu nebo na serveru s WebDAV. Hlavní zdroj, hraje jen v aplikaci, ne v prohlížeči.</li>
-          <li><strong>WebShare</strong> — česká úschovna souborů, potřebuje placené VIP.</li>
-          <li><strong>Sosáč</strong> — ručně poskládaný katalog českých filmů a seriálů s dabingem a titulky, přehrává přes Streamuj.tv.</li>
-          <li><strong>Sledujteto</strong> — česká úschovna s velkým výběrem, hledá přes tvůj účet a přehrává s Premium.</li>
-          <li><strong>FastShare</strong> — česká úschovna s velkým výběrem, hledá i bez účtu, přehrává z kreditu nebo s neomezeným stahováním. Jen v aplikaci Stremio, ne v prohlížeči.</li>
-          <li><strong>HellSpy</strong> — veřejné soubory zdarma, bez účtu. Méně výběru, ale nic nestojí.</li>
-          <li><strong>Přehraj.to</strong> — česká úschovna, ve Stremiu potřebuje účet (server je jedna IP, bez přihlášení by ho Přehraj.to omezil). S Premium hraje původní soubor, jinak překódovanou verzi. Hraje i v prohlížeči.</li>
-          <li><strong>CZtor</strong> — placený katalog s plnou kvalitou, páruje se PINem na cztor.com (heslo nezadáváš). Hraje i v prohlížeči.</li>
+          <li><strong>Vlastní úložiště</strong> – tvoje soubory na NAS, v Nextcloudu nebo na serveru s WebDAV. Hlavní zdroj, hraje jen v aplikaci, ne v prohlížeči.</li>
+          <li><strong>WebShare</strong> – česká úschovna souborů, potřebuje placené VIP.</li>
+          <li><strong>Sosáč</strong> – ručně poskládaný katalog českých filmů a seriálů s dabingem a titulky, přehrává přes Streamuj.tv.</li>
+          <li><strong>Sledujteto</strong> – česká úschovna s velkým výběrem, hledá přes tvůj účet a přehrává s Premium.</li>
+          <li><strong>FastShare</strong> – česká úschovna s velkým výběrem, hledá i bez účtu, přehrává z kreditu nebo s neomezeným stahováním. Jen v aplikaci Stremio, ne v prohlížeči.</li>
+          <li><strong>HellSpy</strong> – veřejné soubory zdarma, bez účtu. Méně výběru, ale nic nestojí.</li>
+          <li><strong>Přehraj.to</strong> – česká úschovna, ve Stremiu potřebuje účet (server je jedna IP, bez přihlášení by ho Přehraj.to omezil). S Premium hraje původní soubor, jinak překódovanou verzi. Hraje i v prohlížeči.</li>
+          <li><strong>CZtor</strong> – placený katalog s plnou kvalitou, páruje se PINem na cztor.com (heslo nezadáváš). Hraje i v prohlížeči.</li>
         </ul>
       </div>
     </details>
@@ -736,7 +736,7 @@
   </div>
   <div class="stav" id="stav"></div>
   <details class="adresa"><summary>Zobrazit adresu doplňku</summary><pre id="adresa"></pre></details>
-  <p id="identita-pozn" class="pozn" hidden>Adresa nese tvoji osobní identitu, i když v ní nejsou účty. Nikomu ji neposílej — kdo ji má, používá limity a případnou blokaci s tebou. Každý si má vyrobit vlastní na této stránce.</p>
+  <p id="identita-pozn" class="pozn" hidden>Adresa nese tvoji osobní identitu, i když v ní nejsou účty. Nikomu ji neposílej – kdo ji má, používá limity a případnou blokaci s tebou. Každý si má vyrobit vlastní na této stránce.</p>
 </div>
 
 <script>
@@ -873,7 +873,7 @@ function zdroje(n = nastaveni()) {
 }
 
 function problem(n = nastaveni()) {
-  if (!zdroje(n).length) return "Vyber aspoň jeden zdroj — bez něj doplněk nic nenajde.";
+  if (!zdroje(n).length) return "Vyber aspoň jeden zdroj – bez něj doplněk nic nenajde.";
   if (n.ws_username && !n.ws_password) return "U WebShare chybí heslo.";
   if (!n.ws_username && n.ws_password) return "U WebShare chybí uživatelské jméno.";
   if (n.streamuj_username && !n.streamuj_password) return "U Streamuj.tv chybí heslo.";
@@ -957,9 +957,9 @@ $("overit-ws").addEventListener("click", async () => {
     const data = await overit();
     const ws = data.webshare;
     if (!ws) vysledek("ws", "pozor", "Účet není vyplněný.");
-    else if (!ws.ok) vysledek("ws", "chyba", "Přihlášení neprošlo — zkontroluj jméno a heslo.");
+    else if (!ws.ok) vysledek("ws", "chyba", "Přihlášení neprošlo – zkontroluj jméno a heslo.");
     else if (ws.vip) vysledek("ws", "ok", `✓ Přihlášeno · VIP ještě ${ws.days} ${dny(ws.days)}`);
-    else vysledek("ws", "pozor", "Přihlášeno, ale bez VIP — přehrávání bude pomalé.");
+    else vysledek("ws", "pozor", "Přihlášeno, ale bez VIP – přehrávání bude pomalé.");
   } catch (err) {
     vysledek("ws", "chyba", "Ověření se nepovedlo (" + err.message + "). Zkus to za chvíli.");
   } finally {
@@ -979,9 +979,9 @@ $("overit-st").addEventListener("click", async () => {
   try {
     const st = (await overit()).sledujteto;
     if (!st) vysledek("st", "pozor", "Účet není vyplněný.");
-    else if (!st.ok) vysledek("st", "chyba", "Přihlášení neprošlo — zkontroluj e-mail a heslo.");
+    else if (!st.ok) vysledek("st", "chyba", "Přihlášení neprošlo – zkontroluj e-mail a heslo.");
     else if (st.premium) vysledek("st", "ok", "✓ Přihlášeno · Premium aktivní");
-    else vysledek("st", "pozor", "Přihlášeno, ale bez Premium — streamy se ukážou, přehrát nepůjdou.");
+    else vysledek("st", "pozor", "Přihlášeno, ale bez Premium – streamy se ukážou, přehrát nepůjdou.");
   } catch (err) {
     vysledek("st", "chyba", "Ověření se nepovedlo (" + err.message + "). Zkus to za chvíli.");
   } finally {
@@ -1001,10 +1001,10 @@ $("overit-fs").addEventListener("click", async () => {
   try {
     const fs = (await overit()).fastshare;
     if (!fs) vysledek("fs", "pozor", "Účet není vyplněný.");
-    else if (!fs.ok) vysledek("fs", "chyba", "Přihlášení neprošlo — zkontroluj jméno a heslo.");
+    else if (!fs.ok) vysledek("fs", "chyba", "Přihlášení neprošlo – zkontroluj jméno a heslo.");
     else if (fs.neomezene) vysledek("fs", "ok", "✓ Přihlášeno · neomezené stahování");
     else if (fs.kredit_mb > 0) vysledek("fs", "ok", "✓ Přihlášeno · kredit " + (fs.kredit_mb / 1024).toFixed(1) + " GB");
-    else vysledek("fs", "pozor", "Přihlášeno, ale bez kreditu — streamy se ukážou, přehrát nepůjdou.");
+    else vysledek("fs", "pozor", "Přihlášeno, ale bez kreditu – streamy se ukážou, přehrát nepůjdou.");
   } catch (err) {
     vysledek("fs", "chyba", "Ověření se nepovedlo (" + err.message + "). Zkus to za chvíli.");
   } finally {
@@ -1024,7 +1024,7 @@ $("overit-pt").addEventListener("click", async () => {
   try {
     const pt = (await overit()).prehrajto;
     if (!pt) vysledek("pt", "pozor", "Účet není vyplněný.");
-    else if (!pt.ok) vysledek("pt", "chyba", "Přihlášení neprošlo — zkontroluj e-mail a heslo.");
+    else if (!pt.ok) vysledek("pt", "chyba", "Přihlášení neprošlo – zkontroluj e-mail a heslo.");
     else if (pt.premium) vysledek("pt", "ok", "✓ Přihlášeno · Premium ještě " + pt.days + " " + dny(pt.days));
     else vysledek("pt", "ok", "✓ Přihlášeno · bez Premium (přehraje se překódovaná verze v 1080p)");
   } catch (err) {
@@ -1050,7 +1050,7 @@ $("overit-dav").addEventListener("click", async () => {
       return u.ok ? `✓ ${jmeno}: ${u.polozek} položek v kořeni` : `✗ ${jmeno}: ${u.chyba}`;
     });
     const vse = seznam.length && seznam.every((u) => u.ok);
-    vysledek("dav", vse ? "ok" : "chyba", radky.join(" · ") || "Úložiště z internetu nejde ověřit — adresa míří na server samotný.");
+    vysledek("dav", vse ? "ok" : "chyba", radky.join(" · ") || "Úložiště z internetu nejde ověřit – adresa míří na server samotný.");
   } catch (err) {
     vysledek("dav", "chyba", "Ověření se nepovedlo (" + err.message + "). Zkus to za chvíli.");
   } finally {
@@ -1060,13 +1060,13 @@ $("overit-dav").addEventListener("click", async () => {
 
 $("overit-su").addEventListener("click", () => {
   const n = nastaveni();
-  if (!n.streamuj_username && !n.streamuj_password) vysledek("su", "info", "Nevyplněno — Sosáč se vynechá.");
+  if (!n.streamuj_username && !n.streamuj_password) vysledek("su", "info", "Nevyplněno – Sosáč se vynechá.");
   else if (!n.streamuj_username || !n.streamuj_password) vysledek("su", "pozor", "Vyplň jméno i heslo.");
   else vysledek("su", "info", "Vyplněno. Streamuj neumí heslo ověřit dopředu, pozná se to při prvním přehrání.");
 });
 
 // --- CZtor: párování PINem. Do adresy jde jen klíč `cz`, tokeny drží server zapečetěné tímhle klíčem ---
-const CZ = {"zadam": "Žádám CZtor o PIN…", "jdi": "Otevři ", "zadej": " a zadej PIN ", "cekam": " · čekám na potvrzení…", "ok": "✓ Spárováno", "do_": " do ", "bez": "Spárováno, ale bez aktivního předplatného — streamy se neukážou.", "znovu": " Adresa doplňku se změnila, nainstaluj ho znovu tlačítkem dole.", "vyprsel": "PIN vypršel, zkus to znovu.", "nepovedlo": "Párování se nepovedlo (", "overuji": "Ověřuji účet CZtor…", "nesparovano": "Nespárováno.", "zruseno": "Párování zrušeno. Zařízení „Nokturno Stremio“ odeber i na cztor.com v seznamu zařízení.", "overeni": "Ověření se nepovedlo (", "pozdeji": "). Zkus to za chvíli."};
+const CZ = {"zadam": "Žádám CZtor o PIN…", "jdi": "Otevři ", "zadej": " a zadej PIN ", "cekam": " · čekám na potvrzení…", "ok": "✓ Spárováno", "do_": " do ", "bez": "Spárováno, ale bez aktivního předplatného – streamy se neukážou.", "znovu": " Adresa doplňku se změnila, nainstaluj ho znovu tlačítkem dole.", "vyprsel": "PIN vypršel, zkus to znovu.", "nepovedlo": "Párování se nepovedlo (", "overuji": "Ověřuji účet CZtor…", "nesparovano": "Nespárováno.", "zruseno": "Párování zrušeno. Zařízení „Nokturno Stremio“ odeber i na cztor.com v seznamu zařízení.", "overeni": "Ověření se nepovedlo (", "pozdeji": "). Zkus to za chvíli."};
 function czTlacitka() {
   const sparovano = !!form.elements["cz"].value;
   $("parovat-cz").hidden = sparovano;
@@ -1195,7 +1195,7 @@ $("kopirovat").addEventListener("click", async () => {
     nastavStav("Adresa zkopírována. Vlož ji v aplikaci mezi doplňky (Stremio: Doplňky → pole nahoře → Instalovat).");
   } catch {
     document.querySelector("details.adresa").open = true;
-    nastavStav("Kopírování prohlížeč nedovolil — adresu označ a zkopíruj ručně z rámečku.", true);
+    nastavStav("Kopírování prohlížeč nedovolil – adresu označ a zkopíruj ručně z rámečku.", true);
   }
 });
 </script>
