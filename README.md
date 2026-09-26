@@ -195,7 +195,7 @@ Nesahají na síť a nepotřebují účty. Jádro má vlastní testy ve svém re
 ## Pomoc
 
 - **Dotazy, rady a novinky:** [facebooková skupina Nokturno](https://www.facebook.com/groups/nokturno). Odpovídáme tam my i ostatní uživatelé.
-- **Návody a řešení potíží:** [wiki](https://github.com/matata86/nokturno-stremio/wiki).
+- **Řešení častých potíží:** [nápověda Nokturna](https://matata86.github.io/nokturno-napoveda/). Podrobné návody k nastavení jsou ve [wiki](https://github.com/matata86/nokturno-stremio/wiki).
 - **Chyba v kódu** (pád nebo chování, které jde zopakovat): [GitHub Issues](https://github.com/matata86/nokturno-stremio/issues). Napiš, ve kterém klientovi (Stremio, Nuvio, Streamlet) a u kterého titulu to nastalo. Adresu doplňku neposílej, jsou v ní tvoje účty.
 
 ## Právní upozornění
