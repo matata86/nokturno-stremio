@@ -220,7 +220,7 @@
   <p class="uvod">
     Nokturno přehrává ve Stremiu <strong>tvoje vlastní úložiště</strong> — soubory z WebDAV serveru, NASu
     nebo domácího disku. Volitelně k němu připojíš i veřejné vyhledávače třetích stran (WebShare, Sosáč,
-    Sledujteto, FastShare, HellSpy, Přehraj.to). Tituly hledáš ve Stremiu jako obvykle, streamy Nokturna
+    Sledujteto, FastShare, HellSpy, Přehraj.to, CZtor). Tituly hledáš ve Stremiu jako obvykle, streamy Nokturna
     se objeví v detailu filmu nebo dílu mezi ostatními.
   </p>
 
@@ -236,7 +236,7 @@
     <!-- ============================== 1. ZDROJE ============================== -->
     <section id="zdroje">
       <h2><b>1</b>Vlastní úložiště a zdroje</h2>
-      <p class="popis">Nokturno je především přehrávač <strong>tvého vlastního úložiště</strong> — nastav ho hned první kartou. Volitelně k němu můžeš připojit i veřejné vyhledávače třetích stran; účty zůstávají jen v adrese doplňku, server si je nikam neukládá.</p>
+      <p class="popis">Nokturno je především přehrávač <strong>tvého vlastního úložiště</strong> — nastav ho hned první kartou. Volitelně k němu můžeš připojit i veřejné vyhledávače třetích stran; účty zůstávají jen v adrese doplňku, server je nikam neukládá (výjimka je přihlášení CZtor, viz Časté otázky).</p>
 
       <!-- Vlastní úložiště -->
       <div class="karta">
@@ -246,7 +246,7 @@
         </div>
         <p>Tvoje vlastní filmy a seriály na NAS, Nextcloudu nebo serveru s WebDAV. Nokturno projde složky a soubory přiřadí k titulům podle názvu souboru a složky nad ním („Sherlock/S01E02.mkv“).</p>
         <div class="poznamka">
-          <strong>Nepřehraje se ve webovém Stremiu.</strong> Soubor z úložiště chce heslo a tu hlavičku umí poslat jen aplikace — <strong>Stremio pro počítač, Android a Android TV</strong>, nebo Nuvio. Ve Stremiu v prohlížeči se takový stream nespustí; v seznamu je poznáš podle upozornění u popisu. Data tečou z tvého úložiště rovnou k tobě, ne přes tenhle server.
+          <strong>Nepřehraje se ve webovém Stremiu.</strong> Soubor z úložiště chce heslo a tu hlavičku umí poslat jen aplikace — <strong>Stremio pro počítač, Android a Android TV</strong>, nebo Nuvio. Ve Stremiu v prohlížeči se takový stream nespustí; v seznamu je poznáš podle upozornění u popisu. Data tečou z tvého úložiště rovnou k tobě, ne přes tento server.
         </div>
         <details class="uloziste" open>
           <summary>Úložiště 1</summary>
@@ -313,9 +313,9 @@
       <div class="karta">
         <div class="karta-hlava">
           <h3>WebShare</h3>
-          <span class="stitek doporuceno">Doporučeno · potřebuje VIP</span>
+          <span class="stitek">Volitelné · potřebuje VIP</span>
         </div>
-        <p>Největší česká úschovna — u většiny filmů a seriálů najde nejvíc souborů, i ve 4K. Přehrává se přímo z WebShare, takže to funguje odkudkoli.</p>
+        <p>Česká úschovna souborů. Přehrává se přímo z WebShare, takže to funguje odkudkoli.</p>
         <div class="dvojice">
           <label class="pole"><span>Uživatelské jméno nebo e-mail</span>
             <input type="text" name="ws_username" autocapitalize="off" spellcheck="false"></label>
@@ -336,7 +336,7 @@
               <li>Sem vyplň stejné jméno (nebo e-mail) a heslo, jakým se přihlašuješ na web.</li>
               <li>Klikni na <strong>Ověřit účet</strong> — ukáže, jestli přihlášení prošlo a kolik dní VIP ti zbývá.</li>
             </ol>
-            <p><strong>Nechceš mít heslo v adrese čitelné?</strong> Místo hesla jde vložit 40znakový „salted hash",
+            <p><strong>Nechceš mít heslo v adrese čitelné?</strong> Místo hesla jde vložit 40znakový „salted hash“,
               který používají i jiné doplňky (WebShare pro Kodi / Stremio). Doplněk ho pozná sám.</p>
           </div>
         </details>
@@ -365,7 +365,7 @@
           <div class="obsah">
             <ol>
               <li>Založ si účet na <a href="https://www.streamuj.tv" target="_blank" rel="noopener">streamuj.tv</a>.</li>
-              <li>Bez účtu (nebo s neplatným) Sosáč hraje jen omezeně — s účtem bez omezení rychlosti podle tvého tarifu.</li>
+              <li>Bez účtu se Sosáč nepoužívá. Rychlost přehrávání určuje tvůj tarif na Streamuj.tv.</li>
               <li>Vyplň jméno a heslo ze Streamuj.tv. Streamuj neumí přihlášení ověřit dopředu; špatné heslo se pozná až při přehrání.</li>
             </ol>
             <p><strong>Místo hesla</strong> jde vložit i jeho 32znakový otisk — ten ukládá doplněk Nokturno pro Kodi, dá se odtamtud opsat.</p>
@@ -412,7 +412,7 @@
         </div>
         <p>Česká úschovna souborů s velkým výběrem filmů a seriálů. Hledá se i bez účtu, přehrání se odečte z kreditu, pokud nemáš neomezené stahování. Účet ze Sdilej.cz funguje taky — soubory jsou stejné, jen přepni níž „Účet z“.</p>
         <div class="poznamka">
-          <strong>Nepřehraje se ve webovém Stremiu.</strong> Soubor z FastShare chce ke stažení přihlášení a tu hlavičku umí poslat jen aplikace — <strong>Stremio pro počítač, Android a Android TV</strong>, nebo Nuvio. Ve Stremiu v prohlížeči se takový stream nespustí; v seznamu je poznáš podle upozornění u popisu. Data tečou z FastShare rovnou k tobě, ne přes tenhle server.
+          <strong>Nepřehraje se ve webovém Stremiu.</strong> Soubor z FastShare chce ke stažení přihlášení a tu hlavičku umí poslat jen aplikace — <strong>Stremio pro počítač, Android a Android TV</strong>, nebo Nuvio. Ve Stremiu v prohlížeči se takový stream nespustí; v seznamu je poznáš podle upozornění u popisu. Data tečou z FastShare rovnou k tobě, ne přes tento server.
         </div>
         <div class="dvojice">
           <label class="pole"><span>Uživatel</span>
@@ -430,10 +430,10 @@
           <span class="vysledek" id="vysledek-fs"></span>
         </div>
         <details class="navod">
-          <summary>Jak na to — účet FastShare</summary>
+          <summary>Jak na to — účet FastShare / Sdilej.cz</summary>
           <div class="obsah">
             <ol>
-              <li>Zaregistruj se na <a href="https://fastshare.cz/" target="_blank" rel="noopener">fastshare.cz</a>.</li>
+              <li>Zaregistruj se na <a href="https://fastshare.cz/" target="_blank" rel="noopener">fastshare.cz</a> nebo <a href="https://sdilej.cz/" target="_blank" rel="noopener">sdilej.cz</a> (u Sdilej.cz pak přepni „Účet z“).</li>
               <li>Dobij si kredit, nebo si kup neomezené stahování. Každé přehrání se odečte z kreditu podle velikosti souboru.</li>
               <li>Sem vyplň jméno a heslo, jakým se přihlašuješ na web, a klikni na <strong>Ověřit účet</strong>.</li>
             </ol>
@@ -506,7 +506,7 @@
         </div>
         <label class="prepinac">
           <input type="checkbox" name="hs_enabled">
-          <span><strong>Hledat i na HellSpy</strong>
+          <span><strong>Používat HellSpy</strong>
             <small>Veřejná úschovna s původními soubory (často ve vysoké kvalitě). Nic se nevyplňuje, stačí nechat zapnuté.</small></span>
         </label>
       </div>
@@ -536,7 +536,7 @@
               <option value="source">podle zdroje</option>
             </select></label>
         </div>
-        <p class="drobne">Streamy se zvolenou řečí jdou nahoru. Ve Stremiu je bez posouvání vidět jen pár prvních řádků, proto na řazení záleží.</p>
+        <p class="drobne">Streamy se zvoleným jazykem zvuku jdou nahoru. Ve Stremiu je bez posouvání vidět jen pár prvních řádků, proto na řazení záleží.</p>
 
         <label class="prepinac">
           <input type="checkbox" name="hide_sd">
@@ -622,7 +622,7 @@
 
     <div class="vystraha">
       <strong>Adresa doplňku obsahuje tvoje účty.</strong> Není zašifrovaná, jen zakódovaná.
-      Nikomu ji neposílej a nesdílej — kdo ji má, přehrává přes tvůj WebShare a Streamuj.
+      Nikomu ji neposílej a nesdílej — kdo ji má, přehrává přes tvoje účty.
     </div>
   </section>
 
@@ -648,7 +648,7 @@
         <ul>
           <li>U WebShare bez VIP je rychlost omezená — přehrávání pak neustále čeká.</li>
           <li>Zkus menší soubor (nižší kvalitu), nebo v předvolbách nastav <strong>nejvyšší datový tok</strong> podle svého internetu.</li>
-          <li>WebShare občas hlásí „soubor dočasně nedostupný" — stačí vybrat jiný stream.</li>
+          <li>WebShare občas hlásí „soubor dočasně nedostupný“ — stačí vybrat jiný stream.</li>
         </ul>
       </div>
     </details>
@@ -657,7 +657,7 @@
       <summary>Jak nastavení později změnit?</summary>
       <div class="obsah">
         <p>Ve Stremiu otevři <strong>Doplňky</strong> → <strong>Nokturno</strong> → ikona ozubeného kola (<em>Konfigurovat</em>).
-          Otevře se tahle stránka s tvým současným nastavením. Uprav, co potřebuješ, a znovu klikni na <strong>Přidat do Stremia</strong> (nebo Nuvia).</p>
+          Otevře se tato stránka s tvým současným nastavením. Uprav, co potřebuješ, a znovu klikni na <strong>Přidat do Stremia</strong> (nebo Nuvia).</p>
         <p>Změněné nastavení je nová adresa — starou verzi doplňku pak ve Stremiu odinstaluj, jinak tam Nokturno zůstane dvakrát.</p>
       </div>
     </details>
@@ -667,6 +667,7 @@
       <div class="obsah">
         <p>Nikde na serveru. Celé nastavení je zakódované v adrese doplňku, kterou má uloženou tvoje Stremio.
           Server ho při každém dotazu jen přečte, použije a zapomene. Tak fungují všechny konfigurovatelné doplňky Stremia.</p>
+        <p>Jediná výjimka je CZtor: jeho přihlášení drží server zašifrované klíčem, který je jen v tvé adrese doplňku. Bez adresy ho nikdo nepřečte.</p>
         <p>Proto adresu nikomu neposílej. Kdo chce heslo WebShare v adrese nečitelné, může místo něj vložit salted hash (viz návod u WebShare).</p>
       </div>
     </details>
@@ -683,20 +684,20 @@
     <details>
       <summary>Jak nahlásit chybu v Kodi doplňku Nokturno?</summary>
       <div class="obsah">
-        <p>V nastavení doplňku (kategorie <strong>Pokročilé</strong>, úplně dole) je tlačítko
-          <strong>Odeslat log</strong>. Pošle posledních pár set kilobajtů souboru
-          <code>kodi.log</code> na tenhle server — bez hesel a účtů, jen technický záznam toho,
+        <p>V nastavení doplňku je v kategorii <strong>Pokročilé → Údržba</strong> tlačítko
+          <strong>Odeslat log Kodi</strong>. Pošle posledních pár set kilobajtů souboru
+          <code>kodi.log</code> na náš server — bez hesel a účtů, jen technický záznam toho,
           co doplněk dělal. Před odesláním se ještě zeptá na potvrzení.</p>
         <p>Log pak sami zkontrolujeme. Napiš k tomu i pár slov, co se stalo a kdy
-          (třeba do issue na GitHubu), ať víme, který log hledat.</p>
+          (ve skupině Nokturno na Facebooku nebo do issue na GitHubu), ať víme, který log hledat.</p>
       </div>
     </details>
 
     <details>
-      <summary>Proč Nokturno nemá vlastní katalog filmů?</summary>
+      <summary>Má Nokturno vlastní katalogy?</summary>
       <div class="obsah">
-        <p>Katalogy, plakáty a popisy má Stremio samo (Cinemeta) a spousta doplňků je umí líp. Nokturno dělá jednu věc:
-          k titulu, který si otevřeš, najde streamy z českých a slovenských úschoven.</p>
+        <p>Volitelně ano — v kroku 2 zapneš žebříčky, novinky s CZ dabingem nebo titulky a Koncerty. Plakáty a popisy dodá Stremio
+          (Cinemeta). Nokturno k titulu najde streamy z tvého úložiště a ze zapnutých zdrojů.</p>
       </div>
     </details>
 
@@ -704,7 +705,8 @@
       <summary>Jaký je rozdíl mezi zdroji?</summary>
       <div class="obsah">
         <ul>
-          <li><strong>WebShare</strong> — nejvíc souborů, všechny kvality, potřebuje placené VIP.</li>
+          <li><strong>Vlastní úložiště</strong> — tvoje soubory na NAS, v Nextcloudu nebo na serveru s WebDAV. Hlavní zdroj, hraje jen v aplikaci, ne v prohlížeči.</li>
+          <li><strong>WebShare</strong> — česká úschovna souborů, potřebuje placené VIP.</li>
           <li><strong>Sosáč</strong> — ručně poskládaný katalog českých filmů a seriálů s dabingem a titulky, přehrává přes Streamuj.tv.</li>
           <li><strong>Sledujteto</strong> — česká úschovna s velkým výběrem, hledá přes tvůj účet a přehrává s Premium.</li>
           <li><strong>FastShare</strong> — česká úschovna s velkým výběrem, hledá i bez účtu, přehrává z kreditu nebo s neomezeným stahováním. Jen v aplikaci Stremio, ne v prohlížeči.</li>
@@ -733,7 +735,7 @@
   </div>
   <div class="stav" id="stav"></div>
   <details class="adresa"><summary>Zobrazit adresu doplňku</summary><pre id="adresa"></pre></details>
-  <p id="identita-pozn" class="pozn" hidden>Adresa nese tvoji osobní identitu (kromě účtů). Nikomu ji neposílej — kdo ji má, používá limity a případnou blokaci s tebou. Každý si má vyrobit vlastní na této stránce.</p>
+  <p id="identita-pozn" class="pozn" hidden>Adresa nese tvoji osobní identitu, i když v ní nejsou účty. Nikomu ji neposílej — kdo ji má, používá limity a případnou blokaci s tebou. Každý si má vyrobit vlastní na této stránce.</p>
 </div>
 
 <script>
@@ -857,6 +859,8 @@ const adresa = () => ZAKLAD + "/c/" + kousek() + "/manifest.json";
 // --- souhrn a kontrola úplnosti ---
 function zdroje(n = nastaveni()) {
   const out = [];
+  const uloziste = [1, 2, 3].filter((i) => n["dav" + i + "_url"]);
+  if (uloziste.length) out.push(uloziste.length === 1 ? "vlastní úložiště" : uloziste.length + " vlastní úložiště");
   if (n.ws_username) out.push("WebShare");
   if (n.streamuj_username) out.push("Sosáč");
   if (n.st_email) out.push("Sledujteto");
@@ -864,8 +868,6 @@ function zdroje(n = nastaveni()) {
   if (n.pt_email) out.push("Přehraj.to");
   if (n.cz) out.push("CZtor");
   if (n.hs_enabled) out.push("HellSpy");
-  const uloziste = [1, 2, 3].filter((i) => n["dav" + i + "_url"]);
-  if (uloziste.length) out.push(uloziste.length === 1 ? "vlastní úložiště" : uloziste.length + " vlastní úložiště");
   return out;
 }
 
@@ -884,7 +886,7 @@ function problem(n = nastaveni()) {
   for (const i of [1, 2, 3]) {
     const url = n["dav" + i + "_url"];
     if (!url && (n["dav" + i + "_username"] || n["dav" + i + "_password"])) return "U úložiště " + i + " chybí adresa.";
-    if (url && !/^(https?|davs?):\/\/[^\/]+/i.test(url)) return "Adresa úložiště " + i + " má začínat https:// nebo http://.";
+    if (url && !/^(https?|davs?):\/\/[^\/]+/i.test(url)) return "Adresa úložiště " + i + " má začínat https://, http:// nebo davs://.";
   }
   return "";
 }
