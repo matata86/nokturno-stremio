@@ -14,6 +14,8 @@ Jako volitelnou doplňkovou službu si zapneš i vyhledávače třetích stran
 2. Vyplň účty ke zdrojům, které používáš (žádný není povinný) a klikni na **Přidat do Stremia** nebo **Přidat do Nuvia**.
 3. Do Streamletu se adresa vkládá ručně (*Zkopírovat adresu*).
 
+<img src="docs/formular.jpg" alt="Formulář nastavení doplňku" width="400">
+
 Nic se neinstaluje a nespouští — server běží u nás. Adresu, kterou formulář vydá, si uschovej:
 je v ní tvoje nastavení a nikomu ji neposílej. Postup s obrázky je ve [wiki](https://github.com/matata86/nokturno-stremio/wiki/Instalace).
 
