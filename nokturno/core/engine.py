@@ -622,7 +622,7 @@ class Engine:
             raise NokturnoError(f"Úložiště: {err}") from err
         api = next((s for s in self.storages if s.slot == slot), None)
         if api is None:
-            raise NokturnoError("Tohle úložiště už není v nastavení.")
+            raise NokturnoError("Toto úložiště už není v nastavení.")
         return api, path
 
     def storage_request(self, url):
@@ -1077,7 +1077,8 @@ class Engine:
             # Sosáč posílá vždy mrtvý náhled, takže by enrich bez vlastní cache běžel při
             # každém hledání znovu — proto se cachuje až výsledek PO enrichi.
             data = {"pairs": [[m, alt] for m, alt in bare["pairs"]], "mixed": bare["mixed"]}
-            enrich([m for m, _alt in data["pairs"]], self.luna, self.shared, ctype, on_tick=on_tick, on_count=on_count)
+            enrich([m for m, _alt in data["pairs"]], self.luna, self.shared, ctype, on_tick=on_tick, on_count=on_count,
+                   tmdb=self.tmdb)
             return data
         full = self.store.cached_if(f"searchfull:{tail}", ttl, _fetch_full, ok=ok)
         failures.extend(errors)
@@ -1175,7 +1176,7 @@ class Engine:
     def catalog_detail(self, ctype="movie", item_id=""):
         """Popis, plakát a hodnocení titulu z databáze filmů — katalog Cinemety je nemá."""
         if not item_id:
-            raise NokturnoError("Chybí `id`.")
+            raise NokturnoError("Chybí identifikátor titulu.")
         kind = "series" if ctype == "series" else "movie"
         key = f"cinemeta:{kind}:{item_id}"
         try:
@@ -1317,7 +1318,7 @@ class Engine:
         meta_type = "series" if season is not None else ctype
         meta = self._meta_for(meta_type, base_id)
         if is_sosac_id(base_id):
-            enrich_one(meta, self.luna, self.shared, meta_type)
+            enrich_one(meta, self.luna, self.shared, meta_type, tmdb=self.tmdb)
         video = None
         if season is not None:
             video = next((v for v in meta.get("videos") or []
@@ -3032,6 +3033,7 @@ class Engine:
                 max_size_gb=max_gb,
                 order=order if order in SORT_ORDERS else DEFAULT_SORT,
                 pref_surround=bool(self.options.get("pref_surround")),
+                hide_3d=bool(self.options.get("hide_3d")),
             )
         return sort
 
@@ -3052,7 +3054,7 @@ class Engine:
 
     # co WebShare vrací u nedostupných souborů — hlášky jsou anglické a nic neříkající
     WS_ERRORS = {
-        "temporarily unavailable": "WebShare tenhle soubor teď nevydá (bývá to dočasné). "
+        "temporarily unavailable": "WebShare tento soubor teď nevydá (bývá to dočasné). "
                                    "Zkus jiný stream ze seznamu.",
         "file not found": "Soubor už na WebShare není. Zkus jiný stream ze seznamu.",
         "file password": "Soubor na WebShare je chráněný heslem.",
@@ -3175,7 +3177,7 @@ class Engine:
         """První výsledek hledání — pro „pusť X" jedním krokem (hlasovka, skripty)."""
         results = self.search(ctype, query, limit=3)
         if not results:
-            raise NokturnoError(f"„{query}“ jsem nenašel.")
+            raise NokturnoError(f"„{query}“ se nenašel.")
         return results[0]
 
     def best_stream(self, ctype, item_id, alt=None, series_id=None):
