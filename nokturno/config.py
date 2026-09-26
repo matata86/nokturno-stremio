@@ -67,6 +67,8 @@ ID_RE = re.compile(r"^(?:[0-9a-f]{8}\.)?[0-9a-f]{16}\.[0-9a-f]{16}$")   # s čas
 # klíč k zapečetěným tokenům CZtoru (`cztor.py`) — jen z adresy, vyrábí ho párování ve formuláři
 CZ_KLIC = "cz"
 CZ_RE = re.compile(r"^[0-9a-f]{32}$")
+# jazyk hlášek doplňku (streamy, 410) — jen z adresy; slovenský formulář ukládá „sk“, čeština se neukládá
+JAZYK_KLIC = "jazyk"
 # klíče, u kterých engine čeká pravdivostní hodnotu, ne řetězec
 LOGICKE = ("hs_enabled", "pref_surround", "hide_sd")
 
@@ -92,12 +94,16 @@ def from_mapping(raw):
     """
     options = dict(VYCHOZI)
     for key, value in (raw or {}).items():
-        if value is None or (key not in set(PROSTREDI.values()) and key not in (ID_KLIC, CZ_KLIC)):
+        if value is None or (key not in set(PROSTREDI.values()) and key not in (ID_KLIC, CZ_KLIC, JAZYK_KLIC)):
             continue
         if key == CZ_KLIC:
             if isinstance(value, str) and CZ_RE.match(value.strip()):
                 options[key] = value.strip()
                 options["cz_enabled"] = True   # přepínač jádra; bez spárování ho `Engine.cz` stejně vypne
+            continue
+        if key == JAZYK_KLIC:
+            if str(value).strip().lower() == "sk":
+                options[key] = "sk"
             continue
         if key == ID_KLIC:
             if isinstance(value, str) and ID_RE.match(value.strip()):

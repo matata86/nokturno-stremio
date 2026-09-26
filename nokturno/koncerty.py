@@ -112,7 +112,7 @@ class Koncerty:
         k = self._koncert(options, item_id)
         if not k:
             return None
-        radky = [f"{f['name']} — {mapping_velikost(f['size'])} · {config.NAZVY_ZDROJU[f['source']]}" for f in k["files"]]
+        radky = [f"{f['name']} – {mapping_velikost(f['size'])} · {config.NAZVY_ZDROJU[f['source']]}" for f in k["files"]]
         m = self._nahled(k | {"sources": sorted({f["source"] for f in k["files"]})})
         m["description"] = "\n".join(radky)
         return {"meta": m}

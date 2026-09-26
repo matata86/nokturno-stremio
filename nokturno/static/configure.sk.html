@@ -564,6 +564,7 @@
         <div id="katalogy"></div>
         <input type="hidden" name="katalogy">
         <input type="hidden" name="id">
+        <input type="hidden" name="jazyk" value="sk">
       </div>
     </section>
   </form>
@@ -747,7 +748,7 @@ const $ = (id) => document.getElementById(id);
 const soucasne = __NASTAVENI__;
 for (const [klic, hodnota] of Object.entries(soucasne)) {
   const pole = form.elements[klic];
-  if (!pole) continue;
+  if (!pole || klic === "jazyk") continue;   // jazyk hlášek určuje stránka, ne stará adresa
   if (pole.type === "checkbox") pole.checked = !!hodnota;
   else if (klic === "pref_lang" && hodnota === "") pole.value = "ANY";   // server drží „nezáleží“ jako prázdné
   else pole.value = hodnota;

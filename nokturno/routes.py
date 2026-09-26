@@ -434,11 +434,12 @@ class Router:
         return odkaz
 
     # --- endpointy --------------------------------------------------------
-    def manifest(self, options, nastaveno, nova_adresa=None):
+    def manifest(self, options, nastaveno, nova_adresa=None, jazyk="cs"):
         """Jen z nastavení — jádro se kvůli manifestu nezakládá (viz `sources_from_options`)."""
         zdroje = config.sources_from_options(options)
         katalogy = self.katalogy.manifest(options) if self.katalogy else []
-        data = mapping.manifest(self.verze, zdroje, nastaveno=bool(zdroje), katalogy=katalogy, nova_adresa=nova_adresa)
+        data = mapping.manifest(self.verze, zdroje, nastaveno=bool(zdroje), katalogy=katalogy, nova_adresa=nova_adresa,
+                                jazyk=jazyk)
         if self._koncerty_zapnute(options):
             # koncerty jako volitelný katalog hlavního doplňku: vlastní typ a `nktc:` id,
             # meta jen pro ně — filmy a seriály dál popisuje Cinemeta
@@ -612,7 +613,7 @@ class Router:
             try:
                 api = self.cz_klient(klic)
                 out["cztor"] = ({"ok": True, **api.profile()} if api.paired()
-                                else {"ok": False, "chyba": "Zařízení není spárované — spáruj znovu."})
+                                else {"ok": False, "chyba": "Zařízení není spárované – spáruj znovu."})
             except CztorError as err:
                 out["cztor"] = {"ok": False, "chyba": str(err) or "ověření selhalo"}
         out["uloziste"] = []
@@ -703,7 +704,7 @@ class Router:
             return chyba(404, "Právní upozornění tu není.")
         return Odpoved(html=html.replace("__ZAKLAD__", html_lib.escape(zaklad, quote=True)))
 
-    def streams(self, engine, ctype, item_id, zaklad, kousek, aplikace="stremio"):
+    def streams(self, engine, ctype, item_id, zaklad, kousek, aplikace="stremio", jazyk="cs"):
         if ctype not in TYPY:
             return chyba(404, f"Neznámý typ obsahu: {ctype}")
         base_id, season, episode = split_episode_id(item_id)
@@ -737,7 +738,7 @@ class Router:
         if self.statistiky is not None:
             self.statistiky.zaznamenej(engine, ctype, item_id, aplikace)
         return Odpoved(data=mapping.streams_response(popisy, self._odkaz(zaklad, kousek),
-                                                      primy=_primy(engine)))
+                                                      primy=_primy(engine), jazyk=jazyk))
 
     def katalog(self, casti):
         """`/catalog/<typ>/<id>.json` nebo `/catalog/<typ>/<id>/skip=<n>.json` → `{"metas": [...]}`."""
@@ -770,7 +771,7 @@ class Router:
             # se vydává přímá adresa zdroje s `behaviorHints.proxyHeaders` (viz
             # `mapping.stream_object`) — hlavičky posílá přehrávač sám. Sem se dostane jen
             # odkaz uložený ve starém „pokračovat ve sledování"; ten se musí načíst znovu.
-            return chyba(410, "Odkaz už neplatí — otevři titul znovu a vyber stream.")
+            return chyba(410, "Odkaz už neplatí – otevři titul znovu a vyber stream.")
         try:
             skutecna = engine.resolve(vnitrni)
         except NokturnoError as err:
@@ -919,20 +920,22 @@ class Router:
         # sdílí celá IP — uživatele postrčíme na novou (popis doplňku, první položka streamů)
         stara = bool(kousek) and self.identita.zapnuta and not options.get(config.ID_KLIC) and not config.ma_ucty(options)
         nova = f"{zaklad}/c/{kousek}/configure"   # formulář s jeho nastavením, vydá i identitu
+        # jazyk hlášek: uložený ze slovenského formuláře, jinak podle Accept-Language klienta
+        jazyk = "sk" if (options or {}).get(config.JAZYK_KLIC) == "sk" or jazyk == "sk" else "cs"
         if zbytek == "/manifest.json":
             return self.manifest(options if kousek else self.enginy.vychozi_options, nastaveno=bool(kousek),
-                                 nova_adresa=nova if stara else None)
+                                 nova_adresa=nova if stara else None, jazyk=jazyk)
 
         if kousek and self.koncerty is not None and zbytek.startswith("/koncerty/"):
             if stara:
-                return chyba(410, mapping.ZASTARALA_ADRESA)
+                return chyba(410, mapping.zastarala_adresa(jazyk))
             return self._koncerty(options, zbytek[len("/koncerty"):], zaklad, kousek, klient, verejny)
 
         casti = [c for c in zbytek.split("/") if c]
         if (kousek and self.koncerty is not None and len(casti) >= 3
                 and casti[0] in ("catalog", "meta", "stream") and casti[1] == koncerty_mod.TYP):
             if stara:
-                return chyba(410, mapping.ZASTARALA_ADRESA)
+                return chyba(410, mapping.zastarala_adresa(jazyk))
             return self._koncerty(options, zbytek, zaklad, kousek, klient, verejny)
         if casti and casti[0] == "catalog":
             # katalog na účtech nezávisí — jádro se nezakládá, cache je jedna pro všechny
@@ -948,9 +951,9 @@ class Router:
             # odpověď je levná a bot na staré adrese na ni tluče desítky za vteřinu — nepatří do
             # provozu ani chybovosti, jen do přehledu útočníků (`utok`)
             if casti[0] == "play":
-                odp = chyba(410, mapping.ZASTARALA_ADRESA)
+                odp = chyba(410, mapping.zastarala_adresa(jazyk))
             else:
-                odp = Odpoved(data={"streams": [mapping.upozorneni_nova_adresa(nova)]})
+                odp = Odpoved(data={"streams": [mapping.upozorneni_nova_adresa(nova, jazyk)]})
             odp.utok = ("stará adresa", config.fingerprint(options))
             return odp
         if kousek and casti and casti[0] == "stream":
@@ -977,7 +980,7 @@ class Router:
         if casti and casti[0] == "play" and len(casti) == 2:
             return self.play(engine, casti[1], klic=config.fingerprint(options) if kousek else "vychozi")
         if casti and casti[0] == "stream" and len(casti) == 3 and casti[2].endswith(".json"):
-            odp = self.streams(engine, casti[1], casti[2][:-len(".json")], zaklad, kousek, aplikace)
+            odp = self.streams(engine, casti[1], casti[2][:-len(".json")], zaklad, kousek, aplikace, jazyk)
             if kousek and isinstance(odp.data, dict) and odp.data.get("streams"):
                 povysit = getattr(self.enginy, "povysit", None)
                 if povysit is not None:

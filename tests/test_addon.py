@@ -1032,7 +1032,7 @@ class TestVlastniUloziste(unittest.TestCase):
         self.assertEqual(objekt["url"], "http://nas.lan/dav/Filmy/a.mkv")
         self.assertEqual(objekt["behaviorHints"]["proxyHeaders"], {"request": {"Authorization": "Basic x"}})
         self.assertTrue(objekt["behaviorHints"]["notWebReady"])
-        self.assertIn(mapping.JEN_V_APLIKACI, objekt["description"])
+        self.assertIn(mapping.JEN_V_APLIKACI["cs"], objekt["description"])
 
     def test_play_uz_uloziste_neobsluhuje(self):
         """Proxy zrušená v 5.2.26 — data tečou přímo, server se jich nedotkne."""
@@ -2315,6 +2315,23 @@ class TestProvoz(unittest.TestCase):
         self.assertEqual(r.route(f"/c/{KOUSEK_HS}/play/abc", ZAKLAD).status, 410)
         # s vlastními účty se stará adresa nechává
         self.assertNotIn("Nastavení", str(r.route(f"/c/{KOUSEK}/stream/movie/tt0133093.json", ZAKLAD).data))
+
+    def test_stara_adresa_ze_slovenskeho_formulare_slovensky(self):
+        from nokturno.identita import Identita
+        r = router()
+        r.identita = Identita("tajne")
+        opt = config.decode(KOUSEK_HS)
+        opt["jazyk"] = "sk"
+        kousek_sk = config.encode(config.from_mapping(opt))
+        st = r.route(f"/c/{kousek_sk}/stream/movie/tt0133093.json", ZAKLAD)
+        self.assertIn("zastaraná", st.data["streams"][0]["title"])
+        # bez uloženého jazyka rozhodne hlavička klienta, jinak čeština
+        st = r.route(f"/c/{KOUSEK_HS}/stream/movie/tt0133093.json", ZAKLAD, jazyk="sk")
+        self.assertIn("zastaraná", st.data["streams"][0]["title"])
+        self.assertIn("zastaralá", r.route(f"/c/{KOUSEK_HS}/manifest.json", ZAKLAD).data["description"])
+        # do adresy jde jen „sk“, nic jiného
+        self.assertNotIn("jazyk", config.from_mapping({"jazyk": "cs"}))
+        self.assertEqual(config.from_mapping({"jazyk": "SK"})["jazyk"], "sk")
 
     def test_provoz_rozlisuje_adresu_s_identitou(self):
         from nokturno.provoz import klasifikuj

@@ -54,7 +54,8 @@ PRES_HLAVICKY = ("dav:", "fs:")
 # takový stream odmítne rovnou (`stremio-video/src/HTMLVideo.js`, `canPlayStream()`).
 # Poznat prohlížeč na serveru nejde (viz `routes.klient_z_useragent`), proto se to
 # píše rovnou do popisu streamu.
-JEN_V_APLIKACI = "⚠️ Ve webovém přehrávači se nepřehraje — jen v aplikaci"
+JEN_V_APLIKACI = {"cs": "⚠️ Ve webovém přehrávači se nepřehraje – jen v aplikaci",
+                  "sk": "⚠️ Vo webovom prehrávači sa neprehrá – len v aplikácii"}
 
 
 def odkaz_streamu(vnitrni, odkaz):
@@ -150,7 +151,7 @@ def titulky(popis, odkaz):
     return out
 
 
-def stream_object(popis, odkaz, jmeno_doplnku="Nokturno", primy=None):
+def stream_object(popis, odkaz, jmeno_doplnku="Nokturno", primy=None, jazyk="cs"):
     """Jeden stream z `Engine._describe()` do podoby pro Stremio.
 
     `odkaz(vnitrni_url)` vrátí adresu na tuhle službu — odkazy WebShare platí jen
@@ -202,7 +203,7 @@ def stream_object(popis, odkaz, jmeno_doplnku="Nokturno", primy=None):
 
     radky = [nazev_souboru, "  ".join(radek_jazyku), "  ".join(radek_udaju)]
     if hlavicky:
-        radky.append(JEN_V_APLIKACI)
+        radky.append(JEN_V_APLIKACI.get(jazyk, JEN_V_APLIKACI["cs"]))
 
     # vlevo v úzkém sloupci je místo jen na jméno a kvalitu; HDR/DV k ní patří,
     # protože rozhoduje o tom, jestli má smysl sahat po velkém souboru
@@ -234,24 +235,32 @@ def stream_object(popis, odkaz, jmeno_doplnku="Nokturno", primy=None):
     return objekt
 
 
-def streams_response(popisy, odkaz, primy=None):
+def streams_response(popisy, odkaz, primy=None, jazyk="cs"):
     """Celá odpověď endpointu `/stream/…`."""
     out = []
     for popis in popisy:
-        objekt = stream_object(popis, odkaz, primy=primy)
+        objekt = stream_object(popis, odkaz, primy=primy, jazyk=jazyk)
         if objekt:
             out.append(objekt)
     return {"streams": out}
 
 
 # Jeden text pro zastaralou adresu — položka ve streamech, popis manifestu i odpověď 410.
-ZASTARALA_ADRESA = ("Adresa doplňku je zastaralá. Otevři nastavení doplňku (ozubené kolo) — vytvoří se "
-                    "nová adresa. Pak tento doplněk odeber a přidej ho znovu.")
+ZASTARALA_ADRESA = {
+    "cs": ("Adresa doplňku je zastaralá. Otevři nastavení doplňku (ozubené kolo) – vytvoří se "
+           "nová adresa. Pak tento doplněk odeber a přidej ho znovu."),
+    "sk": ("Adresa doplnku je zastaraná. Otvor nastavenie doplnku (ozubené koliesko) – vytvorí sa "
+           "nová adresa. Potom tento doplnok odober a pridaj ho znova."),
+}
 
 
-def upozorneni_nova_adresa(nova_adresa):
+def zastarala_adresa(jazyk="cs"):
+    return ZASTARALA_ADRESA.get(jazyk, ZASTARALA_ADRESA["cs"])
+
+
+def upozorneni_nova_adresa(nova_adresa, jazyk="cs"):
     """První položka v seznamu streamů u adresy bez identity: co má uživatel udělat."""
-    text = ZASTARALA_ADRESA
+    text = zastarala_adresa(jazyk)
     return {"name": "⚠️ Nokturno", "title": text, "description": text, "externalUrl": nova_adresa}
 
 
@@ -279,7 +288,7 @@ def manifest_version(verze):
     return shoda.group(0) if shoda else verze
 
 
-def manifest(verze, zdroje=(), nastaveno=True, katalogy=(), nova_adresa=None):
+def manifest(verze, zdroje=(), nastaveno=True, katalogy=(), nova_adresa=None, jazyk="cs"):
     """Manifest doplňku.
 
     Vždy `stream`; `catalog` jen když si uživatel ve formuláři zapnul některý
@@ -298,7 +307,7 @@ def manifest(verze, zdroje=(), nastaveno=True, katalogy=(), nova_adresa=None):
     if zdroje:
         popis += " Nastavené zdroje: " + ", ".join(zdroje) + "."
     if nova_adresa:
-        popis += " ⚠️ " + ZASTARALA_ADRESA
+        popis += " ⚠️ " + zastarala_adresa(jazyk)
     return {
         "id": "community.nokturno",
         "version": manifest_version(verze),
