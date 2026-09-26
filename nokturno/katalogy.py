@@ -54,15 +54,15 @@ SEZNAM = (
     ("sosac.popularni.filmy", "movie", "sosac", "moviesmostpopular",
      "Nejpopulárnější filmy", "Najpopulárnejšie filmy"),
     ("sosac.nove.filmy", "movie", "sosac", "moviesrecentlyadded",
-     "Nově přidané filmy", "Novo pridané filmy"),
+     "Nově přidané filmy", "Nedávno pridané filmy"),
     ("sosac.nove.dabing", "movie", "sosac", "moviesrecentlyadded_dub",
-     "Nově přidané filmy s CZ dabingem", "Novo pridané filmy s CZ dabingom"),
+     "Nově přidané filmy s CZ/SK dabingem", "Nedávno pridané filmy s CZ/SK dabingom"),
     ("sosac.nove.titulky", "movie", "sosac", "moviesrecentlyadded_subs",
-     "Nově přidané filmy s CZ titulky", "Novo pridané filmy s CZ titulkami"),
+     "Nově přidané filmy s CZ/SK titulky", "Nedávno pridané filmy s CZ/SK titulkami"),
     ("sosac.nove.serialy.dabing", "series", "jazyk", "dub",
-     "Nově přidané seriály s CZ dabingem", "Novo pridané seriály s CZ dabingom"),
+     "Nově přidané seriály s CZ/SK dabingem", "Nedávno pridané seriály s CZ/SK dabingom"),
     ("sosac.nove.serialy.titulky", "series", "jazyk", "subs",
-     "Nově přidané seriály s CZ titulky", "Novo pridané seriály s CZ titulkami"),
+     "Nově přidané seriály s CZ/SK titulky", "Nedávno pridané seriály s CZ/SK titulkami"),
     ("sosac.popularni.serialy", "series", "sosac", "tvshowsmostpopular",
      "Nejpopulárnější seriály", "Najpopulárnejšie seriály"),
     ("tmdb.trendy.filmy", "movie", "tmdb", "trending", "Trendy filmy tento týden", "Trendy filmy tento týždeň"),
@@ -217,10 +217,12 @@ class Katalogy:
             _LOGGER.warning("katalogy z dashboardu: %s", err)
             return []
 
-    def manifest(self, options):
-        return [{"type": typ, "id": PREFIX + DASH + slug, "name": nazev}
-                for slug, typ, nazev in self.z_dashboardu()] + [{"type": typ, "id": PREFIX + klic, "name": cs, "extra": [{"name": "skip", "isRequired": False}]}
-                for klic, typ, _zdroj, _cid, cs, _sk in self.vybrane(options)]
+    def manifest(self, options, jazyk="cs"):
+        dashboard = [{"type": typ, "id": PREFIX + DASH + slug, "name": nazev}
+                     for slug, typ, nazev in self.z_dashboardu()]
+        return dashboard + [{"type": typ, "id": PREFIX + klic, "name": sk if jazyk == "sk" else cs,
+                             "extra": [{"name": "skip", "isRequired": False}]}
+                            for klic, typ, _zdroj, _cid, cs, sk in self.vybrane(options)]
 
     def polozky(self, typ, katalog_id, skip=0):
         """Náhledy jedné stránky katalogu. None = takový katalog tahle instance nemá."""

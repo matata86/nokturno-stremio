@@ -36,7 +36,7 @@ Kdo chce víc — stahování, titulky z OpenSubtitles, Trakt, TV program — po
 - **Streamy ke všemu s IMDb id.** Doplněk se chytá na všem, co má identifikátor IMDb (i `tmdb:` id od klientů), a k tomu přihodí své streamy. Detail titulu a díly seriálů dodá Stremio z Cinemety.
 - **Vlastní úložiště** (od 3.1.0) — až tři WebDAV složky s vlastními soubory ve formuláři (s ověřením). Soubory jsou mezi streamy první.
 - **Sedm volitelných vyhledávačů třetích stran** — WebShare, Sosáč, HellSpy, Sledujteto, FastShare / Sdilej.cz, Přehraj.to a CZtor; žádný není povinný. Přehraj.to (od 7.0.4) chce ve formuláři vlastní účet jako WebShare nebo Sledujteto: bez přihlášení API nevydá token a HTML z jedné serverové adresy dostane HTTP 429.
-- **Volitelné katalogy** (od 5.1.0) — seznamy ze Sosáče a TMDB, žebříček „Nejsledovanější tento týden“, nové seriály s CZ dabingem / titulky a **Koncerty** (od 8.1.0); každý se zapíná zvlášť ve formuláři. Sezónní katalogy (Vánoce, Film pro dnešní den) jsou v doplňku vždy, když platí.
+- **Volitelné katalogy** (od 5.1.0) — seznamy ze Sosáče a TMDB, žebříček „Nejsledovanější tento týden“, nové seriály s CZ/SK dabingem / titulky a **Koncerty** (od 8.1.0); každý se zapíná zvlášť ve formuláři. Sezónní katalogy (Vánoce, Film pro dnešní den) jsou v doplňku vždy, když platí.
 - **Přímé přehrávání** (od 5.2.26) — vlastní úložiště a FastShare se přehrávají přímo ze zdroje (`behaviorHints.proxyHeaders` nese přihlášení), žádná proxy. Úložiště proto musí být dosažitelné ze serveru (hledání) i ze zařízení, kde se přehrává. ⚠️ Ve webovém přehrávači Stremia se tyto streamy nepřehrají, jen v aplikaci. Veřejná instance ignoruje úložiště s adresou na server samotný nebo link-local. Podrobně ve [wiki](https://github.com/matata86/nokturno-stremio/wiki/Zdroje-a-nastaveni#vlastní-úložiště).
 - **Zprávy z dashboardu** — položka „📢 Nokturno" jako první stream; **jazyky** čeština, slovenština, angličtina i maďarština.
 
@@ -46,7 +46,7 @@ Kdo chce víc — stahování, titulky z OpenSubtitles, Trakt, TV program — po
 | Seriály | ano, včetně jednotlivých dílů |
 | Titulky | ano, z WebShare a Sledujteto |
 | Zvuk | jazyk, kanály a kodek — z hlavičky souboru, u Sledujteto přímo z API; u FastShare jen s neomezeným stahováním (na kredit by čtení hlaviček ubíralo kredit) |
-| Katalogy | volitelně (od 5.1.0): Sosáč — nejpopulárnější filmy a seriály, nově přidané (i filmy s CZ dabingem / titulky); nově přidané seriály s CZ dabingem / titulky (jazyk ověřuje server podle streamů); TMDB — trendy, populární, nejlépe hodnocené (jen s klíčem instance `NOKTURNO_TMDB_KEY`); Koncerty — nově přidané a všechny. Jedna cache pro všechny, obnova po 6 h. Sezónní katalogy bez přepínače |
+| Katalogy | volitelně (od 5.1.0): Sosáč — nejpopulárnější filmy a seriály, nově přidané (i filmy s CZ/SK dabingem / titulky); nově přidané seriály s CZ/SK dabingem / titulky (jazyk ověřuje server podle streamů); TMDB — trendy, populární, nejlépe hodnocené (jen s klíčem instance `NOKTURNO_TMDB_KEY`); Koncerty — nově přidané a všechny. Jedna cache pro všechny, obnova po 6 h. Sezónní katalogy bez přepínače |
 | Torrenty | ne — jen v integraci pro Home Assistant |
 | Popisy titulů | ne — detail k položkám katalogů i k ostatním titulům dodává Cinemeta |
 

@@ -791,8 +791,10 @@ class TestKatalogy(unittest.TestCase):
         from nokturno.katalogy import Katalogy
         k = Katalogy(tempfile.mkdtemp(), engine=lambda: None)
         nazvy = {f["klic"]: f["nazev"] for f in k.formular()}
-        self.assertEqual(nazvy["sosac.nove.dabing"], "Nově přidané filmy s CZ dabingem")
-        self.assertEqual(nazvy["sosac.nove.serialy.titulky"], "Nově přidané seriály s CZ titulky")
+        self.assertEqual(nazvy["sosac.nove.dabing"], "Nově přidané filmy s CZ/SK dabingem")
+        self.assertEqual(nazvy["sosac.nove.serialy.titulky"], "Nově přidané seriály s CZ/SK titulky")
+        sk = {c["id"]: c["name"] for c in k.manifest({"katalogy": "sosac.nove.dabing"}, "sk")}
+        self.assertEqual(sk["nokturno.sosac.nove.dabing"], "Nedávno pridané filmy s CZ/SK dabingom")
 
     def test_neznamy_katalog_a_verejny_bez_nastaveni(self):
         self.assertEqual(self.r.route(f"/c/{KOUSEK}/catalog/series/nokturno.sosac.nove.dabing.json", ZAKLAD).status, 404)
@@ -1582,6 +1584,16 @@ class TestLimityAUklid(unittest.TestCase):
         self.assertIn("Nokturno", odp.data["streams"][0]["name"])
         self.assertTrue(odp.data["streams"][0]["externalUrl"].startswith("http"))
         self.assertEqual(odp.utok[0], "limit")
+
+    def test_upozorneni_na_limit_slovensky(self):
+        from nokturno import routes
+        r = router()
+        r.stream_okno = routes.Okno(1, 600)
+        cesta = f"/c/{KOUSEK}/stream/movie/tt0133093.json"
+        r.route(cesta, ZAKLAD, klient="1.2.3.4")
+        text = r.route(cesta, ZAKLAD, klient="1.2.3.4", jazyk="sk").data["streams"][0]["title"]
+        self.assertEqual(text, "Príliš veľa požiadaviek na streamy za sebou – skús to o pár minút.")
+        self.assertIn("požadavků na streamy", r.route(cesta, ZAKLAD, klient="1.2.3.4").data["streams"][0]["title"])
 
     def test_rucne_zakazana_adresa_dostane_403_na_vsechno(self):
         import os, tempfile

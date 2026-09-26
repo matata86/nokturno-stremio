@@ -258,6 +258,24 @@ def zastarala_adresa(jazyk="cs"):
     return ZASTARALA_ADRESA.get(jazyk, ZASTARALA_ADRESA["cs"])
 
 
+# důvod v položce ⛔ místo streamů (Stremio při 403/429 nic neukáže)
+BLOKOVANO = {"cs": "Kvůli velkému množství požadavků je přístup na hodinu zablokovaný – zkus to později.",
+             "sk": "Pre veľké množstvo požiadaviek je prístup na hodinu zablokovaný – skús to neskôr."}
+PRILIS_MNOHO = {"cs": "Příliš mnoho požadavků na {co} za sebou – zkus to za pár minut.",
+                "sk": "Príliš veľa požiadaviek na {co} za sebou – skús to o pár minút."}
+CO_SK = {"přehrání": "prehratie", "katalog": "katalóg"}
+
+
+def blokovano(jazyk="cs"):
+    return BLOKOVANO.get(jazyk, BLOKOVANO["cs"])
+
+
+def prilis_mnoho(co, jazyk="cs"):
+    if jazyk == "sk":
+        return PRILIS_MNOHO["sk"].format(co=CO_SK.get(co, co))
+    return PRILIS_MNOHO["cs"].format(co=co)
+
+
 def upozorneni_nova_adresa(nova_adresa, jazyk="cs"):
     """První položka v seznamu streamů u adresy bez identity: co má uživatel udělat."""
     text = zastarala_adresa(jazyk)

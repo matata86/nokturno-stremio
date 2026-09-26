@@ -437,7 +437,7 @@ class Router:
     def manifest(self, options, nastaveno, nova_adresa=None, jazyk="cs"):
         """Jen z nastavení — jádro se kvůli manifestu nezakládá (viz `sources_from_options`)."""
         zdroje = config.sources_from_options(options)
-        katalogy = self.katalogy.manifest(options) if self.katalogy else []
+        katalogy = self.katalogy.manifest(options, jazyk) if self.katalogy else []
         data = mapping.manifest(self.verze, zdroje, nastaveno=bool(zdroje), katalogy=katalogy, nova_adresa=nova_adresa,
                                 jazyk=jazyk)
         if self._koncerty_zapnute(options):
@@ -525,7 +525,7 @@ class Router:
             return "fp:" + config.fingerprint(options)   # účty v adrese = jedinečný otisk uživatele
         return klic_klienta(klient)
 
-    def _omezit(self, okno, options, klient, co):
+    def _omezit(self, okno, options, klient, co, jazyk="cs"):
         """Limit `okno` na klíč (identita, jinak adresa) + strop `IP_STROP` na adresu, který
         identita neobejde; blokovaná adresa/identita dostane 403. None = smí dál."""
         fp = config.fingerprint(options)
@@ -533,7 +533,7 @@ class Router:
         ip = klic_klienta(klient)
         for klic in {adresa, ip} - {""}:
             if self.blokace.blokovana(klic):
-                odp = chyba(403, "Kvůli velkému množství požadavků je přístup na hodinu zablokovaný. Zkus to později.")
+                odp = chyba(403, mapping.blokovano(jazyk))
                 odp.utok = ("auto-blok", fp)
                 return odp
         vlastni_ok = okno.povolit(adresa or fp)
@@ -544,7 +544,7 @@ class Router:
             # blokace jen identity/otisku; adresa se nikdy neblokuje (CGNAT, domácnost), dostane jen 429
             if adresa.startswith(("id:", "fp:")) and not vlastni_ok:
                 self.blokace.prohresek(adresa)
-            odp = chyba(429, f"Příliš mnoho požadavků na {co} za sebou, zkus to za pár minut.")
+            odp = chyba(429, mapping.prilis_mnoho(co, jazyk))
             odp.utok = ("limit", fp)
             return odp
         return None
@@ -957,7 +957,7 @@ class Router:
             odp.utok = ("stará adresa", config.fingerprint(options))
             return odp
         if kousek and casti and casti[0] == "stream":
-            odp = self._omezit(self.stream_okno, options, klient, "streamy")
+            odp = self._omezit(self.stream_okno, options, klient, "streamy", jazyk)
             if odp is not None:
                 # Stremio při 403/429 nic neukáže — uživatel dostane důvod jako jediný „stream"
                 blok = Odpoved(data={"streams": [mapping.upozorneni_blokace(odp.text or "", zaklad + "/")]})
